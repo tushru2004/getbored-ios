@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Content Blocked</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+            background: #f5f5f7;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 24px;
+            -webkit-text-size-adjust: none;
+        }
+
+        .container {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 2px 20px rgba(0, 0, 0, 0.06);
+            padding: 48px 32px 36px;
+            max-width: 400px;
+            width: 100%;
+            text-align: center;
+        }
+
+        .icon {
+            width: 64px;
+            height: 64px;
+            margin: 0 auto 24px;
+            background: linear-gradient(135deg, #34c759, #30d158);
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .icon svg {
+            width: 32px;
+            height: 32px;
+            fill: white;
+        }
+
+        h1 {
+            color: #1d1d1f;
+            font-size: 22px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            letter-spacing: -0.02em;
+        }
+
+        .subtitle {
+            color: #86868b;
+            font-size: 15px;
+            margin-bottom: 28px;
+            line-height: 1.5;
+        }
+
+        .blocked-url {
+            background: #f5f5f7;
+            border-radius: 10px;
+            padding: 12px 16px;
+            margin-bottom: 24px;
+            color: #1d1d1f;
+            font-family: "SF Mono", "Monaco", "Courier New", monospace;
+            font-size: 13px;
+            word-break: break-all;
+        }
+
+        .info {
+            background: #f5f5f7;
+            padding: 14px 16px;
+            margin-bottom: 12px;
+            text-align: left;
+            border-radius: 10px;
+        }
+
+        .info-title {
+            color: #1d1d1f;
+            font-weight: 600;
+            margin-bottom: 4px;
+            font-size: 13px;
+        }
+
+        .info-text {
+            color: #86868b;
+            font-size: 13px;
+            line-height: 1.4;
+        }
+
+        .button {
+            display: inline-block;
+            background: #007aff;
+            color: white;
+            border: none;
+            padding: 12px 28px;
+            border-radius: 980px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 20px;
+            -webkit-tap-highlight-color: transparent;
+            transition: opacity 0.15s;
+            text-decoration: none;
+        }
+
+        .button:active {
+            opacity: 0.7;
+        }
+
+        .footer {
+            margin-top: 28px;
+            color: #c7c7cc;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="icon">
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/>
+            </svg>
+        </div>
+        <h1>Content Blocked</h1>
+        <p class="subtitle">This website is not on your approved list.</p>
+
+        <div class="blocked-url" id="blockedUrl">
+            <script>
+                var urlParams = new URLSearchParams(window.location.search);
+                var blockedSite = urlParams.get('url') || document.referrer || 'Unknown Site';
+                document.getElementById('blockedUrl').textContent = blockedSite;
+            </script>
+        </div>
+
+        <div class="info">
+            <div class="info-title">Why am I seeing this?</div>
+            <div class="info-text">
+                Your device uses a content filter to help you stay focused and safe online.
+                Only pre-approved websites are accessible.
+            </div>
+        </div>
+
+        <div class="info">
+            <div class="info-title">Need access?</div>
+            <div class="info-text">
+                Ask your parent or administrator to add this site via the GetBored macOS app.
+            </div>
+        </div>
+
+        <button class="button" onclick="window.history.back()">Go Back</button>
+
+        <div class="footer">
+            Protected by GetBored
+        </div>
+    </div>
+</body>
+</html>
