@@ -92,6 +92,9 @@ struct ContentView: View {
     /// When true, shows the full activity log sheet instead of just top 5
     @State private var showFullActivityLog = false
 
+    /// DEBUG-only readout written by the Safari Web Extension spike native handler.
+    @State private var safariExtensionProbeSummary = "No Safari extension probe yet"
+
     /// Tracks app lifecycle — .active means app is in foreground.
     /// We refresh data and upload activity log when app becomes active.
     @Environment(\.scenePhase) private var scenePhase
@@ -201,6 +204,7 @@ struct ContentView: View {
                 loadICloudStatus()    // Check CKContainer.accountStatus()
                 loadWhitelist()       // Read site rules + exceptions + allowed apps from GateKeeper
                 loadActivityLog()     // Read block log entries from ActivityLogger
+                loadSafariExtensionProbe()
                 currentMode = GateKeeper.shared.getMode()  // "blockSpecific" or "whiteList"
                 if lastSyncedAt != nil {
                     syncStatus = "Sync: Ready"
@@ -223,6 +227,7 @@ struct ContentView: View {
             .onChange(of: scenePhase) { phase in
                 if phase == .active {
                     loadActivityLog()
+                    loadSafariExtensionProbe()
                     Task { await uploadActivityLogToCloudKit() }
                 }
             }
@@ -781,6 +786,18 @@ struct ContentView: View {
                         .foregroundStyle(.secondary)
                     Spacer()
                 }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Safari Extension Spike")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                    Text(safariExtensionProbeSummary)
+                        .font(.caption.monospaced())
+                        .foregroundStyle(.secondary)
+                        .textSelection(.enabled)
+                        .accessibilityIdentifier("safariExtensionProbeSummary")
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
             .padding(14)
         }
@@ -1046,6 +1063,25 @@ struct ContentView: View {
     /// The CP writes entries; the app reads them here for display.
     private func loadActivityLog() {
         activityEntries = ActivityLogger.shared.loadEntries()
+    }
+
+    /// Reads the last Safari Web Extension spike payload from the App Group.
+    /// This proves the native handler can write where the app can read.
+    private func loadSafariExtensionProbe() {
+        #if DEBUG
+        let defaults = UserDefaults(suiteName: "group.com.getbored.ios")
+        guard let json = defaults?.string(forKey: "safari_extension_spike_last_message"),
+              let data = json.data(using: .utf8),
+              let payload = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            safariExtensionProbeSummary = "No Safari extension probe yet"
+            return
+        }
+
+        let parent = payload["parentDomain"] as? String ?? "unknown"
+        let children = payload["childDomains"] as? [String] ?? []
+        let receivedAt = payload["receivedAt"] as? String ?? "unknown time"
+        safariExtensionProbeSummary = "\(parent) -> \(children.count) children @ \(receivedAt)"
+        #endif
     }
 
     /// Uploads the current activity log to CloudKit so the macOS app can see it.
