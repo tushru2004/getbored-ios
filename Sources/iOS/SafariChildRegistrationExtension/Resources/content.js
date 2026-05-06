@@ -24,16 +24,66 @@ function collectChildDomains() {
     type: "getbored.childRegistrationProbe",
     url: location.href,
     parentDomain,
-    childDomains: Array.from(childDomains).sort()
+    childDomains: Array.from(childDomains).sort(),
+    capabilities: detectExtensionCapabilities()
+  };
+}
+
+function detectExtensionCapabilities() {
+  const browserGlobal = typeof browser !== "undefined" ? browser : null;
+  const chromeGlobal = typeof chrome !== "undefined" ? chrome : null;
+
+  return {
+    browserProxy: Boolean(browserGlobal?.proxy),
+    chromeProxy: Boolean(chromeGlobal?.proxy),
+    browserWebRequest: Boolean(browserGlobal?.webRequest),
+    chromeWebRequest: Boolean(chromeGlobal?.webRequest),
+    browserDeclarativeNetRequest: Boolean(browserGlobal?.declarativeNetRequest),
+    chromeDeclarativeNetRequest: Boolean(chromeGlobal?.declarativeNetRequest),
+    nativeMessaging: Boolean(browserGlobal?.runtime?.sendNativeMessage)
   };
 }
 
 function sendProbe() {
-  const message = collectChildDomains();
+  const message = {
+    ...collectChildDomains(),
+    probeStage: "content-script"
+  };
+
   browser.runtime.sendMessage(message).then(
     (response) => console.log("GetBored child-registration probe sent", response),
-    (error) => console.warn("GetBored child-registration probe failed", error)
+    (error) => {
+      console.warn("GetBored background probe failed; trying native direct", error);
+      sendNativeProbeDirect({
+        ...message,
+        probeStage: "content-script-direct-native",
+        backgroundError: String(error?.message ?? error)
+      });
+    }
   );
+}
+
+async function sendNativeProbeDirect(message) {
+  if (!browser?.runtime?.sendNativeMessage) {
+    console.warn("GetBored native direct probe unavailable");
+    return;
+  }
+
+  const nativeApplicationIds = [
+    "com.getbored.filter",
+    "com.getbored.filter.safarichildregistration",
+    "application.id"
+  ];
+
+  for (const applicationId of nativeApplicationIds) {
+    try {
+      const response = await browser.runtime.sendNativeMessage(applicationId, message);
+      console.log("GetBored native direct probe stored", { applicationId, response });
+      return;
+    } catch (error) {
+      console.warn("GetBored native direct probe failed", { applicationId, error });
+    }
+  }
 }
 
 sendProbe();

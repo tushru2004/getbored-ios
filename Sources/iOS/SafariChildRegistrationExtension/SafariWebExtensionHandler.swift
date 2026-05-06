@@ -70,6 +70,9 @@ final class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
             "url": dictionary["url"] as? String ?? "",
             "parentDomain": dictionary["parentDomain"] as? String ?? "",
             "childDomains": dictionary["childDomains"] as? [String] ?? [],
+            "capabilities": dictionary["capabilities"] as? [String: Bool] ?? [:],
+            "probeStage": dictionary["probeStage"] as? String ?? "",
+            "backgroundError": dictionary["backgroundError"] as? String ?? "",
             "source": "safari-extension-spike",
             "receivedAt": ISO8601DateFormatter().string(from: receivedAt)
         ]
