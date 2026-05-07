@@ -207,18 +207,20 @@ class FilterDataProvider: NEFilterDataProvider {
 
         // ── Step 4: QUIC (HTTP/3) ───────────────────────────────────────
         // QUIC uses UDP port 443. Our TLS SNI parser only handles TCP,
-        // but iOS gives us the hostname via the socket endpoint.
+        // but iOS can still provide the hostname on the socket flow. Prefer
+        // remoteHostname because the endpoint hostname can be only an IP.
         if let socketFlow = flow as? NEFilterSocketFlow,
            let endpoint = socketFlow.remoteEndpoint as? NWHostEndpoint,
            endpoint.port == "443",
            socketFlow.socketType == Int32(SOCK_DGRAM) {
-            if isSystemAllowed(endpoint.hostname) {
+            let host = socketFlow.remoteHostname ?? endpoint.hostname
+            if isSystemAllowed(host) {
                 return .allow()
             }
-            let result = classifyHost(endpoint.hostname)
+            let result = classifyHost(host)
             if result.blocked {
-                os_log("handleNewFlow: QUIC BLOCKED %{public}@ → routing to CP",
-                       log: logger, type: .info, endpoint.hostname)
+                os_log("handleNewFlow: QUIC BLOCKED %{public}@ endpoint=%{public}@ → routing to CP",
+                       log: logger, type: .info, host, endpoint.hostname)
                 return .needRules()
             }
             return .allow()
