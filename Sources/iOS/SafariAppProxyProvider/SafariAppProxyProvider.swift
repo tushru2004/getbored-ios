@@ -10,6 +10,10 @@ final class SafariAppProxyProvider: NEAppProxyProvider {
     )
     private let defaults = UserDefaults(suiteName: "group.com.getbored.ios")
     private let flowLogKey = "safari_app_proxy_spike_flows"
+    private let activeContextKey = "safari_extension_spike_active_page_context"
+    private let activeContextDateKey = "safari_extension_spike_active_page_context_at"
+    private let parentChildRegistryKey = "safari_extension_spike_parent_child_registry"
+    private let parentChildPolicy = SafariParentChildPolicy(activeContextMaxAge: 5)
     private let connectionQueue = DispatchQueue(label: "com.getbored.ios.safari-app-proxy.connections")
     private var relays: [ObjectIdentifier: TCPRelay] = [:]
 
@@ -36,6 +40,7 @@ final class SafariAppProxyProvider: NEAppProxyProvider {
         let source = flow.metaData.sourceAppSigningIdentifier
         logger.info("Safari App Proxy flow source=\(source, privacy: .public) endpoint=\(endpoint, privacy: .public)")
         appendEvent("FLOW source=\(source) endpoint=\(endpoint)")
+        appendParentChildJoinEvent(endpoint: endpoint)
 
         guard let tcpFlow = flow as? NEAppProxyTCPFlow else {
             appendEvent("UNSUPPORTED source=\(source) endpoint=\(endpoint)")
@@ -235,6 +240,71 @@ final class SafariAppProxyProvider: NEAppProxyProvider {
             return String(describing: tcpFlow.remoteEndpoint)
         }
         return String(describing: type(of: flow))
+    }
+
+    private func appendParentChildJoinEvent(endpoint: String) {
+        guard let host = host(from: endpoint) else {
+            appendEvent("JOIN_UNSUPPORTED_ENDPOINT endpoint=\(endpoint)")
+            return
+        }
+
+        let decision = parentChildPolicy.decide(
+            requestHost: host,
+            endpoint: endpoint,
+            activeContext: activePageContext()
+        )
+        appendEvent(decision.event)
+    }
+
+    private func activePageContext() -> SafariParentChildPolicy.ActivePageContext? {
+        guard let json = defaults?.string(forKey: activeContextKey),
+              let data = json.data(using: .utf8),
+              let payload = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let parent = normalizedHost(payload["parentDomain"] as? String),
+              !parent.isEmpty else {
+            return nil
+        }
+
+        var children = Set((payload["childDomains"] as? [String] ?? [])
+            .compactMap(normalizedHost)
+            .filter { !$0.isEmpty && $0 != parent })
+        children.formUnion(parentChildRegistryChildren(for: parent))
+        let receivedAt = defaults?.object(forKey: activeContextDateKey) as? Date ?? Date.distantPast
+        return SafariParentChildPolicy.ActivePageContext(parent: parent, children: children, receivedAt: receivedAt)
+    }
+
+    private func parentChildRegistryChildren(for parent: String) -> Set<String> {
+        guard let rawRegistry = defaults?.dictionary(forKey: parentChildRegistryKey),
+              let rawChildren = rawRegistry[parent] else {
+            return []
+        }
+
+        let children: [String]
+        if let typedChildren = rawChildren as? [String] {
+            children = typedChildren
+        } else if let arrayChildren = rawChildren as? NSArray {
+            children = arrayChildren.compactMap { $0 as? String }
+        } else {
+            children = []
+        }
+
+        return Set(children
+            .compactMap(normalizedHost)
+            .filter { !$0.isEmpty && $0 != parent })
+    }
+
+    private func host(from endpoint: String) -> String? {
+        let hostPort = endpoint.split(separator: " ", maxSplits: 1).first.map(String.init) ?? endpoint
+        guard hostPort.contains(":") else { return nil }
+        let host = hostPort.split(separator: ":", maxSplits: 1).first.map(String.init)
+        return normalizedHost(host)
+    }
+
+    private func normalizedHost(_ value: String?) -> String? {
+        value?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+            .trimmingCharacters(in: CharacterSet(charactersIn: "."))
     }
 
     private func appendEvent(_ event: String) {

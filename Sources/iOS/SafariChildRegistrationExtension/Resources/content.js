@@ -63,6 +63,19 @@ function sendProbe() {
   );
 }
 
+function sendClearProbe(reason) {
+  const message = {
+    type: "getbored.childRegistrationProbeCleared",
+    url: location.href,
+    parentDomain: location.hostname.toLowerCase(),
+    reason
+  };
+
+  browser.runtime.sendMessage(message).catch((error) => {
+    console.warn("GetBored active page clear failed", { reason, error });
+  });
+}
+
 async function sendNativeProbeDirect(message) {
   if (!browser?.runtime?.sendNativeMessage) {
     console.warn("GetBored native direct probe unavailable");
@@ -104,3 +117,6 @@ observer.observe(document.documentElement, {
   attributes: true,
   attributeFilter: ["src", "href"]
 });
+
+window.addEventListener("pagehide", () => sendClearProbe("pagehide"));
+window.addEventListener("beforeunload", () => sendClearProbe("beforeunload"));

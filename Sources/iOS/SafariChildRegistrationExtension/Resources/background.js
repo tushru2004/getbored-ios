@@ -22,7 +22,10 @@ async function sendNativeProbe(message) {
 }
 
 browser.runtime.onMessage.addListener((message, sender) => {
-  if (message?.type !== "getbored.childRegistrationProbe") {
+  if (
+    message?.type !== "getbored.childRegistrationProbe" &&
+    message?.type !== "getbored.childRegistrationProbeCleared"
+  ) {
     return Promise.resolve({ ok: false, ignored: true });
   }
 

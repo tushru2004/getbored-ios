@@ -138,6 +138,34 @@ class FilterDataProvider: NEFilterDataProvider {
         )
     }
 
+    #if DEBUG
+    /// Spike-only probe for deciding whether parent-child enforcement can live
+    /// in the existing content filter instead of the Safari App Proxy.
+    private func logParentChildOwnerProbe(flow: NEFilterFlow, host: String, url: URL) {
+        let sourceApp = flow.sourceAppIdentifier ?? "nil"
+        if let browserFlow = flow as? NEFilterBrowserFlow {
+            let parentURL = browserFlow.parentURL?.absoluteString ?? "nil"
+            let requestURL = browserFlow.request?.url?.absoluteString ?? "nil"
+            os_log("PARENT_CHILD_OWNER_PROBE layer=DataProvider type=NEFilterBrowserFlow host=%{public}@ url=%{public}@ requestURL=%{public}@ parentURL=%{public}@ sourceApp=%{public}@",
+                   log: logger,
+                   type: .info,
+                   host,
+                   url.absoluteString,
+                   requestURL,
+                   parentURL,
+                   sourceApp)
+        } else {
+            os_log("PARENT_CHILD_OWNER_PROBE layer=DataProvider type=%{public}@ host=%{public}@ url=%{public}@ parentURL=unavailable sourceApp=%{public}@",
+                   log: logger,
+                   type: .info,
+                   String(describing: type(of: flow)),
+                   host,
+                   url.absoluteString,
+                   sourceApp)
+        }
+    }
+    #endif
+
     // MARK: - Flow Handling (Chunk 4)
 
     /// This is the busiest method in the whole filter. Every single network request
@@ -228,6 +256,9 @@ class FilterDataProvider: NEFilterDataProvider {
 
         // ── Step 5: Browser flows (have a URL) ──────────────────────────
         if let url = flow.url, let host = url.host?.lowercased() {
+            #if DEBUG
+            logParentChildOwnerProbe(flow: flow, host: host, url: url)
+            #endif
             if isSystemAllowed(host) {
                 return .allow()
             }
