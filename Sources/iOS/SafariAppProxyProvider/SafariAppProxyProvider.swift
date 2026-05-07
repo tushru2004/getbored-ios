@@ -1,4 +1,5 @@
 import Foundation
+import Network
 import NetworkExtension
 import os.log
 
@@ -9,6 +10,8 @@ final class SafariAppProxyProvider: NEAppProxyProvider {
     )
     private let defaults = UserDefaults(suiteName: "group.com.getbored.ios")
     private let flowLogKey = "safari_app_proxy_spike_flows"
+    private let connectionQueue = DispatchQueue(label: "com.getbored.ios.safari-app-proxy.connections")
+    private var relays: [ObjectIdentifier: TCPRelay] = [:]
 
     override func startProxy(
         options: [String: Any]? = nil,
@@ -34,11 +37,197 @@ final class SafariAppProxyProvider: NEAppProxyProvider {
         logger.info("Safari App Proxy flow source=\(source, privacy: .public) endpoint=\(endpoint, privacy: .public)")
         appendEvent("FLOW source=\(source) endpoint=\(endpoint)")
 
-        // Spike behavior: returning false closes the flow. That is intentional
-        // for the first proof because it tells us Safari was routed here before
-        // the network request completed. A production proxy must retain and
-        // forward accepted flows instead.
-        return false
+        guard let tcpFlow = flow as? NEAppProxyTCPFlow else {
+            appendEvent("UNSUPPORTED source=\(source) endpoint=\(endpoint)")
+            return false
+        }
+
+        let id = ObjectIdentifier(tcpFlow)
+        let relay = TCPRelay(
+            flow: tcpFlow,
+            queue: connectionQueue,
+            eventSink: { [weak self] event in self?.appendEvent(event) },
+            completion: { [weak self] in
+                self?.connectionQueue.async {
+                    self?.relays[id] = nil
+                }
+            }
+        )
+
+        connectionQueue.async {
+            self.relays[id] = relay
+            relay.start()
+        }
+        return true
+    }
+
+    private final class TCPRelay {
+        private let flow: NEAppProxyTCPFlow
+        private let queue: DispatchQueue
+        private let eventSink: (String) -> Void
+        private let completion: () -> Void
+        private var connection: NWConnection?
+        private var didClose = false
+        private var flowBytesRead = 0
+        private var remoteBytesRead = 0
+        private var remoteChunksRead = 0
+
+        init(
+            flow: NEAppProxyTCPFlow,
+            queue: DispatchQueue,
+            eventSink: @escaping (String) -> Void,
+            completion: @escaping () -> Void
+        ) {
+            self.flow = flow
+            self.queue = queue
+            self.eventSink = eventSink
+            self.completion = completion
+        }
+
+        func start() {
+            guard let endpoint = makeEndpoint() else {
+                eventSink("RELAY_UNSUPPORTED_ENDPOINT endpoint=\(flow.remoteEndpoint)")
+                close()
+                return
+            }
+
+            let connection = NWConnection(to: endpoint, using: .tcp)
+            self.connection = connection
+            connection.stateUpdateHandler = { [weak self] state in
+                self?.handleConnectionState(state)
+            }
+            connection.start(queue: queue)
+        }
+
+        private func handleConnectionState(_ state: NWConnection.State) {
+            switch state {
+            case .ready:
+                eventSink("RELAY_READY endpoint=\(flow.remoteEndpoint)")
+                openFlow()
+            case .failed(let error):
+                eventSink("RELAY_FAILED endpoint=\(flow.remoteEndpoint) error=\(error)")
+                close()
+            case .cancelled:
+                close()
+            default:
+                break
+            }
+        }
+
+        private func openFlow() {
+            let completion: (Error?) -> Void = { [weak self] error in
+                guard let self else { return }
+                if let error {
+                    self.eventSink("FLOW_OPEN_FAILED endpoint=\(self.flow.remoteEndpoint) error=\(error)")
+                    self.close()
+                    return
+                }
+                self.eventSink("FLOW_OPENED endpoint=\(self.flow.remoteEndpoint)")
+                self.readFromFlow()
+                self.readFromConnection()
+            }
+
+            if #available(iOS 18.0, *) {
+                flow.open(withLocalFlowEndpoint: nil, completionHandler: completion)
+            } else {
+                flow.open(withLocalEndpoint: nil, completionHandler: completion)
+            }
+        }
+
+        private func readFromFlow() {
+            flow.readData { [weak self] data, error in
+                guard let self else { return }
+                if let error {
+                    self.eventSink("FLOW_READ_FAILED endpoint=\(self.flow.remoteEndpoint) error=\(error)")
+                    self.close()
+                    return
+                }
+                guard let data, !data.isEmpty else {
+                    self.eventSink("FLOW_READ_EOF endpoint=\(self.flow.remoteEndpoint)")
+                    self.connection?.send(content: nil, completion: .contentProcessed { _ in })
+                    return
+                }
+                self.flowBytesRead += data.count
+                if self.flowBytesRead == data.count {
+                    self.eventSink("FLOW_READ_FIRST endpoint=\(self.flow.remoteEndpoint) bytes=\(data.count)")
+                }
+                self.connection?.send(content: data, completion: .contentProcessed { [weak self] error in
+                    guard let self else { return }
+                    if let error {
+                        self.eventSink("REMOTE_WRITE_FAILED endpoint=\(self.flow.remoteEndpoint) error=\(error)")
+                        self.close()
+                        return
+                    }
+                    self.readFromFlow()
+                })
+            }
+        }
+
+        private func readFromConnection() {
+            connection?.receive(minimumIncompleteLength: 1, maximumLength: 64 * 1024) { [weak self] data, _, isComplete, error in
+                guard let self else { return }
+                if let error {
+                    self.eventSink("REMOTE_READ_FAILED endpoint=\(self.flow.remoteEndpoint) error=\(error)")
+                    self.close()
+                    return
+                }
+                if let data, !data.isEmpty {
+                    self.remoteBytesRead += data.count
+                    self.remoteChunksRead += 1
+                    if self.remoteBytesRead == data.count {
+                        self.eventSink("REMOTE_READ_FIRST endpoint=\(self.flow.remoteEndpoint) bytes=\(data.count)")
+                    }
+                    self.eventSink("FLOW_WRITE_START endpoint=\(self.flow.remoteEndpoint) chunk=\(self.remoteChunksRead) bytes=\(data.count)")
+                    self.flow.write(data) { [weak self] error in
+                        guard let self else { return }
+                        if let error {
+                            self.eventSink("FLOW_WRITE_FAILED endpoint=\(self.flow.remoteEndpoint) error=\(error)")
+                            self.close()
+                            return
+                        }
+                        self.eventSink("FLOW_WRITE_DONE endpoint=\(self.flow.remoteEndpoint) chunk=\(self.remoteChunksRead) bytes=\(data.count)")
+                        if isComplete {
+                            self.flow.closeWriteWithError(nil)
+                            self.close()
+                        } else {
+                            self.readFromConnection()
+                        }
+                    }
+                } else if isComplete {
+                    self.flow.closeWriteWithError(nil)
+                    self.close()
+                } else {
+                    self.readFromConnection()
+                }
+            }
+        }
+
+        private func makeEndpoint() -> Network.NWEndpoint? {
+            if #available(iOS 18.0, *) {
+                switch flow.remoteFlowEndpoint {
+                case .hostPort(let host, let port):
+                    return .hostPort(host: host, port: port)
+                default:
+                    break
+                }
+            }
+
+            let description = String(describing: flow.remoteEndpoint)
+            let parts = description.split(separator: ":", maxSplits: 1).map(String.init)
+            guard parts.count == 2, let port = UInt16(parts[1]), let nwPort = NWEndpoint.Port(rawValue: port) else {
+                return nil
+            }
+            return .hostPort(host: NWEndpoint.Host(parts[0]), port: nwPort)
+        }
+
+        private func close() {
+            guard !didClose else { return }
+            didClose = true
+            connection?.cancel()
+            flow.closeReadWithError(nil)
+            flow.closeWriteWithError(nil)
+            completion()
+        }
     }
 
     private func describeRemoteEndpoint(for flow: NEAppProxyFlow) -> String {
@@ -52,7 +241,7 @@ final class SafariAppProxyProvider: NEAppProxyProvider {
         let timestamp = ISO8601DateFormatter().string(from: Date())
         var events = defaults?.stringArray(forKey: flowLogKey) ?? []
         events.append("\(timestamp) \(event)")
-        defaults?.set(Array(events.suffix(100)), forKey: flowLogKey)
+        defaults?.set(Array(events.suffix(300)), forKey: flowLogKey)
         defaults?.synchronize()
     }
 }
