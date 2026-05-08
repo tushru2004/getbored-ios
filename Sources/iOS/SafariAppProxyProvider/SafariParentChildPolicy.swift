@@ -29,6 +29,21 @@ struct SafariParentChildPolicy {
             }
         }
 
+        var observationDecision: String {
+            switch self {
+            case .matchActiveParent:
+                return "matchActiveParent"
+            case .matchActiveChild:
+                return "matchActiveChild"
+            case .noActiveContext:
+                return "noActiveContext"
+            case .staleActiveContext:
+                return "staleActiveContext"
+            case .noActiveMatch:
+                return "noActiveMatch"
+            }
+        }
+
         private static func format(_ age: TimeInterval) -> String {
             String(format: "%.1f", age)
         }

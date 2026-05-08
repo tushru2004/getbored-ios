@@ -4,16 +4,17 @@ import NetworkExtension
 import os.log
 
 final class SafariAppProxyProvider: NEAppProxyProvider {
+    private struct ProxySiteRule: Decodable {
+        let url: String
+    }
+
     private let logger = Logger(
         subsystem: "com.getbored.ios.safari-app-proxy",
         category: "SafariAppProxyProvider"
     )
-    private let defaults = UserDefaults(suiteName: "group.com.getbored.ios")
-    private let flowLogKey = "safari_app_proxy_spike_flows"
-    private let activeContextKey = "safari_extension_spike_active_page_context"
-    private let activeContextDateKey = "safari_extension_spike_active_page_context_at"
-    private let parentChildRegistryKey = "safari_extension_spike_parent_child_registry"
+    private let contextStore = SafariParentChildContextStore()
     private let parentChildPolicy = SafariParentChildPolicy(activeContextMaxAge: 5)
+    private let defaults = UserDefaults(suiteName: SafariParentChildContextStore.appGroupIdentifier)
     private let connectionQueue = DispatchQueue(label: "com.getbored.ios.safari-app-proxy.connections")
     private var relays: [ObjectIdentifier: TCPRelay] = [:]
 
@@ -40,7 +41,11 @@ final class SafariAppProxyProvider: NEAppProxyProvider {
         let source = flow.metaData.sourceAppSigningIdentifier
         logger.info("Safari App Proxy flow source=\(source, privacy: .public) endpoint=\(endpoint, privacy: .public)")
         appendEvent("FLOW source=\(source) endpoint=\(endpoint)")
-        appendParentChildJoinEvent(endpoint: endpoint)
+
+        guard shouldRelayFlow(endpoint: endpoint) else {
+            logger.info("Safari App Proxy blocked endpoint=\(endpoint, privacy: .public)")
+            return false
+        }
 
         guard let tcpFlow = flow as? NEAppProxyTCPFlow else {
             appendEvent("UNSUPPORTED source=\(source) endpoint=\(endpoint)")
@@ -242,10 +247,15 @@ final class SafariAppProxyProvider: NEAppProxyProvider {
         return String(describing: type(of: flow))
     }
 
-    private func appendParentChildJoinEvent(endpoint: String) {
+    private func shouldRelayFlow(endpoint: String) -> Bool {
         guard let host = host(from: endpoint) else {
             appendEvent("JOIN_UNSUPPORTED_ENDPOINT endpoint=\(endpoint)")
-            return
+            return false
+        }
+
+        if isDirectlyAllowed(host) {
+            appendEvent("APP_PROXY_ALLOW_DIRECT host=\(host) endpoint=\(endpoint)")
+            return true
         }
 
         let decision = parentChildPolicy.decide(
@@ -253,44 +263,40 @@ final class SafariAppProxyProvider: NEAppProxyProvider {
             endpoint: endpoint,
             activeContext: activePageContext()
         )
+        if case .matchActiveChild(_, let parent, _) = decision {
+            contextStore.saveFlowObservation(
+                requestHost: host,
+                parentDomain: parent,
+                decision: decision.observationDecision,
+                endpoint: endpoint,
+                observedAt: Date()
+            )
+        }
         appendEvent(decision.event)
+
+        switch decision {
+        case .matchActiveParent:
+            appendEvent("APP_PROXY_ALLOW_ACTIVE_PARENT host=\(host) endpoint=\(endpoint)")
+            return true
+        case .matchActiveChild(_, let parent, _):
+            appendEvent("APP_PROXY_ALLOW_ACTIVE_CHILD host=\(host) parent=\(parent) endpoint=\(endpoint)")
+            return true
+        case .noActiveContext, .staleActiveContext, .noActiveMatch:
+            appendEvent("APP_PROXY_BLOCK_PARENT_CHILD host=\(host) decision=\(decision.observationDecision) endpoint=\(endpoint)")
+            return false
+        }
     }
 
     private func activePageContext() -> SafariParentChildPolicy.ActivePageContext? {
-        guard let json = defaults?.string(forKey: activeContextKey),
-              let data = json.data(using: .utf8),
-              let payload = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let parent = normalizedHost(payload["parentDomain"] as? String),
-              !parent.isEmpty else {
+        guard let active = contextStore.loadActiveContext() else {
             return nil
         }
 
-        var children = Set((payload["childDomains"] as? [String] ?? [])
-            .compactMap(normalizedHost)
-            .filter { !$0.isEmpty && $0 != parent })
-        children.formUnion(parentChildRegistryChildren(for: parent))
-        let receivedAt = defaults?.object(forKey: activeContextDateKey) as? Date ?? Date.distantPast
-        return SafariParentChildPolicy.ActivePageContext(parent: parent, children: children, receivedAt: receivedAt)
-    }
-
-    private func parentChildRegistryChildren(for parent: String) -> Set<String> {
-        guard let rawRegistry = defaults?.dictionary(forKey: parentChildRegistryKey),
-              let rawChildren = rawRegistry[parent] else {
-            return []
-        }
-
-        let children: [String]
-        if let typedChildren = rawChildren as? [String] {
-            children = typedChildren
-        } else if let arrayChildren = rawChildren as? NSArray {
-            children = arrayChildren.compactMap { $0 as? String }
-        } else {
-            children = []
-        }
-
-        return Set(children
-            .compactMap(normalizedHost)
-            .filter { !$0.isEmpty && $0 != parent })
+        return SafariParentChildPolicy.ActivePageContext(
+            parent: active.parentDomain,
+            children: contextStore.mergedChildren(for: active.parentDomain),
+            receivedAt: active.receivedAt
+        )
     }
 
     private func host(from endpoint: String) -> String? {
@@ -307,11 +313,59 @@ final class SafariAppProxyProvider: NEAppProxyProvider {
             .trimmingCharacters(in: CharacterSet(charactersIn: "."))
     }
 
+    private func isDirectlyAllowed(_ host: String) -> Bool {
+        if isSystemAllowed(host) {
+            return true
+        }
+
+        let mode = defaults?.string(forKey: "filter_mode") ?? "blockSpecific"
+        let listed = isListed(host)
+
+        if mode == "whiteList" {
+            return listed
+        }
+
+        return !listed
+    }
+
+    private func isListed(_ host: String) -> Bool {
+        guard let data = defaults?.data(forKey: "site_rules"),
+              let rules = try? JSONDecoder().decode([ProxySiteRule].self, from: data) else {
+            return false
+        }
+
+        return rules.contains { rule in
+            guard let domain = normalizedRuleHost(rule.url), !domain.isEmpty else {
+                return false
+            }
+            return host == domain || host.hasSuffix("." + domain)
+        }
+    }
+
+    private func normalizedRuleHost(_ value: String) -> String? {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let url = URL(string: trimmed), let host = url.host {
+            return normalizedHost(host)
+        }
+        if let url = URL(string: "https://\(trimmed)"), let host = url.host {
+            return normalizedHost(host)
+        }
+        return normalizedHost(trimmed.components(separatedBy: "/").first)
+    }
+
+    private func isSystemAllowed(_ host: String) -> Bool {
+        [
+            "apple.com",
+            "icloud.com",
+            "cdn-apple.com",
+            "entrust.net",
+            "digicert.com"
+        ].contains { suffix in
+            host == suffix || host.hasSuffix("." + suffix)
+        }
+    }
+
     private func appendEvent(_ event: String) {
-        let timestamp = ISO8601DateFormatter().string(from: Date())
-        var events = defaults?.stringArray(forKey: flowLogKey) ?? []
-        events.append("\(timestamp) \(event)")
-        defaults?.set(Array(events.suffix(300)), forKey: flowLogKey)
-        defaults?.synchronize()
+        contextStore.appendEvent(event)
     }
 }

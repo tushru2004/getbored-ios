@@ -12,6 +12,8 @@ import os.log
 class FilterDataProvider: NEFilterDataProvider {
 
     private let logger = OSLog(subsystem: "com.getbored.ios", category: "FilterDataProvider")
+    private let safariParentChildContextStore = SafariParentChildContextStore()
+    private let safariParentChildObservationMaxAge: TimeInterval = 10
 
     /// Current filter mode, refreshed on every classification call
     private var currentMode: String = "blockSpecific"
@@ -101,8 +103,8 @@ class FilterDataProvider: NEFilterDataProvider {
             if IOSRuleStore.shared.isListed(url: host) {
                 return (false, "In allowed list")
             }
-            if IOSRuleStore.shared.isRelatedToAllowedEntry(host: host) {
-                return (false, "Related CDN")
+            if let parent = allowedSafariParent(forChildHost: host) {
+                return (false, "Child of allowed Safari parent \(parent)")
             }
             return (true, "Block everything mode")
         }
@@ -115,6 +117,41 @@ class FilterDataProvider: NEFilterDataProvider {
             return (true, "In blocklist")
         }
         return (false, "Not listed")
+    }
+
+    private func allowedSafariParent(forChildHost host: String) -> String? {
+        guard let match = safariParentChildContextStore.freshChildAllowMatch(
+            for: host,
+            maxAge: safariParentChildObservationMaxAge
+        ) else {
+            return nil
+        }
+
+        guard GateKeeper.shared.isListed(url: match.parentDomain) else {
+            os_log("allowedSafariParent: rejecting child=%{public}@ parent=%{public}@ because parent is not in allowlist",
+                   log: logger, type: .info, host, match.parentDomain)
+            safariParentChildContextStore.appendEvent(
+                String(
+                    format: "DATA_PROVIDER_REJECT_CHILD_PARENT_NOT_ALLOWLISTED host=%@ parent=%@ age=%.1f",
+                    host,
+                    match.parentDomain,
+                    match.age
+                )
+            )
+            return nil
+        }
+
+        os_log("allowedSafariParent: allowing child=%{public}@ parent=%{public}@ age=%.1f",
+               log: logger, type: .info, host, match.parentDomain, match.age)
+        safariParentChildContextStore.appendEvent(
+            String(
+                format: "DATA_PROVIDER_ALLOW_CHILD host=%@ parent=%@ age=%.1f",
+                host,
+                match.parentDomain,
+                match.age
+            )
+        )
+        return match.parentDomain
     }
 
     // MARK: - Telemetry Helpers
