@@ -39,6 +39,9 @@ class IOSRuleStore {
     /// [String] — bundle IDs of apps that bypass filtering entirely
     private let allowedAppsKey = "allowedAppBundleIDs"
 
+    /// JSON-encoded static Safari parent -> child domain map
+    private let parentChildMapKey = "parent_child_map_v1"
+
     /// JSON-encoded [ActivityLogEntry] — filter decision log
     private let logKey = "activity_log_entries"
 
@@ -90,6 +93,25 @@ class IOSRuleStore {
         let defaults = sharedDefaults
         defaults?.set(data, forKey: siteRulesKey)
         defaults?.synchronize()
+    }
+
+    /// Save the server-generated Safari parent-child map to shared UserDefaults.
+    /// The AppProxy and Data Provider decode the typed schema when making decisions.
+    @discardableResult
+    func saveParentChildMapJSON(_ json: String) -> Bool {
+        guard let data = json.data(using: .utf8),
+              let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              object["schemaVersion"] as? Int == 1,
+              object["rules"] as? [[String: Any]] != nil else {
+            logger.error("saveParentChildMapJSON: invalid JSON")
+            return false
+        }
+
+        logger.info("saveParentChildMapJSON: saving \(data.count) bytes")
+        let defaults = sharedDefaults
+        defaults?.set(json, forKey: parentChildMapKey)
+        defaults?.synchronize()
+        return true
     }
 
     /// Check if a host matches any site rule (exact or subdomain match)

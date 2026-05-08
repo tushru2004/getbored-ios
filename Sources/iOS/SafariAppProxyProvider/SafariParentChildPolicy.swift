@@ -70,7 +70,7 @@ struct SafariParentChildPolicy {
             return .matchActiveParent(host: host, parent: activeContext.parent, age: age)
         }
 
-        if activeContext.children.contains(host) {
+        if activeContext.children.contains(where: { SafariParentChildContextStore.host(host, matchesChildPattern: $0) }) {
             return .matchActiveChild(host: host, parent: activeContext.parent, age: age)
         }
 

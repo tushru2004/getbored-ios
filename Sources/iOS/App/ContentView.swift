@@ -821,6 +821,7 @@ struct ContentView: View {
     ///      - "mode" → String → IOSRuleStore.setMode()
     ///      - "exceptions" → [String] → IOSRuleStore.setExceptions()
     ///      - "allowedApps" → [String] → IOSRuleStore.setAllowedApps()
+    ///      - "parent_child_map_v1" → JSON string → IOSRuleStore.saveParentChildMapJSON()
     ///   4. Post Darwin notification so DP/CP invalidate their caches
     ///   5. Reload local state from IOSRuleStore
     ///   6. Update lastSyncedAt timestamp
@@ -883,7 +884,18 @@ struct ContentView: View {
                 logger.info("Synced \(apps.count) allowed apps")
             }
 
-            // 6. Post Darwin notification to invalidate DP/CP caches.
+            // 6. Decode the static Safari parent-child map if the macOS app
+            //    published one. AppProxy/DataProvider use this to verify that
+            //    a child host belongs to the currently active Safari parent.
+            if let parentChildMapJSON = record["parent_child_map_v1"] as? String {
+                if IOSRuleStore.shared.saveParentChildMapJSON(parentChildMapJSON) {
+                    logger.info("Synced Safari parent-child map from CloudKit")
+                } else {
+                    logger.error("Failed to sync Safari parent-child map: invalid JSON")
+                }
+            }
+
+            // 7. Post Darwin notification to invalidate DP/CP caches.
             //    Without this, the extensions would keep using stale data
             //    until their 5-second cache TTL expires.
             let notifyName = "com.getbored.filter.configChanged" as CFString
@@ -893,17 +905,17 @@ struct ContentView: View {
                 nil, nil, true
             )
 
-            // 7. Reload local state from IOSRuleStore so the UI updates immediately
+            // 8. Reload local state from IOSRuleStore so the UI updates immediately
             loadWhitelist()
             loadActivityLog()
 
-            // 8. Update last synced timestamp — persisted to survive app restart
+            // 9. Update last synced timestamp — persisted to survive app restart
             let now = Date()
             lastSyncedAt = now
             UserDefaults(suiteName: "group.com.getbored.ios")?.set(now, forKey: lastSyncKey)
             syncStatus = "Sync: Done"
 
-            // 9. Show success toast with animation
+            // 10. Show success toast with animation
             withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
                 showSyncSuccess = true
             }
