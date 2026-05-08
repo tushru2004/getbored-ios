@@ -118,5 +118,3 @@ observer.observe(document.documentElement, {
   attributeFilter: ["src", "href"]
 });
 
-window.addEventListener("pagehide", () => sendClearProbe("pagehide"));
-window.addEventListener("beforeunload", () => sendClearProbe("beforeunload"));
