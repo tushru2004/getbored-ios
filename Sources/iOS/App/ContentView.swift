@@ -201,6 +201,7 @@ struct ContentView: View {
             // Loads everything from IOSRuleStore and checks system status.
             .onAppear {
                 loadFilterStatus()    // Check NEFilterManager → "Active" or "Inactive"
+                loadAppProxyStatus()  // Activate Safari AppProxy tunnel if registered but disconnected
                 loadICloudStatus()    // Check CKContainer.accountStatus()
                 loadWhitelist()       // Read site rules + exceptions + allowed apps from IOSRuleStore
                 loadActivityLog()     // Read block log entries from IOSActivityLogger
@@ -1014,6 +1015,51 @@ struct ContentView: View {
                     return
                 }
                 filterStatus = NEFilterManager.shared().isEnabled ? "Active" : "Inactive"
+            }
+        }
+    }
+
+    /// Brings up the Safari AppProxy tunnel programmatically on launch.
+    ///
+    /// The AppProxy spike profile registers the NE config but iOS leaves the
+    /// session in `.disconnected` state — there is no `OnDemandRules` /
+    /// `AlwaysOn` in `Config/ios-safari-app-proxy-spike.mobileconfig` and no
+    /// other code path calls `startVPNTunnel()`. Without this, the user has to
+    /// manually toggle the VPN in Settings → General → VPN & Device Management
+    /// after every fresh install or reboot. Under the dev restrictions profile
+    /// (`com.apple.applicationaccess` with `allowVPNCreation=false`) that
+    /// manual path is unavailable, so this becomes the only recovery path.
+    private func loadAppProxyStatus() {
+        NEAppProxyProviderManager.loadAllFromPreferences { managers, error in
+            if let error {
+                self.logger.warning("AppProxy load failed: \(error.localizedDescription)")
+                return
+            }
+            guard let manager = managers?.first else {
+                self.logger.notice("No AppProxy provider registered (profile not installed?)")
+                return
+            }
+            if !manager.isEnabled {
+                manager.isEnabled = true
+                manager.saveToPreferences { saveError in
+                    if let saveError {
+                        self.logger.warning("AppProxy save failed: \(saveError.localizedDescription)")
+                        return
+                    }
+                    manager.loadFromPreferences { _ in
+                        do {
+                            try manager.connection.startVPNTunnel()
+                        } catch {
+                            self.logger.warning("AppProxy startVPNTunnel failed: \(error.localizedDescription)")
+                        }
+                    }
+                }
+            } else if manager.connection.status == .disconnected || manager.connection.status == .invalid {
+                do {
+                    try manager.connection.startVPNTunnel()
+                } catch {
+                    self.logger.warning("AppProxy startVPNTunnel failed: \(error.localizedDescription)")
+                }
             }
         }
     }
