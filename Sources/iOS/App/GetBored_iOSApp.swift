@@ -25,53 +25,37 @@ struct GetBored_iOSApp: App {
     }
 
     #if DEBUG
-    /// Spike-only setup for the XR Safari AppProxy experiment.
+    /// Debug-only setup for the XR Safari AppProxy parent-child experiment.
     ///
     /// The Apple WebContent profile and the AppLayerVPN profile are separate
     /// from GetBored's own NEFilterDataProvider. If the app-group allowlist is
-    /// stale, the iOS filter can still block `cnbc.com`, `github.com`, or their
-    /// child CDNs even though the profiles allow/route them. Launching the debug
-    /// app writes this broad test allowlist so AppProxy/Safari-extension spikes
-    /// measure proxy behavior instead of being contaminated by old filter state.
+    /// stale, the iOS filter can still block top-level allowed pages even though
+    /// the profiles allow/route them. Keep this seed to top-level parent domains
+    /// only; child domains must be allowed by the scoped Safari parent-child
+    /// policy, not by a flat global allowlist entry.
     private func seedSafariAppProxySpikeAllowlist() {
         let hosts = [
-            "api.github.com",
-            "collector.github.com",
-            "github.com",
-            "github.githubassets.com",
-
-            "docker.com",
-            "docker.demdex.net",
-            "marlin-2.docker.com",
-            "www.docker.com",
-
+            "aws.amazon.com",
+            "benzinga.com",
             "cnbc.com",
-            "gdsapi.cnbc.com",
-            "geo.cnbc.com",
-            "image.cnbcfm.com",
-            "quote.cnbc.com",
-            "sc.cnbcfm.com",
-            "static-redesign.cnbcfm.com",
-            "webql-redesign.cnbcfm.com",
-            "www.cnbc.com",
-            "zephr-templates.cnbc.com",
-
-            "assets.adobedtm.com",
-            "assets.zephr.com",
-            "code.jquery.com",
-            "securepubads.g.doubleclick.net",
-            "sp.auth.adobe.com",
-            "www.google-analytics.com",
-            "www.googletagmanager.com",
-
             "developer.apple.com",
-            "sf-saas.cdn-apple.com",
-            "sfss.cdn-apple.com",
-            "www.apple.com",
-
-            "gateway.icloud.com",
-            "ocsp.rootca1.amazontrust.com",
-            "ocsp.r2m01.amazontrust.com"
+            "developer.mozilla.org",
+            "docker.com",
+            "github.com",
+            "go.dev",
+            "golang.org",
+            "kubernetes.io",
+            "news.ycombinator.com",
+            "nodejs.org",
+            "npmjs.com",
+            "pypi.org",
+            "python.org",
+            "react.dev",
+            "reactjs.org",
+            "rust-lang.org",
+            "seekingalpha.com",
+            "stackoverflow.com",
+            "swift.org"
         ]
 
         let rules = hosts.map { SiteRule(url: $0, title: "XR Spike: \($0)") }

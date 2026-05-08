@@ -356,6 +356,7 @@ final class SafariAppProxyProvider: NEAppProxyProvider {
     private func isSystemAllowed(_ host: String) -> Bool {
         [
             "apple.com",
+            "amazontrust.com",
             "icloud.com",
             "cdn-apple.com",
             "entrust.net",
