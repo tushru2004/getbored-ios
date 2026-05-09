@@ -458,7 +458,7 @@ final class SafariAppProxyProvider: NEAppProxyProvider {
     /// the host app's spike inspector can render the decision history.
     private func shouldRelayFlow(endpoint: String) -> Bool {
         guard let host = host(from: endpoint) else {
-            appendEvent("JOIN_UNSUPPORTED_ENDPOINT endpoint=\(endpoint)")
+            appendEvent("BLOCK_UNSUPPORTED_ENDPOINT endpoint=\(endpoint)")
             return false
         }
 

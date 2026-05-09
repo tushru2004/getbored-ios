@@ -17,15 +17,40 @@ struct SafariParentChildPolicy {
         var event: String {
             switch self {
             case Decision.noActiveContext(let host, let endpoint):
-                return "JOIN_NO_ACTIVE_CONTEXT host=\(host) endpoint=\(endpoint)"
+                return [
+                    "BLOCK_NO_CONTEXT",
+                    "host=\(host)",
+                    "endpoint=\(endpoint)",
+                ].joined(separator: " ")
             case Decision.staleActiveContext(let host, let activeParent, let age):
-                return "JOIN_STALE_ACTIVE_CONTEXT host=\(host) activeParent=\(activeParent) age=\(Self.format(age))"
+                return [
+                    "BLOCK_STALE",
+                    "host=\(host)",
+                    "activeParent=\(activeParent)",
+                    "age=\(Self.format(age))",
+                ].joined(separator: " ")
             case Decision.matchActiveParent(let host, let parent, let age):
-                return "JOIN_MATCH_ACTIVE_PARENT host=\(host) parent=\(parent) age=\(Self.format(age))"
+                return [
+                    "ALLOW_PARENT",
+                    "host=\(host)",
+                    "parent=\(parent)",
+                    "age=\(Self.format(age))",
+                ].joined(separator: " ")
             case Decision.matchActiveChild(let host, let parent, let age):
-                return "JOIN_MATCH_ACTIVE_CHILD host=\(host) parent=\(parent) age=\(Self.format(age))"
+                return [
+                    "ALLOW_CHILD",
+                    "host=\(host)",
+                    "parent=\(parent)",
+                    "age=\(Self.format(age))",
+                ].joined(separator: " ")
             case Decision.noActiveMatch(let host, let activeParent, let childCount, let age):
-                return "JOIN_NO_ACTIVE_MATCH host=\(host) activeParent=\(activeParent) childCount=\(childCount) age=\(Self.format(age))"
+                return [
+                    "BLOCK_NO_MATCH",
+                    "host=\(host)",
+                    "activeParent=\(activeParent)",
+                    "childCount=\(childCount)",
+                    "age=\(Self.format(age))",
+                ].joined(separator: " ")
             }
         }
 
