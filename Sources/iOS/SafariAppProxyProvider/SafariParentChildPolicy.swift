@@ -16,30 +16,30 @@ struct SafariParentChildPolicy {
 
         var event: String {
             switch self {
-            case .noActiveContext(let host, let endpoint):
+            case Decision.noActiveContext(let host, let endpoint):
                 return "JOIN_NO_ACTIVE_CONTEXT host=\(host) endpoint=\(endpoint)"
-            case .staleActiveContext(let host, let activeParent, let age):
+            case Decision.staleActiveContext(let host, let activeParent, let age):
                 return "JOIN_STALE_ACTIVE_CONTEXT host=\(host) activeParent=\(activeParent) age=\(Self.format(age))"
-            case .matchActiveParent(let host, let parent, let age):
+            case Decision.matchActiveParent(let host, let parent, let age):
                 return "JOIN_MATCH_ACTIVE_PARENT host=\(host) parent=\(parent) age=\(Self.format(age))"
-            case .matchActiveChild(let host, let parent, let age):
+            case Decision.matchActiveChild(let host, let parent, let age):
                 return "JOIN_MATCH_ACTIVE_CHILD host=\(host) parent=\(parent) age=\(Self.format(age))"
-            case .noActiveMatch(let host, let activeParent, let childCount, let age):
+            case Decision.noActiveMatch(let host, let activeParent, let childCount, let age):
                 return "JOIN_NO_ACTIVE_MATCH host=\(host) activeParent=\(activeParent) childCount=\(childCount) age=\(Self.format(age))"
             }
         }
 
         var observationDecision: String {
             switch self {
-            case .matchActiveParent:
+            case Decision.matchActiveParent:
                 return "matchActiveParent"
-            case .matchActiveChild:
+            case Decision.matchActiveChild:
                 return "matchActiveChild"
-            case .noActiveContext:
+            case Decision.noActiveContext:
                 return "noActiveContext"
-            case .staleActiveContext:
+            case Decision.staleActiveContext:
                 return "staleActiveContext"
-            case .noActiveMatch:
+            case Decision.noActiveMatch:
                 return "noActiveMatch"
             }
         }
@@ -58,23 +58,23 @@ struct SafariParentChildPolicy {
         now: Date = Date()
     ) -> Decision {
         guard let activeContext else {
-            return .noActiveContext(host: host, endpoint: endpoint)
+            return Decision.noActiveContext(host: host, endpoint: endpoint)
         }
 
         let age = now.timeIntervalSince(activeContext.receivedAt)
         guard age <= activeContextMaxAge else {
-            return .staleActiveContext(host: host, activeParent: activeContext.parent, age: age)
+            return Decision.staleActiveContext(host: host, activeParent: activeContext.parent, age: age)
         }
 
         if host == activeContext.parent {
-            return .matchActiveParent(host: host, parent: activeContext.parent, age: age)
+            return Decision.matchActiveParent(host: host, parent: activeContext.parent, age: age)
         }
 
         if activeContext.children.contains(where: { SafariParentChildContextStore.host(host, matchesChildPattern: $0) }) {
-            return .matchActiveChild(host: host, parent: activeContext.parent, age: age)
+            return Decision.matchActiveChild(host: host, parent: activeContext.parent, age: age)
         }
 
-        return .noActiveMatch(
+        return Decision.noActiveMatch(
             host: host,
             activeParent: activeContext.parent,
             childCount: activeContext.children.count,
