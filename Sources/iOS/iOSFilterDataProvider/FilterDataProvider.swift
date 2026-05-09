@@ -127,7 +127,7 @@ class FilterDataProvider: NEFilterDataProvider {
             return nil
         }
 
-        guard GateKeeper.shared.isListed(url: match.parentDomain) else {
+        guard IOSRuleStore.shared.isListed(url: match.parentDomain) else {
             os_log("allowedSafariParent: rejecting child=%{public}@ parent=%{public}@ because parent is not in allowlist",
                    log: logger, type: .info, host, match.parentDomain)
             safariParentChildContextStore.appendEvent(

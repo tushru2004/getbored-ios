@@ -59,9 +59,9 @@ struct GetBored_iOSApp: App {
         ]
 
         let rules = hosts.map { SiteRule(url: $0, title: "XR Spike: \($0)") }
-        GateKeeper.shared.saveSiteRules(rules)
-        GateKeeper.shared.setMode(FilterMode.whiteList.rawValue)
-        GateKeeper.shared.setExceptions([])
+        IOSRuleStore.shared.saveSiteRules(rules)
+        IOSRuleStore.shared.setMode(FilterMode.whiteList.rawValue)
+        IOSRuleStore.shared.setExceptions([])
 
         CFNotificationCenterPostNotification(
             CFNotificationCenterGetDarwinNotifyCenter(),
