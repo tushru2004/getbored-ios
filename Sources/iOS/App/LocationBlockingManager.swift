@@ -79,7 +79,7 @@ class LocationBlockingManager: NSObject, ObservableObject, CLLocationManagerDele
 
         // Tell the filter extension whether location lists are configured,
         // so it doesn't trigger no-entries lockdown when outside all geofences.
-        // TODO: Location feature not yet ported to GateKeeper on rebuild branch
+        // TODO: Location feature not yet ported to IOSRuleStore on rebuild branch
 
         // Auto-request location permission if we have geofences to monitor
         // and permission hasn't been requested yet.
@@ -269,7 +269,7 @@ class LocationBlockingManager: NSObject, ObservableObject, CLLocationManagerDele
         }
 
         // Write to separate location entries key (not the main whitelist)
-        // TODO: Location feature not yet ported to GateKeeper on rebuild branch
+        // TODO: Location feature not yet ported to IOSRuleStore on rebuild branch
 
         logger.info("Location entries updated: \(effectiveEntries.count) entries, mode: \(hasWhiteListActive ? "whiteList" : "blockSpecific")")
         notifyExtensionOfLocationChange()

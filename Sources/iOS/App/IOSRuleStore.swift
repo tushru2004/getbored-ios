@@ -1,21 +1,26 @@
 //
-//  GateKeeper.swift
+//  IOSRuleStore.swift
 //  GetBored
 //
 //  Created by Tushar on 26.02.26.
+//
+//  Reads/writes the iOS filter rule snapshot via App Group UserDefaults.
+//  Same role as MacRuleStore.swift on macOS, but reads from shared
+//  UserDefaults instead of vendorConfiguration (iOS extensions resolve
+//  the app group container at the same path as the user app).
 //
 
 import Foundation
 import os.log
 
-// MARK: - GateKeeper
+// MARK: - IOSRuleStore
 
 /// Central data hub shared between the iOS app, Data Provider, and Control Provider.
 /// All 3 targets read/write through shared UserDefaults via the App Group.
 /// This is the single source of truth for all filter configuration.
-class GateKeeper {
-    static let shared = GateKeeper()
-    private let logger = Logger(subsystem: "com.getbored.ios", category: "GateKeeper")
+class IOSRuleStore {
+    static let shared = IOSRuleStore()
+    private let logger = Logger(subsystem: "com.getbored.ios", category: "IOSRuleStore")
 
     /// App Group identifier — must match the entitlement on all 3 targets
     private let appGroupIdentifier = "group.com.getbored.ios"
@@ -236,8 +241,8 @@ class GateKeeper {
 
 /// Logs filter decisions to shared UserDefaults.
 /// Uses batched async writes to avoid impacting filter performance.
-class ActivityLogger {
-    static let shared = ActivityLogger()
+class IOSActivityLogger {
+    static let shared = IOSActivityLogger()
 
     private let appGroupIdentifier = "group.com.getbored.ios"
     private let logKey = "activity_log_entries"
@@ -262,7 +267,7 @@ class ActivityLogger {
         UserDefaults(suiteName: appGroupIdentifier)
     }
 
-    private let writeLogger = OSLog(subsystem: "com.getbored.ios", category: "ActivityLogger")
+    private let writeLogger = OSLog(subsystem: "com.getbored.ios", category: "IOSActivityLogger")
 
     // MARK: - Team ID Stripping
 
@@ -342,7 +347,7 @@ class ActivityLogger {
 
     private func writeEntries(_ newEntries: [ActivityLogEntry]) {
         guard let defaults = sharedDefaults else {
-            os_log("ActivityLogger.writeEntries: sharedDefaults is nil!", log: writeLogger, type: .error)
+            os_log("IOSActivityLogger.writeEntries: sharedDefaults is nil!", log: writeLogger, type: .error)
             return
         }
         defaults.synchronize()

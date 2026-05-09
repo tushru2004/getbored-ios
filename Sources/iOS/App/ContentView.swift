@@ -11,9 +11,9 @@
 //    • Allowed apps
 //
 //  Data flow:
-//    macOS app → CloudKit → syncNow() → GateKeeper (shared UserDefaults)
+//    macOS app → CloudKit → syncNow() → IOSRuleStore (shared UserDefaults)
 //                                            ↓
-//                               DP & CP read from GateKeeper
+//                               DP & CP read from IOSRuleStore
 //
 
 import SwiftUI
@@ -50,7 +50,7 @@ struct ContentView: View {
 
     // MARK: - State
 
-    /// Site rules loaded from GateKeeper (the domains being blocked/allowed)
+    /// Site rules loaded from IOSRuleStore (the domains being blocked/allowed)
     @State private var siteRules: [SiteRule] = []
 
     /// Exception patterns (URL paths allowed even if domain is blocked)
@@ -62,7 +62,7 @@ struct ContentView: View {
     /// Bundle IDs of apps that bypass filtering
     @State private var allowedApps: [String] = []
 
-    /// Block log entries from ActivityLogger
+    /// Block log entries from IOSActivityLogger
     @State private var activityEntries: [ActivityLogEntry] = []
 
     // MARK: - UI State
@@ -198,14 +198,14 @@ struct ContentView: View {
                 }
             }
             // Initial load — runs once when the view first appears.
-            // Loads everything from GateKeeper and checks system status.
+            // Loads everything from IOSRuleStore and checks system status.
             .onAppear {
                 loadFilterStatus()    // Check NEFilterManager → "Active" or "Inactive"
                 loadICloudStatus()    // Check CKContainer.accountStatus()
-                loadWhitelist()       // Read site rules + exceptions + allowed apps from GateKeeper
-                loadActivityLog()     // Read block log entries from ActivityLogger
+                loadWhitelist()       // Read site rules + exceptions + allowed apps from IOSRuleStore
+                loadActivityLog()     // Read block log entries from IOSActivityLogger
                 loadSafariExtensionProbe()
-                currentMode = GateKeeper.shared.getMode()  // "blockSpecific" or "whiteList"
+                currentMode = IOSRuleStore.shared.getMode()  // "blockSpecific" or "whiteList"
                 if lastSyncedAt != nil {
                     syncStatus = "Sync: Ready"
                 }
@@ -316,7 +316,7 @@ struct ContentView: View {
     /// When tapped, calls syncNow() which:
     ///   1. Fetches the CloudKit record (FilterConfig-debug or FilterConfig-Production)
     ///   2. Decodes site rules, mode, exceptions, allowed apps
-    ///   3. Writes everything into GateKeeper (shared UserDefaults)
+    ///   3. Writes everything into IOSRuleStore (shared UserDefaults)
     ///   4. DP and CP pick up the changes on their next flow
     ///
     /// Disabled when iCloud is unavailable or a sync is already in progress.
@@ -589,7 +589,7 @@ struct ContentView: View {
     ///
     /// This card shows the top 5 entries. Tapping "See All" opens a full-screen
     /// sheet with the complete log. There's also a refresh button to reload
-    /// entries from GateKeeper (the CP may have logged new blocks while
+    /// entries from IOSRuleStore (the CP may have logged new blocks while
     /// the app was in the background).
     ///
     /// IP addresses and unresolvable hostnames are filtered out (see
@@ -620,7 +620,7 @@ struct ContentView: View {
                 Text("Block Log")
                     .font(.subheadline.weight(.semibold))
 
-                // Refresh button — reloads entries from GateKeeper.
+                // Refresh button — reloads entries from IOSRuleStore.
                 // Useful when the filter has been blocking in the background
                 // and the user wants to see the latest entries without
                 // waiting for the app lifecycle refresh.
@@ -756,7 +756,7 @@ struct ContentView: View {
             Divider().padding(.leading, 14)
 
             VStack(spacing: 8) {
-                // Show raw mode value from GateKeeper
+                // Show raw mode value from IOSRuleStore
                 HStack {
                     Text("Mode:")
                         .font(.caption)
@@ -807,7 +807,7 @@ struct ContentView: View {
 
     // MARK: - CloudKit Sync
 
-    /// Fetches the latest filter configuration from CloudKit and writes it into GateKeeper.
+    /// Fetches the latest filter configuration from CloudKit and writes it into IOSRuleStore.
     ///
     /// This is the core sync method. The macOS companion app writes filter rules
     /// into a CloudKit record. This method reads that record and decodes it into
@@ -817,12 +817,12 @@ struct ContentView: View {
     ///   1. Set UI to syncing state (spinner, disable button)
     ///   2. Fetch the CloudKit record by ID (FilterConfig-debug or FilterConfig-Production)
     ///   3. Decode each field:
-    ///      - "urls" → JSON string → [SiteRule] → GateKeeper.saveSiteRules()
-    ///      - "mode" → String → GateKeeper.setMode()
-    ///      - "exceptions" → [String] → GateKeeper.setExceptions()
-    ///      - "allowedApps" → [String] → GateKeeper.setAllowedApps()
+    ///      - "urls" → JSON string → [SiteRule] → IOSRuleStore.saveSiteRules()
+    ///      - "mode" → String → IOSRuleStore.setMode()
+    ///      - "exceptions" → [String] → IOSRuleStore.setExceptions()
+    ///      - "allowedApps" → [String] → IOSRuleStore.setAllowedApps()
     ///   4. Post Darwin notification so DP/CP invalidate their caches
-    ///   5. Reload local state from GateKeeper
+    ///   5. Reload local state from IOSRuleStore
     ///   6. Update lastSyncedAt timestamp
     ///   7. Show success toast
     ///
@@ -860,26 +860,26 @@ struct ContentView: View {
             if let urlsJSON = record["urls"] as? String,
                let data = urlsJSON.data(using: .utf8) {
                 let decoded = try JSONDecoder().decode([SiteRule].self, from: data)
-                GateKeeper.shared.saveSiteRules(decoded)
+                IOSRuleStore.shared.saveSiteRules(decoded)
                 logger.info("Synced \(decoded.count) site rules from CloudKit")
             }
 
             // 3. Decode filter mode
             if let mode = record["mode"] as? String {
-                GateKeeper.shared.setMode(mode)
+                IOSRuleStore.shared.setMode(mode)
                 currentMode = mode
                 logger.info("Synced mode: \(mode)")
             }
 
             // 4. Decode exception patterns
             if let exceptions = record["exceptions"] as? [String] {
-                GateKeeper.shared.setExceptions(exceptions)
+                IOSRuleStore.shared.setExceptions(exceptions)
                 logger.info("Synced \(exceptions.count) exceptions")
             }
 
             // 5. Decode allowed apps
             if let apps = record["allowedApps"] as? [String] {
-                GateKeeper.shared.setAllowedApps(apps)
+                IOSRuleStore.shared.setAllowedApps(apps)
                 logger.info("Synced \(apps.count) allowed apps")
             }
 
@@ -893,7 +893,7 @@ struct ContentView: View {
                 nil, nil, true
             )
 
-            // 7. Reload local state from GateKeeper so the UI updates immediately
+            // 7. Reload local state from IOSRuleStore so the UI updates immediately
             loadWhitelist()
             loadActivityLog()
 
@@ -1044,25 +1044,25 @@ struct ContentView: View {
         }
     }
 
-    /// Loads site rules, exceptions, mode, and allowed apps from GateKeeper.
+    /// Loads site rules, exceptions, mode, and allowed apps from IOSRuleStore.
     ///
-    /// GateKeeper wraps shared UserDefaults (group.com.getbored.ios).
+    /// IOSRuleStore wraps shared UserDefaults (group.com.getbored.ios).
     /// All three iOS targets (app, DP, CP) read from the same suite.
     /// The app is the only one that writes (via syncNow).
     private func loadWhitelist() {
-        siteRules = GateKeeper.shared.loadSiteRules()
-        exceptionItems = GateKeeper.shared.loadExceptions()
-        allowedApps = GateKeeper.shared.loadAllowedApps()
-        currentMode = GateKeeper.shared.getMode()
+        siteRules = IOSRuleStore.shared.loadSiteRules()
+        exceptionItems = IOSRuleStore.shared.loadExceptions()
+        allowedApps = IOSRuleStore.shared.loadAllowedApps()
+        currentMode = IOSRuleStore.shared.getMode()
     }
 
-    /// Loads block log entries from ActivityLogger.
+    /// Loads block log entries from IOSActivityLogger.
     ///
-    /// ActivityLogger stores entries in shared UserDefaults.
+    /// IOSActivityLogger stores entries in shared UserDefaults.
     /// Entries are sorted newest-first so the most recent blocks appear at the top.
     /// The CP writes entries; the app reads them here for display.
     private func loadActivityLog() {
-        activityEntries = ActivityLogger.shared.loadEntries()
+        activityEntries = IOSActivityLogger.shared.loadEntries()
     }
 
     /// Reads the last Safari Web Extension spike payload from the App Group.
@@ -1092,13 +1092,13 @@ struct ContentView: View {
     /// even before the child opens the iPhone app.
     ///
     /// Flow:
-    ///   1. Load entries from ActivityLogger
+    ///   1. Load entries from IOSActivityLogger
     ///   2. Encode to JSON
     ///   3. Fetch existing CloudKit record
     ///   4. Update the "activityLogJSON" field
     ///   5. Save back to CloudKit
     private func uploadActivityLogToCloudKit() async {
-        let entries = ActivityLogger.shared.loadEntries()
+        let entries = IOSActivityLogger.shared.loadEntries()
         guard !entries.isEmpty else { return }
 
         do {
