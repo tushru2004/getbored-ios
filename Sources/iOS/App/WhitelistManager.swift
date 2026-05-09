@@ -285,4 +285,4 @@ class WhitelistManager {
     }
 }
 
-// NOTE: ActivityLogger is defined in GateKeeper.swift (uses correct app group "group.com.getbored.ios")
+// NOTE: IOSActivityLogger is defined in IOSRuleStore.swift (uses correct app group "group.com.getbored.ios")

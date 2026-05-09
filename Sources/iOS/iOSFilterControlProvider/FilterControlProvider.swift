@@ -8,7 +8,7 @@
 //  The CP exists because the DP (Data Provider) runs in a restricted sandbox
 //  and CANNOT write to UserDefaults. When DP blocks a flow, it returns
 //  .needRules() which routes the flow here. The CP can write, so it logs
-//  the block via ActivityLogger and uploads to CloudKit.
+//  the block via IOSActivityLogger and uploads to CloudKit.
 //
 
 import CloudKit
@@ -131,7 +131,7 @@ class FilterControlProvider: NEFilterControlProvider {
     ///   report.action == .drop or .remediate?
     ///     NO  → ignore (we only care about blocks)
     ///     YES → resolve hostname from flow metadata
-    ///           → log via ActivityLogger
+    ///           → log via IOSActivityLogger
     ///           → schedule CloudKit upload (debounced 2s)
     ///
     /// Hostname resolution cascade (in resolveBlockedHost):
@@ -160,7 +160,7 @@ class FilterControlProvider: NEFilterControlProvider {
             action.rawValue
         )
 
-        ActivityLogger.shared.log(
+        IOSActivityLogger.shared.log(
             domain: resolution.displayDomain,
             blocked: true,
             reason: "Blocked by filter",
@@ -192,7 +192,7 @@ class FilterControlProvider: NEFilterControlProvider {
     ///       → Is the app now in the allowed list? (race condition safety)
     ///         YES → allow the flow (parent added app between DP and CP)
     ///         NO  → extract hostname from flow
-    ///              → log via ActivityLogger
+    ///              → log via IOSActivityLogger
     ///              → schedule CloudKit upload
     ///              → drop the flow
     override func handleNewFlow(_ flow: NEFilterFlow, completionHandler: @escaping (NEFilterControlVerdict) -> Void) {
@@ -208,7 +208,7 @@ class FilterControlProvider: NEFilterControlProvider {
         // Safety check: the parent might have added this app to the allowed list
         // between when DP made its decision and when CP received the flow.
         // This is a rare race condition but worth handling.
-        if let sourceApp, GateKeeper.shared.isAppAllowed(sourceApp) {
+        if let sourceApp, IOSRuleStore.shared.isAppAllowed(sourceApp) {
             os_log("CP handleNewFlow: app is now allowed, passing through: %{public}@",
                    log: logger, type: .info, sourceApp)
             completionHandler(.allow(withUpdateRules: false))
@@ -220,7 +220,7 @@ class FilterControlProvider: NEFilterControlProvider {
 
         // Log the block — this is the whole reason CP exists.
         // DP can't write to UserDefaults, but CP can.
-        ActivityLogger.shared.log(
+        IOSActivityLogger.shared.log(
             domain: host,
             blocked: true,
             reason: "Blocked by filter",
@@ -409,9 +409,9 @@ class FilterControlProvider: NEFilterControlProvider {
     /// The macOS companion app reads this field to show the Block Log.
     private func uploadActivityLogToCloudKit() {
         // Flush pending in-memory entries to disk before reading
-        ActivityLogger.shared.flushSync()
+        IOSActivityLogger.shared.flushSync()
 
-        let entries = ActivityLogger.shared.loadEntries()
+        let entries = IOSActivityLogger.shared.loadEntries()
         os_log("uploadActivityLog: loaded %{public}d entries from UserDefaults",
                log: logger, type: .info, entries.count)
 

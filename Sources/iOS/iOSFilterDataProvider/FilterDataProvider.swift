@@ -54,7 +54,7 @@ class FilterDataProvider: NEFilterDataProvider {
     /// Called by iOS when the content filter is activated.
     override func startFilter(completionHandler: @escaping (Error?) -> Void) {
         os_log("Filter starting – TLS SNI + HTTP Host inspection mode", log: logger, type: .info)
-        currentMode = GateKeeper.shared.getMode()
+        currentMode = IOSRuleStore.shared.getMode()
         os_log("Filter initial mode: %{public}@", log: logger, type: .info, currentMode)
         completionHandler(nil)
     }
@@ -73,7 +73,7 @@ class FilterDataProvider: NEFilterDataProvider {
         guard let sourceApp, !sourceApp.isEmpty else { return }
         os_log("logBlockedAppTelemetry: sourceApp=%{public}@ domain=%{public}@",
                log: logger, type: .info, sourceApp, domain)
-        ActivityLogger.shared.log(
+        IOSActivityLogger.shared.log(
             domain: domain,
             blocked: true,
             reason: reason,
@@ -94,24 +94,24 @@ class FilterDataProvider: NEFilterDataProvider {
     /// - whiteList: the list is an ALLOWLIST (allow what's listed, block everything else)
     private func classifyHost(_ host: String) -> (blocked: Bool, reason: String) {
         // Always re-read the mode — it could change at any time via CloudKit sync
-        currentMode = GateKeeper.shared.getMode()
+        currentMode = IOSRuleStore.shared.getMode()
 
         // Block-everything mode: only sites in the list (and their CDNs) are allowed
         if currentMode == "whiteList" {
-            if GateKeeper.shared.isListed(url: host) {
+            if IOSRuleStore.shared.isListed(url: host) {
                 return (false, "In allowed list")
             }
-            if GateKeeper.shared.isRelatedToAllowedEntry(host: host) {
+            if IOSRuleStore.shared.isRelatedToAllowedEntry(host: host) {
                 return (false, "Related CDN")
             }
             return (true, "Block everything mode")
         }
 
         // Default blocklist mode: block if no entries exist (lockdown) or if listed
-        if !GateKeeper.shared.hasAnyEntries() {
+        if !IOSRuleStore.shared.hasAnyEntries() {
             return (true, "No entries (lockdown)")
         }
-        if GateKeeper.shared.isListed(url: host) {
+        if IOSRuleStore.shared.isListed(url: host) {
             return (true, "In blocklist")
         }
         return (false, "Not listed")
@@ -192,14 +192,14 @@ class FilterDataProvider: NEFilterDataProvider {
             }
 
             // 2. Check the user's allowed-apps list
-            if GateKeeper.shared.isAppAllowed(sourceApp) {
+            if IOSRuleStore.shared.isAppAllowed(sourceApp) {
                 os_log("handleNewFlow: allowing whitelisted app: %{public}@",
                        log: logger, type: .info, sourceApp)
                 return .allow()
             }
 
             // 3. App not allowed + whiteList → emit one app probe per cooldown window
-            let mode = GateKeeper.shared.getMode()
+            let mode = IOSRuleStore.shared.getMode()
             if mode == "whiteList" {
                 logBlockedAppProbeIfNeeded(sourceApp: sourceApp)
             }
@@ -207,18 +207,20 @@ class FilterDataProvider: NEFilterDataProvider {
 
         // ── Step 4: QUIC (HTTP/3) ───────────────────────────────────────
         // QUIC uses UDP port 443. Our TLS SNI parser only handles TCP,
-        // but iOS gives us the hostname via the socket endpoint.
+        // but iOS can still provide the hostname on the socket flow. Prefer
+        // remoteHostname because the endpoint hostname can be only an IP.
         if let socketFlow = flow as? NEFilterSocketFlow,
            let endpoint = socketFlow.remoteEndpoint as? NWHostEndpoint,
            endpoint.port == "443",
            socketFlow.socketType == Int32(SOCK_DGRAM) {
-            if isSystemAllowed(endpoint.hostname) {
+            let host = socketFlow.remoteHostname ?? endpoint.hostname
+            if isSystemAllowed(host) {
                 return .allow()
             }
-            let result = classifyHost(endpoint.hostname)
+            let result = classifyHost(host)
             if result.blocked {
-                os_log("handleNewFlow: QUIC BLOCKED %{public}@ → routing to CP",
-                       log: logger, type: .info, endpoint.hostname)
+                os_log("handleNewFlow: QUIC BLOCKED %{public}@ endpoint=%{public}@ → routing to CP",
+                       log: logger, type: .info, host, endpoint.hostname)
                 return .needRules()
             }
             return .allow()
@@ -232,7 +234,7 @@ class FilterDataProvider: NEFilterDataProvider {
             let result = classifyHost(host)
             if result.blocked {
                 // Check URL path exceptions (e.g. "instagram.com/school-account")
-                if GateKeeper.shared.isExcepted(fullURL: url.absoluteString) {
+                if IOSRuleStore.shared.isExcepted(fullURL: url.absoluteString) {
                     os_log("handleNewFlow: exception match for %{public}@",
                            log: logger, type: .info, url.absoluteString)
                     return .allow()
@@ -307,7 +309,7 @@ class FilterDataProvider: NEFilterDataProvider {
             if result.blocked {
                 // Check URL path exceptions for HTTP
                 if let fullURL = extractHTTPFullURL(from: readBytes),
-                   GateKeeper.shared.isExcepted(fullURL: fullURL) {
+                   IOSRuleStore.shared.isExcepted(fullURL: fullURL) {
                     return .allow()
                 }
                 os_log("handleOutboundData: BLOCKED HTTP %{public}@ (%{public}@)",
