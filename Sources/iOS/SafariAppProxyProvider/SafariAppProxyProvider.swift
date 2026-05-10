@@ -494,8 +494,11 @@ final class SafariAppProxyProvider: NEAppProxyProvider {
         case SafariParentChildPolicy.Decision.noActiveContext,
              SafariParentChildPolicy.Decision.staleActiveContext,
              SafariParentChildPolicy.Decision.noActiveMatch:
-            appendEvent("APP_PROXY_BLOCK_PARENT_CHILD host=\(host) decision=\(decision.observationDecision) endpoint=\(endpoint)")
-            return false
+            // Spike: fail-open so Safari works while we observe which flows
+            // WOULD have been blocked. Flip back to `return false` once
+            // parent-child registration is reliable.
+            appendEvent("APP_PROXY_ALLOW_UNCLASSIFIED host=\(host) decision=\(decision.observationDecision) endpoint=\(endpoint)")
+            return true
         }
     }
 
