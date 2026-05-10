@@ -20,10 +20,10 @@ import os.log
 /// This is the single source of truth for all filter configuration.
 class IOSRuleStore {
     static let shared = IOSRuleStore()
-    private let logger = Logger(subsystem: "com.getbored.ios", category: "IOSRuleStore")
+    private let logger = Logger(subsystem: GetBoredIdentifiers.Logging.iOS, category: "IOSRuleStore")
 
     /// App Group identifier — must match the entitlement on all 3 targets
-    private let appGroupIdentifier = "group.com.getbored.ios"
+    private let appGroupIdentifier = GetBoredIdentifiers.AppGroup.ios
 
     // MARK: - UserDefaults Keys
 
@@ -40,7 +40,7 @@ class IOSRuleStore {
     private let allowedAppsKey = "allowedAppBundleIDs"
 
     /// JSON-encoded static Safari parent -> child domain map
-    private let parentChildMapKey = "parent_child_map_v1"
+    private let parentChildMapKey = GetBoredIdentifiers.SafariParentChild.parentChildMapKey
 
     /// JSON-encoded [ActivityLogEntry] — filter decision log
     private let logKey = "activity_log_entries"
@@ -266,7 +266,7 @@ class IOSRuleStore {
 class IOSActivityLogger {
     static let shared = IOSActivityLogger()
 
-    private let appGroupIdentifier = "group.com.getbored.ios"
+    private let appGroupIdentifier = GetBoredIdentifiers.AppGroup.ios
     private let logKey = "activity_log_entries"
 
     /// Maximum total entries kept in the log
@@ -289,7 +289,7 @@ class IOSActivityLogger {
         UserDefaults(suiteName: appGroupIdentifier)
     }
 
-    private let writeLogger = OSLog(subsystem: "com.getbored.ios", category: "IOSActivityLogger")
+    private let writeLogger = OSLog(subsystem: GetBoredIdentifiers.Logging.iOS, category: "IOSActivityLogger")
 
     // MARK: - Team ID Stripping
 

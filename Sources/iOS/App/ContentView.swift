@@ -25,25 +25,25 @@ import os.log
 // MARK: - Main View
 
 struct ContentView: View {
-    private let logger = Logger(subsystem: "com.getbored.ios", category: "ContentView")
-    private let cloudContainerID = "iCloud.com.getbored.sync"
+    private let logger = Logger(subsystem: GetBoredIdentifiers.Logging.iOS, category: "ContentView")
+    private let cloudContainerID = GetBoredIdentifiers.CloudKit.containerIdentifier
 
     /// Per-device CloudKit record ID (primary — assigned by macOS app)
     private var perDeviceRecordID: CKRecord.ID? {
         guard let deviceID = UIDevice.current.identifierForVendor?.uuidString else { return nil }
         #if DEBUG
-        return CKRecord.ID(recordName: "FilterConfig-\(deviceID)-debug")
+        return CKRecord.ID(recordName: GetBoredIdentifiers.CloudKit.RecordName.perDeviceFilterConfigDebug(deviceID: deviceID))
         #else
-        return CKRecord.ID(recordName: "FilterConfig-\(deviceID)-Production")
+        return CKRecord.ID(recordName: GetBoredIdentifiers.CloudKit.RecordName.perDeviceFilterConfigProduction(deviceID: deviceID))
         #endif
     }
 
     /// Shared/fallback CloudKit record ID (backward compatibility)
     private var sharedRecordID: CKRecord.ID {
         #if DEBUG
-        CKRecord.ID(recordName: "FilterConfig-debug")
+        CKRecord.ID(recordName: GetBoredIdentifiers.CloudKit.RecordName.sharedFilterConfigDebug)
         #else
-        CKRecord.ID(recordName: "FilterConfig-Production")
+        CKRecord.ID(recordName: GetBoredIdentifiers.CloudKit.RecordName.sharedFilterConfigProduction)
         #endif
     }
     private let lastSyncKey = "lastSyncedAt"
@@ -84,7 +84,7 @@ struct ContentView: View {
 
     /// When the last successful sync happened — persisted in shared UserDefaults
     /// so it survives app restart. Read on launch to show "Last synced: ..." text.
-    @State private var lastSyncedAt: Date? = UserDefaults(suiteName: "group.com.getbored.ios")?.object(forKey: "lastSyncedAt") as? Date
+    @State private var lastSyncedAt: Date? = UserDefaults(suiteName: GetBoredIdentifiers.AppGroup.ios)?.object(forKey: "lastSyncedAt") as? Date
 
     /// Triggers the green "Sync Complete" toast animation
     @State private var showSyncSuccess = false
@@ -865,7 +865,7 @@ struct ContentView: View {
             // 2. Decode site rules from JSON string
             //    The macOS app stores rules as a JSON string in the "urls" field.
             //    Format: [{"url": "youtube.com", "title": "YouTube"}, ...]
-            if let urlsJSON = record["urls"] as? String,
+            if let urlsJSON = record[GetBoredIdentifiers.CloudKit.Field.urls] as? String,
                let data = urlsJSON.data(using: .utf8) {
                 let decoded = try JSONDecoder().decode([SiteRule].self, from: data)
                 IOSRuleStore.shared.saveSiteRules(decoded)
@@ -873,20 +873,20 @@ struct ContentView: View {
             }
 
             // 3. Decode filter mode
-            if let mode = record["mode"] as? String {
+            if let mode = record[GetBoredIdentifiers.CloudKit.Field.mode] as? String {
                 IOSRuleStore.shared.setMode(mode)
                 currentMode = mode
                 logger.info("Synced mode: \(mode)")
             }
 
             // 4. Decode exception patterns
-            if let exceptions = record["exceptions"] as? [String] {
+            if let exceptions = record[GetBoredIdentifiers.CloudKit.Field.exceptions] as? [String] {
                 IOSRuleStore.shared.setExceptions(exceptions)
                 logger.info("Synced \(exceptions.count) exceptions")
             }
 
             // 5. Decode allowed apps
-            if let apps = record["allowedApps"] as? [String] {
+            if let apps = record[GetBoredIdentifiers.CloudKit.Field.allowedApps] as? [String] {
                 IOSRuleStore.shared.setAllowedApps(apps)
                 logger.info("Synced \(apps.count) allowed apps")
             }
@@ -894,7 +894,7 @@ struct ContentView: View {
             // 6. Decode the static Safari parent-child map if the macOS app
             //    published one. AppProxy/DataProvider use this to verify that
             //    a child host belongs to the currently active Safari parent.
-            if let parentChildMapJSON = record["parent_child_map_v1"] as? String {
+            if let parentChildMapJSON = record[GetBoredIdentifiers.CloudKit.Field.parentChildMapJSON] as? String {
                 if IOSRuleStore.shared.saveParentChildMapJSON(parentChildMapJSON) {
                     logger.info("Synced Safari parent-child map from CloudKit")
                 } else {
@@ -905,7 +905,7 @@ struct ContentView: View {
             // 7. Post Darwin notification to invalidate DP/CP caches.
             //    Without this, the extensions would keep using stale data
             //    until their 5-second cache TTL expires.
-            let notifyName = "com.getbored.filter.configChanged" as CFString
+            let notifyName = GetBoredIdentifiers.DarwinNotification.iOSFilterConfigChanged as CFString
             CFNotificationCenterPostNotification(
                 CFNotificationCenterGetDarwinNotifyCenter(),
                 CFNotificationName(notifyName),
@@ -919,7 +919,7 @@ struct ContentView: View {
             // 9. Update last synced timestamp — persisted to survive app restart
             let now = Date()
             lastSyncedAt = now
-            UserDefaults(suiteName: "group.com.getbored.ios")?.set(now, forKey: lastSyncKey)
+            UserDefaults(suiteName: GetBoredIdentifiers.AppGroup.ios)?.set(now, forKey: lastSyncKey)
             syncStatus = "Sync: Done"
 
             // 10. Show success toast with animation
@@ -950,23 +950,23 @@ struct ContentView: View {
             let database = container.privateCloudDatabase
 
             #if DEBUG
-            let regRecordID = CKRecord.ID(recordName: "DeviceRegistry-debug")
+            let regRecordID = CKRecord.ID(recordName: GetBoredIdentifiers.CloudKit.RecordName.deviceRegistryDebug)
             #else
-            let regRecordID = CKRecord.ID(recordName: "DeviceRegistry-Production")
+            let regRecordID = CKRecord.ID(recordName: GetBoredIdentifiers.CloudKit.RecordName.deviceRegistryProduction)
             #endif
 
             let regRecord: CKRecord
             do {
                 regRecord = try await database.record(for: regRecordID)
             } catch {
-                regRecord = CKRecord(recordType: "DeviceRegistry", recordID: regRecordID)
+                regRecord = CKRecord(recordType: GetBoredIdentifiers.CloudKit.RecordType.deviceRegistry, recordID: regRecordID)
             }
 
             // Decode existing devices list
-            var devices: [[String: String]] = []
-            if let json = regRecord["devicesJSON"] as? String,
+            var devices: [CloudKitDeviceRegistryEntry] = []
+            if let json = regRecord[GetBoredIdentifiers.CloudKit.Field.devicesJSON] as? String,
                let data = json.data(using: .utf8),
-               let existing = try? JSONSerialization.jsonObject(with: data) as? [[String: String]] {
+               let existing = try? JSONDecoder().decode([CloudKitDeviceRegistryEntry].self, from: data) {
                 devices = existing
             }
 
@@ -974,26 +974,21 @@ struct ContentView: View {
             let deviceID = UIDevice.current.identifierForVendor?.uuidString ?? UUID().uuidString
             let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
             let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "?"
-            let iso = ISO8601DateFormatter().string(from: Date())
-            let entry: [String: String] = [
-                "id": deviceID,
-                "deviceName": UIDevice.current.name,
-                "deviceModel": UIDevice.current.model,
-                "systemVersion": UIDevice.current.systemVersion,
-                "appVersion": "\(version) (\(build))",
-                "lastSeenAt": iso
-            ]
+            let entry = CloudKitDeviceRegistryEntry(
+                id: deviceID,
+                deviceName: UIDevice.current.name,
+                deviceModel: UIDevice.current.model,
+                systemVersion: UIDevice.current.systemVersion,
+                appVersion: "\(version) (\(build))",
+                lastSeenAt: Date()
+            )
 
             // Replace existing entry for this device or append
-            if let idx = devices.firstIndex(where: { $0["id"] == deviceID }) {
-                devices[idx] = entry
-            } else {
-                devices.append(entry)
-            }
+            devices = CloudKitDeviceRegistryEntry.upserting(entry, into: devices)
 
             // Save back as JSON
-            let jsonData = try JSONSerialization.data(withJSONObject: devices)
-            regRecord["devicesJSON"] = String(data: jsonData, encoding: .utf8)! as NSString
+            let jsonData = try JSONEncoder().encode(devices)
+            regRecord[GetBoredIdentifiers.CloudKit.Field.devicesJSON] = String(data: jsonData, encoding: .utf8)! as NSString
             try await database.save(regRecord)
             logger.info("Device registration saved to DeviceRegistry")
         } catch {
@@ -1147,7 +1142,7 @@ struct ContentView: View {
     /// This proves the native handler can write where the app can read.
     private func loadSafariExtensionProbe() {
         #if DEBUG
-        let defaults = UserDefaults(suiteName: "group.com.getbored.ios")
+        let defaults = UserDefaults(suiteName: GetBoredIdentifiers.AppGroup.ios)
         guard let json = defaults?.string(forKey: "safari_extension_spike_last_message"),
               let data = json.data(using: .utf8),
               let payload = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
@@ -1188,7 +1183,7 @@ struct ContentView: View {
 
             // Always write activity log to the shared record (not per-device)
             let record = try await database.record(for: sharedRecordID)
-            record["activityLogJSON"] = jsonString as CKRecordValue
+            record[GetBoredIdentifiers.CloudKit.Field.activityLogJSON] = jsonString as CKRecordValue
             try await database.save(record)
 
             logger.info("Uploaded \(entries.count) activity entries to CloudKit")

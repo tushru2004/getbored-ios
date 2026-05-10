@@ -11,7 +11,7 @@ import os.log
 
 class FilterDataProvider: NEFilterDataProvider {
 
-    private let logger = OSLog(subsystem: "com.getbored.ios", category: "FilterDataProvider")
+    private let logger = OSLog(subsystem: GetBoredIdentifiers.Logging.iOS, category: "FilterDataProvider")
     private let safariParentChildContextStore = SafariParentChildContextStore()
     private let safariParentChildObservationMaxAge: TimeInterval = 10
 

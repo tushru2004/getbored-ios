@@ -33,7 +33,7 @@ final class SafariAppProxyProvider: NEAppProxyProvider {
     /// `com.getbored.ios.safari-app-proxy`. Use `log show --predicate
     /// 'subsystem == "com.getbored.ios.safari-app-proxy"' --last 5m`.
     private let logger = Logger(
-        subsystem: "com.getbored.ios.safari-app-proxy",
+        subsystem: GetBoredIdentifiers.Logging.iosSafariAppProxy,
         category: "SafariAppProxyProvider"
     )
 
