@@ -11,7 +11,11 @@
 //
 
 import Foundation
-import os.log
+import OSLog
+
+#if canImport(GetBoredCore)
+import GetBoredCore
+#endif
 
 // MARK: - IOSRuleStore
 
