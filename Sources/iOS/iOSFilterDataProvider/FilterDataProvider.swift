@@ -27,28 +27,11 @@ class FilterDataProvider: NEFilterDataProvider {
     /// Apple infrastructure domains that must always be allowed.
     /// Blocking these breaks iCloud, App Store, certificate validation, etc.
     /// Reference: https://support.apple.com/en-us/101555
-    private let systemAllowedSuffixes: [String] = {
-        // Load from bundled system-allowed.json
-        let url = Bundle.main.url(forResource: "system-allowed", withExtension: "json")
-        if let url = url {
-            let data = try? Data(contentsOf: url)
-            if let data = data {
-                let decoded = try? JSONDecoder().decode([String: [String: [String]]].self, from: data)
-                if let groups = decoded?["systemAllowedSuffixes"] {
-                    return groups.values.flatMap { $0 }
-                }
-            }
-        }
-        // Fallback: Apple core services + certs (bare minimum to not break the system)
-        return ["apple.com", "icloud.com", "cdn-apple.com", "entrust.net", "digicert.com"]
-    }()
+    private let systemAllowedSuffixes: [String] = SystemAllowList.load(from: Bundle(for: FilterDataProvider.self))
 
     /// Check if a host is an Apple system domain that should never be blocked
     private func isSystemAllowed(_ host: String) -> Bool {
-        let h = host.trimmingCharacters(in: CharacterSet(charactersIn: ".")).lowercased()
-        return systemAllowedSuffixes.contains(where: { suffix in
-            h == suffix || h.hasSuffix("." + suffix)
-        })
+        SystemAllowList.isSystemAllowed(host, suffixes: systemAllowedSuffixes)
     }
 
     // MARK: - Lifecycle
