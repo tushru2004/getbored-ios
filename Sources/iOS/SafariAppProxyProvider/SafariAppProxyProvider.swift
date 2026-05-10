@@ -56,7 +56,7 @@ final class SafariAppProxyProvider: NEAppProxyProvider {
 
     /// Serial queue that owns all `NWConnection` + `relays` dict mutations.
     /// Single queue → no locks required, FIFO ordering of state transitions.
-    private let connectionQueue = DispatchQueue(label: "com.getbored.ios.safari-app-proxy.connections")
+    private let connectionQueue = DispatchQueue(label: GetBoredIdentifiers.Queue.iosSafariConnections)
 
     /// Strong references to in-flight relays, keyed by `ObjectIdentifier(flow)`.
     /// Without this dict, ARC would free a relay the moment `handleNewFlow`

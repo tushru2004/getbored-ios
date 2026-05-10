@@ -287,7 +287,7 @@ class IOSActivityLogger {
     private var lastFlush = Date()
 
     /// Serial queue for thread-safe writes
-    private let queue = DispatchQueue(label: "com.getbored.activitylogger", qos: .utility)
+    private let queue = DispatchQueue(label: GetBoredIdentifiers.Queue.iosActivityLogger, qos: .utility)
 
     private var sharedDefaults: UserDefaults? {
         UserDefaults(suiteName: appGroupIdentifier)

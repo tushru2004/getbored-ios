@@ -245,7 +245,7 @@ class FilterDataProvider: NEFilterDataProvider {
 
             // 1a. Always allow our own app — it needs CloudKit for sync/registration
             let appLower = sourceApp.lowercased()
-            if appLower.contains("com.getbored.") {
+            if appLower.contains(GetBoredIdentifiers.bundlePrefix) {
                 return .allow()
             }
 
