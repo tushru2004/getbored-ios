@@ -45,9 +45,9 @@ final class SafariAppProxyProvider: NEAppProxyProvider {
     private let contextStore = SafariParentChildContextStore()
 
     /// Decides whether an outbound host matches the current active page context.
-    /// `activeContextMaxAge: 5` means contexts older than 5s are treated as
-    /// stale → blocked (prevents background tabs from reusing old whitelists).
-    private let parentChildPolicy = SafariParentChildPolicy(activeContextMaxAge: 5)
+    /// Contexts older than 60s are treated as stale to prevent background tabs
+    /// from reusing old whitelists while still allowing delayed CNBC resources.
+    private let parentChildPolicy = SafariParentChildPolicy(activeContextMaxAge: 60)
 
     /// App Group `UserDefaults` shared with the host app, the iOS content
     /// filter, and the Safari registration extension.
@@ -463,6 +463,7 @@ final class SafariAppProxyProvider: NEAppProxyProvider {
         }
 
         if isDirectlyAllowed(host) {
+            refreshActiveContextIfDirectHostMatchesActiveParent(host)
             appendEvent("APP_PROXY_ALLOW_DIRECT host=\(host) endpoint=\(endpoint)")
             return true
         }
@@ -496,6 +497,38 @@ final class SafariAppProxyProvider: NEAppProxyProvider {
             appendEvent("APP_PROXY_BLOCK_PARENT_CHILD host=\(host) decision=\(decision.observationDecision) endpoint=\(endpoint)")
             return false
         }
+    }
+
+    /// Fallback for Safari cases where the web extension does not refresh an
+    /// already-open tab. If Safari is still making allowed same-site requests
+    /// for the stored active parent, move only that existing context's
+    /// timestamp forward so its children can pass the normal policy check.
+    private func refreshActiveContextIfDirectHostMatchesActiveParent(_ host: String) {
+        guard let active = contextStore.loadActiveContext(),
+              let parentRule = matchingListedDomain(for: active.parentDomain),
+              hostMatchesRule(host, parentRule) else {
+            return
+        }
+
+        let now = Date()
+        let age = now.timeIntervalSince(active.receivedAt)
+        guard age > 3 else { return }
+
+        contextStore.saveActiveContext(
+            parentDomain: active.parentDomain,
+            childDomains: Array(contextStore.mergedChildren(for: active.parentDomain)).sorted(),
+            url: active.url,
+            receivedAt: now
+        )
+        appendEvent(
+            String(
+                format: "APP_PROXY_REFRESH_ACTIVE_CONTEXT host=%@ parent=%@ rule=%@ age=%.1f",
+                host,
+                active.parentDomain,
+                parentRule,
+                age
+            )
+        )
     }
 
     /// Hydrate the current Safari page context (parent + merged children) for
@@ -559,7 +592,7 @@ final class SafariAppProxyProvider: NEAppProxyProvider {
         }
 
         let mode = defaults?.string(forKey: "filter_mode") ?? "blockSpecific"
-        let listed = isListed(host)
+        let listed = matchingListedDomain(for: host) != nil
 
         if mode == "whiteList" {
             return listed
@@ -574,18 +607,22 @@ final class SafariAppProxyProvider: NEAppProxyProvider {
     /// Example: rule `cnbc.com` matches `cnbc.com` and `news.cnbc.com` but not
     /// `evilcnbc.com` (no leading dot).
     /// Decode failures (no key, malformed JSON) → returns false (= host not listed).
-    private func isListed(_ host: String) -> Bool {
+    private func matchingListedDomain(for host: String) -> String? {
         guard let data = defaults?.data(forKey: "site_rules"),
               let rules = try? JSONDecoder().decode([ProxySiteRule].self, from: data) else {
-            return false
+            return nil
         }
 
-        return rules.contains { rule in
+        return rules.compactMap { rule -> String? in
             guard let domain = normalizedRuleHost(rule.url), !domain.isEmpty else {
-                return false
+                return nil
             }
-            return host == domain || host.hasSuffix("." + domain)
-        }
+            return hostMatchesRule(host, domain) ? domain : nil
+        }.first
+    }
+
+    private func hostMatchesRule(_ host: String, _ rule: String) -> Bool {
+        host == rule || host.hasSuffix("." + rule)
     }
 
     /// Best-effort domain extraction from a site_rule's `url` field.

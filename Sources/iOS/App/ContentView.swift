@@ -95,6 +95,9 @@ struct ContentView: View {
     /// DEBUG-only readout written by the Safari Web Extension spike native handler.
     @State private var safariExtensionProbeSummary = "No Safari extension probe yet"
 
+    /// Avoid repeatedly restarting the AppProxy tunnel if SwiftUI recreates the view.
+    @State private var appProxyLaunchHandled = false
+
     /// Tracks app lifecycle — .active means app is in foreground.
     /// We refresh data and upload activity log when app becomes active.
     @Environment(\.scenePhase) private var scenePhase
@@ -201,7 +204,10 @@ struct ContentView: View {
             // Loads everything from IOSRuleStore and checks system status.
             .onAppear {
                 loadFilterStatus()    // Check NEFilterManager → "Active" or "Inactive"
-                loadAppProxyStatus()  // Activate Safari AppProxy tunnel if registered but disconnected
+                if !appProxyLaunchHandled {
+                    appProxyLaunchHandled = true
+                    loadAppProxyStatus(restartConnectedTunnel: true)  // Start or refresh Safari AppProxy.
+                }
                 loadICloudStatus()    // Check CKContainer.accountStatus()
                 loadWhitelist()       // Read site rules + exceptions + allowed apps from IOSRuleStore
                 loadActivityLog()     // Read block log entries from IOSActivityLogger
@@ -1029,7 +1035,7 @@ struct ContentView: View {
     /// after every fresh install or reboot. Under the dev restrictions profile
     /// (`com.apple.applicationaccess` with `allowVPNCreation=false`) that
     /// manual path is unavailable, so this becomes the only recovery path.
-    private func loadAppProxyStatus() {
+    private func loadAppProxyStatus(restartConnectedTunnel: Bool = false) {
         NEAppProxyProviderManager.loadAllFromPreferences { managers, error in
             if let error {
                 self.logger.warning("AppProxy load failed: \(error.localizedDescription)")
@@ -1039,6 +1045,20 @@ struct ContentView: View {
                 self.logger.notice("No AppProxy provider registered (profile not installed?)")
                 return
             }
+            #if DEBUG
+            if restartConnectedTunnel, manager.isEnabled, manager.connection.status == .connected {
+                self.logger.notice("Restarting AppProxy tunnel on debug app launch")
+                manager.connection.stopVPNTunnel()
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                    do {
+                        try manager.connection.startVPNTunnel()
+                    } catch {
+                        self.logger.warning("AppProxy restart failed: \(error.localizedDescription)")
+                    }
+                }
+                return
+            }
+            #endif
             if !manager.isEnabled {
                 manager.isEnabled = true
                 manager.saveToPreferences { saveError in

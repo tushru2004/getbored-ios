@@ -359,13 +359,54 @@ function detectExtensionCapabilities() {
  *     // → registerChildDomainsViaNativeFallback runs
  *     //   (tries 3 application identifiers in turn)
  */
-function registerChildDomains() {
+function extensionRuntime() {
+  if (typeof browser !== "undefined" && browser?.runtime) return browser.runtime;
+  if (typeof chrome !== "undefined" && chrome?.runtime) return chrome.runtime;
+  return null;
+}
+
+
+let lastRegistrationStartedAt = 0;
+const MIN_REGISTRATION_INTERVAL_MS = 1000;
+
+
+function registerChildDomains(trigger = "manual") {
+  const runtime = extensionRuntime();
+  if (!runtime?.sendMessage) {
+    console.warn("GetBored child-registration runtime unavailable", { trigger });
+    registerChildDomainsViaNativeFallback({
+      ...collectChildDomains(),
+      probeStage: "content-script-direct-native",
+      probeTrigger: trigger,
+      backgroundError: "runtime.sendMessage unavailable"
+    });
+    return;
+  }
+
+  const now = Date.now();
+  if (now - lastRegistrationStartedAt < MIN_REGISTRATION_INTERVAL_MS) return;
+  lastRegistrationStartedAt = now;
+
   const message = {
     ...collectChildDomains(),
-    probeStage: "content-script"
+    probeStage: "content-script",
+    probeTrigger: trigger
   };
 
-  browser.runtime.sendMessage(message).then(
+  let sendResult;
+  try {
+    sendResult = runtime.sendMessage(message);
+  } catch (error) {
+    console.warn("GetBored background probe threw; trying native direct", error);
+    registerChildDomainsViaNativeFallback({
+      ...message,
+      probeStage: "content-script-direct-native",
+      backgroundError: String(error?.message ?? error)
+    });
+    return;
+  }
+
+  Promise.resolve(sendResult).then(
     (response) => console.log("GetBored child-registration probe sent", response),
     (error) => {
       console.warn("GetBored background probe failed; trying native direct", error);
@@ -505,7 +546,8 @@ function unregisterChildDomains(reason) {
  *     //     return — does NOT try "application.id"
  */
 async function registerChildDomainsViaNativeFallback(message) {
-  if (!browser?.runtime?.sendNativeMessage) {
+  const runtime = extensionRuntime();
+  if (!runtime?.sendNativeMessage) {
     console.warn("GetBored native direct probe unavailable");
     return;
   }
@@ -518,7 +560,7 @@ async function registerChildDomainsViaNativeFallback(message) {
 
   for (const applicationId of nativeApplicationIds) {
     try {
-      const response = await browser.runtime.sendNativeMessage(applicationId, message);
+      const response = await runtime.sendNativeMessage(applicationId, message);
       console.log("GetBored native direct probe stored", { applicationId, response });
       return;
     } catch (error) {
@@ -534,7 +576,52 @@ async function registerChildDomainsViaNativeFallback(message) {
 // at this point but most resources have NOT loaded yet, so this first
 // snapshot is small (about 5–10 hosts on cnbc.com). The mutation
 // observer below catches the rest as they arrive.
-registerChildDomains();
+registerChildDomains("initial-load");
+
+
+// ─── Visible-page freshness refresh ────────────────────────────────────
+//
+// AppProxy intentionally rejects contexts older than a few seconds. Safari can
+// restore an already-open tab without re-running document_start, so refresh the
+// active parent while the page is visible even if the DOM is otherwise quiet.
+const VISIBLE_REFRESH_INTERVAL_MS = 3000;
+let visibleRefreshTimer = null;
+
+function pageIsVisible() {
+  return document.visibilityState !== "hidden";
+}
+
+function refreshActiveContext(trigger) {
+  if (!pageIsVisible()) return;
+  registerChildDomains(trigger);
+}
+
+function startVisibleRefreshLoop() {
+  if (visibleRefreshTimer || !pageIsVisible()) return;
+  visibleRefreshTimer = setInterval(() => {
+    refreshActiveContext("visible-heartbeat");
+  }, VISIBLE_REFRESH_INTERVAL_MS);
+}
+
+function stopVisibleRefreshLoop() {
+  if (!visibleRefreshTimer) return;
+  clearInterval(visibleRefreshTimer);
+  visibleRefreshTimer = null;
+}
+
+document.addEventListener("visibilitychange", () => {
+  if (pageIsVisible()) {
+    refreshActiveContext("visibilitychange-visible");
+    startVisibleRefreshLoop();
+  } else {
+    stopVisibleRefreshLoop();
+  }
+});
+
+window.addEventListener("pageshow", () => refreshActiveContext("pageshow"));
+window.addEventListener("focus", () => refreshActiveContext("focus"));
+
+startVisibleRefreshLoop();
 
 
 // ─── Page mutation observer — re-register on new resources ─────────────
@@ -572,18 +659,32 @@ registerChildDomains();
 //   t = 2900 ms   <iframe> insert → observer fires, timer arms again
 //   t = 4400 ms                   → registerChildDomains  (65 hosts)
 let pending = false;
-const observer = new MutationObserver(() => {
-  if (pending) return;
-  pending = true;
-  setTimeout(() => {
-    pending = false;
-    registerChildDomains();
-  }, 1500);
-});
+let observerStarted = false;
 
-observer.observe(document.documentElement, {
-  childList: true,
-  subtree: true,
-  attributes: true,
-  attributeFilter: ["src", "href"]
-});
+function startMutationObserver() {
+  if (observerStarted) return;
+  const root = document.documentElement;
+  if (!root) {
+    document.addEventListener("DOMContentLoaded", startMutationObserver, { once: true });
+    return;
+  }
+
+  observerStarted = true;
+  const observer = new MutationObserver(() => {
+    if (pending) return;
+    pending = true;
+    setTimeout(() => {
+      pending = false;
+      registerChildDomains("resource-mutation");
+    }, 1500);
+  });
+
+  observer.observe(root, {
+    childList: true,
+    subtree: true,
+    attributes: true,
+    attributeFilter: ["src", "href"]
+  });
+}
+
+startMutationObserver();
