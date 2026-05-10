@@ -1,6 +1,6 @@
 //
 //  IOSRuleStore.swift
-//  GetBored
+//  GetBored iOS Shared
 //
 //  Created by Tushar on 26.02.26.
 //
