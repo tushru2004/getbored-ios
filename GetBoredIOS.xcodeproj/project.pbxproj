@@ -53,11 +53,12 @@
 		SPMBUILDFILE000000000005 /* GetBoredCore in Frameworks */ = {isa = PBXBuildFile; productRef = SPMPROD00000000000000005 /* GetBoredCore */; };
 		SPMBUILDFILE000000000006 /* GetBoredCore in Frameworks */ = {isa = PBXBuildFile; productRef = SPMPROD00000000000000006 /* GetBoredCore */; };
 		SPMBUILDFILE000000000007 /* GetBoredCore in Frameworks */ = {isa = PBXBuildFile; productRef = SPMPROD00000000000000007 /* GetBoredCore */; };
-		SPMBUILDFILE00000000IOS3 /* GetBoredIOSCore in Frameworks */ = {isa = PBXBuildFile; productRef = SPMPROD0000000000000IOS3 /* GetBoredIOSCore */; };
-		SPMBUILDFILE00000000IOS4 /* GetBoredIOSCore in Frameworks */ = {isa = PBXBuildFile; productRef = SPMPROD0000000000000IOS4 /* GetBoredIOSCore */; };
-		SPMBUILDFILE00000000IOS5 /* GetBoredIOSCore in Frameworks */ = {isa = PBXBuildFile; productRef = SPMPROD0000000000000IOS5 /* GetBoredIOSCore */; };
-		SPMBUILDFILE00000000IOS6 /* GetBoredIOSCore in Frameworks */ = {isa = PBXBuildFile; productRef = SPMPROD0000000000000IOS6 /* GetBoredIOSCore */; };
-		SPMBUILDFILE00000000IOS7 /* GetBoredIOSCore in Frameworks */ = {isa = PBXBuildFile; productRef = SPMPROD0000000000000IOS7 /* GetBoredIOSCore */; };
+		3866DA922000B43E04EFB167 /* IOSRuleStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54405896F6E80832028947EF /* IOSRuleStore.swift */; };
+		B1C2D3E4F5A60718B2C3D4E5 /* IOSRuleStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54405896F6E80832028947EF /* IOSRuleStore.swift */; };
+		C0ADED7A0F4875C91432609E /* IOSRuleStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54405896F6E80832028947EF /* IOSRuleStore.swift */; };
+		0A6797321316119EAA7F2E10 /* SafariParentChildContextStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A6797321316119EAA7F2E11 /* SafariParentChildContextStore.swift */; };
+		0A6797321316119EAA7F2E12 /* SafariParentChildContextStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A6797321316119EAA7F2E11 /* SafariParentChildContextStore.swift */; };
+		0A6797321316119EAA7F2E13 /* SafariParentChildContextStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A6797321316119EAA7F2E11 /* SafariParentChildContextStore.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -186,6 +187,8 @@
 		WLMGR000000000000000001 /* WhitelistManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = WhitelistManager.swift; path = Sources/iOS/App/WhitelistManager.swift; sourceTree = SOURCE_ROOT; };
 		SCRE0001SCRE00000001SCRE /* SafariChildRegistrationExtension.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; path = Sources/iOS/SafariChildRegistrationExtension/SafariChildRegistrationExtension.entitlements; sourceTree = SOURCE_ROOT; };
 		SCRE0002SCRE00000002SCRE /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Sources/iOS/SafariChildRegistrationExtension/Info.plist; sourceTree = SOURCE_ROOT; };
+		54405896F6E80832028947EF /* IOSRuleStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = IOSRuleStore.swift; path = Sources/iOS/Shared/IOSRuleStore.swift; sourceTree = SOURCE_ROOT; };
+		0A6797321316119EAA7F2E11 /* SafariParentChildContextStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SafariParentChildContextStore.swift; path = Sources/iOS/Shared/SafariParentChildContextStore.swift; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin XCLocalSwiftPackageReference section */
@@ -232,26 +235,6 @@
 			package = SPMREMOTE0000000000000001 /* XCRemoteSwiftPackageReference "getbored-core" */;
 			productName = GetBoredCore;
 		};
-		SPMPROD0000000000000IOS3 /* GetBoredIOSCore */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = GetBoredIOSCore;
-		};
-		SPMPROD0000000000000IOS4 /* GetBoredIOSCore */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = GetBoredIOSCore;
-		};
-		SPMPROD0000000000000IOS5 /* GetBoredIOSCore */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = GetBoredIOSCore;
-		};
-		SPMPROD0000000000000IOS6 /* GetBoredIOSCore */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = GetBoredIOSCore;
-		};
-		SPMPROD0000000000000IOS7 /* GetBoredIOSCore */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = GetBoredIOSCore;
-		};
 /* End XCSwiftPackageProductDependency section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -261,7 +244,6 @@
 			files = (
 				ED1D7B0230D5E22C8F1D6245 /* Foundation.framework in Frameworks */,
 				SPMBUILDFILE000000000004 /* GetBoredCore in Frameworks */,
-				SPMBUILDFILE00000000IOS4 /* GetBoredIOSCore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -272,7 +254,6 @@
 				BBBC86F552A8C1E7A52D3AEC /* Foundation.framework in Frameworks */,
 				92A110529D6E62B466F97BC5 /* NetworkExtension.framework in Frameworks */,
 				SPMBUILDFILE000000000006 /* GetBoredCore in Frameworks */,
-				SPMBUILDFILE00000000IOS6 /* GetBoredIOSCore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -283,7 +264,6 @@
 				4A68D160529876E915DC147F /* Foundation.framework in Frameworks */,
 				6D3BCB0DC703B1F9D3AAB797 /* NetworkExtension.framework in Frameworks */,
 				SPMBUILDFILE000000000005 /* GetBoredCore in Frameworks */,
-				SPMBUILDFILE00000000IOS5 /* GetBoredIOSCore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -294,7 +274,6 @@
 				A48FE532A8FC5A1BBBFC1069 /* Foundation.framework in Frameworks */,
 				1294D34A1C4055A46E38B6CA /* SafariServices.framework in Frameworks */,
 				SPMBUILDFILE000000000007 /* GetBoredCore in Frameworks */,
-				SPMBUILDFILE00000000IOS7 /* GetBoredIOSCore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -305,7 +284,6 @@
 				5894B360584FA5BCCA9AF7AE /* Foundation.framework in Frameworks */,
 				F4D5E6F70819A2BC345DEFAB /* CoreLocation.framework in Frameworks */,
 				SPMBUILDFILE000000000003 /* GetBoredCore in Frameworks */,
-				SPMBUILDFILE00000000IOS3 /* GetBoredIOSCore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -461,8 +439,18 @@
 			children = (
 				4A4D1FF69525C6C4A14A18E7 /* SafariChildRegistrationExtension */,
 				B19784FED597CE15F126D50A /* SafariAppProxyProvider */,
+				SHAREDGROUP00000000000001 /* Shared */,
 			);
 			name = iOS;
+			sourceTree = "<group>";
+		};
+		SHAREDGROUP00000000000001 /* Shared */ = {
+			isa = PBXGroup;
+			children = (
+				54405896F6E80832028947EF /* IOSRuleStore.swift */,
+				0A6797321316119EAA7F2E11 /* SafariParentChildContextStore.swift */,
+			);
+			name = Shared;
 			sourceTree = "<group>";
 		};
 		8F56AA66D94D4D65A810100D /* GetBoredUITests */ = {
@@ -557,7 +545,6 @@
 			name = iOSFilterControlProvider;
 			packageProductDependencies = (
 				SPMPROD00000000000000005 /* GetBoredCore */,
-				SPMPROD0000000000000IOS5 /* GetBoredIOSCore */,
 			);
 			productName = iOSFilterControlProvider;
 			productReference = 51FFB3E78FF333C5FA74A95F /* iOSFilterControlProvider.appex */;
@@ -578,7 +565,6 @@
 			name = iOSFilterDataProvider;
 			packageProductDependencies = (
 				SPMPROD00000000000000004 /* GetBoredCore */,
-				SPMPROD0000000000000IOS4 /* GetBoredIOSCore */,
 			);
 			productName = iOSFilterDataProvider;
 			productReference = B13C109D52BB8CF4949E1E76 /* iOSFilterDataProvider.appex */;
@@ -616,7 +602,6 @@
 			name = SafariChildRegistrationExtension;
 			packageProductDependencies = (
 				SPMPROD00000000000000007 /* GetBoredCore */,
-				SPMPROD0000000000000IOS7 /* GetBoredIOSCore */,
 			);
 			productName = SafariChildRegistrationExtension;
 			productReference = A60E5D972187DF777B271D91 /* SafariChildRegistrationExtension.appex */;
@@ -637,7 +622,6 @@
 			name = SafariAppProxyProvider;
 			packageProductDependencies = (
 				SPMPROD00000000000000006 /* GetBoredCore */,
-				SPMPROD0000000000000IOS6 /* GetBoredIOSCore */,
 			);
 			productName = SafariAppProxyProvider;
 			productReference = 59841F631E2C9BFA4D39A6D3 /* SafariAppProxyProvider.appex */;
@@ -679,7 +663,6 @@
 			name = "GetBored iOS";
 			packageProductDependencies = (
 				SPMPROD00000000000000003 /* GetBoredCore */,
-				SPMPROD0000000000000IOS3 /* GetBoredIOSCore */,
 			);
 			productName = GetBored;
 			productReference = 28827043679B0AA339B0AC65 /* GetBored.app */;
@@ -816,6 +799,7 @@
 			files = (
 				6C54395330DA6A1140CD31A7 /* GetBored_iOSApp.swift in Sources */,
 				0DD39139A2FE746EA71327A2 /* ContentView.swift in Sources */,
+				3866DA922000B43E04EFB167 /* IOSRuleStore.swift in Sources */,
 				F7B26597259249DF92C6B642 /* BlockPageServer.swift in Sources */,
 				F5E6F7089012ABCDF1A2B3C4 /* FilterListModels.swift in Sources */,
 				F6F70819A123BCDEF2B3C4D5 /* LocationBlockingManager.swift in Sources */,
@@ -830,6 +814,7 @@
 			files = (
 				0A6797321316119EAA7F2E0E /* SafariAppProxyProvider.swift in Sources */,
 				0A6797321316119EAA7F2E0F /* SafariParentChildPolicy.swift in Sources */,
+				0A6797321316119EAA7F2E10 /* SafariParentChildContextStore.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -838,6 +823,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				7AA00CA8F6AC1C3DF9923E28 /* FilterControlProvider.swift in Sources */,
+				B1C2D3E4F5A60718B2C3D4E5 /* IOSRuleStore.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -853,6 +839,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C0ADED7A0F4875C91432609E /* IOSRuleStore.swift in Sources */,
+				0A6797321316119EAA7F2E12 /* SafariParentChildContextStore.swift in Sources */,
 				7C821DCF586174EFFC02CDA3 /* FilterDataProvider.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -871,6 +859,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				DC2BFCC6E40C73EACED483AF /* SafariWebExtensionHandler.swift in Sources */,
+				0A6797321316119EAA7F2E13 /* SafariParentChildContextStore.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
