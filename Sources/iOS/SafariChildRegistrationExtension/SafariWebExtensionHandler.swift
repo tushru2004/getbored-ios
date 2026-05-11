@@ -1,4 +1,5 @@
 import Foundation
+import GetBoredCore
 import SafariServices
 import os.log
 

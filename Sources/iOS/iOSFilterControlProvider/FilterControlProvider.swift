@@ -12,6 +12,7 @@
 //
 
 import CloudKit
+import GetBoredCore
 import NetworkExtension
 import os.log
 

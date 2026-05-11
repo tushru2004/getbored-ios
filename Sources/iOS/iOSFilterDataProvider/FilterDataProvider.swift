@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import GetBoredCore
 import NetworkExtension
 import os.log
 

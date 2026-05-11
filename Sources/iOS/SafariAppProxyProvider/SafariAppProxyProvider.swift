@@ -1,4 +1,5 @@
 import Foundation
+import GetBoredCore
 import Network
 import NetworkExtension
 import os.log
