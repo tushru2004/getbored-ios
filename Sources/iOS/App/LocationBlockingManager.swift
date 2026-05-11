@@ -1,6 +1,7 @@
 import Foundation
 import CoreLocation
 import os.log
+import GetBoredCore
 
 class LocationBlockingManager: NSObject, ObservableObject, CLLocationManagerDelegate {
     static let shared = LocationBlockingManager()
