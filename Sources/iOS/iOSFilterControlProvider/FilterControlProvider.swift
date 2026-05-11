@@ -19,6 +19,7 @@ import os.log
 class FilterControlProvider: NEFilterControlProvider {
 
     private let logger = OSLog(subsystem: GetBoredIdentifiers.Logging.iOS, category: "FilterControlProvider")
+    private let systemAllowedSuffixes: [String] = SystemAllowList.load(from: Bundle(for: FilterControlProvider.self))
 
     // MARK: - CloudKit Config
 
@@ -50,53 +51,65 @@ class FilterControlProvider: NEFilterControlProvider {
 
         let blockPageHTML = """
         <!DOCTYPE html>
-        <html>
+        <html lang="en">
         <head>
-            <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-            <title>Content Blocked</title>
-            <style>
-                * { margin: 0; padding: 0; box-sizing: border-box; }
-                body { font-family: -apple-system, system-ui, sans-serif; background: #f5f5f7;
-                       display: flex; align-items: center; justify-content: center;
-                       min-height: 100vh; padding: 24px; }
-                .card { background: white; border-radius: 16px; padding: 48px 32px 36px;
-                        max-width: 400px; width: 100%; text-align: center;
-                        box-shadow: 0 2px 20px rgba(0,0,0,0.06); }
-                .icon { font-size: 48px; margin-bottom: 20px; }
-                h1 { color: #1d1d1f; font-size: 22px; font-weight: 600; margin-bottom: 8px; }
-                .msg { color: #86868b; font-size: 15px; line-height: 1.5; margin-bottom: 8px; }
-                .sub { color: #c7c7cc; font-size: 13px; line-height: 1.4; }
-            </style>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+        <title>Content Blocked</title>
+        <style>
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:-apple-system,BlinkMacSystemFont,system-ui,sans-serif;background:#f5f5f7;display:flex;justify-content:center;align-items:center;min-height:100vh;padding:24px;-webkit-text-size-adjust:none}
+        .container{background:#fff;border-radius:16px;box-shadow:0 2px 20px rgba(0,0,0,.06);padding:48px 32px 36px;max-width:400px;width:100%;text-align:center}
+        .icon{width:64px;height:64px;margin:0 auto 24px;background:linear-gradient(135deg,#34c759,#30d158);border-radius:16px;display:flex;align-items:center;justify-content:center}
+        .icon svg{width:32px;height:32px;fill:#fff}
+        h1{color:#1d1d1f;font-size:22px;font-weight:600;margin-bottom:8px;letter-spacing:-.02em}
+        .subtitle{color:#86868b;font-size:15px;margin-bottom:28px;line-height:1.5}
+        .blocked-url{background:#f5f5f7;border-radius:10px;padding:12px 16px;margin-bottom:24px;color:#1d1d1f;font-family:"SF Mono",Monaco,"Courier New",monospace;font-size:13px;word-break:break-all}
+        .info{background:#f5f5f7;padding:14px 16px;margin-bottom:12px;text-align:left;border-radius:10px}
+        .info-title{color:#1d1d1f;font-weight:600;margin-bottom:4px;font-size:13px}
+        .info-text{color:#86868b;font-size:13px;line-height:1.4}
+        .button{display:inline-block;background:#007aff;color:#fff;border:none;padding:12px 28px;border-radius:980px;font-size:15px;font-weight:600;cursor:pointer;margin-top:20px;-webkit-tap-highlight-color:transparent;transition:opacity .15s;text-decoration:none}
+        .button:active{opacity:.7}
+        .footer{margin-top:28px;color:#c7c7cc;font-size:12px}
+        </style>
         </head>
         <body>
-            <div class="card">
-                <div class="icon">\u{1F6E1}\u{FE0F}</div>
-                <h1>Content Blocked</h1>
-                <p class="msg">This website is restricted by GetBored.</p>
-                <p class="sub">Managed by your parent via the macOS companion app.</p>
-            </div>
+        <div class="container">
+        <div class="icon"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/></svg></div>
+        <h1>Content Blocked</h1>
+        <p class="subtitle">This website is not on your approved list.</p>
+        <div class="blocked-url" id="blockedUrl">this website</div>
+        <div class="info"><div class="info-title">Why am I seeing this?</div><div class="info-text">Your device uses a content filter to help you stay focused and safe online. Only pre-approved websites are accessible.</div></div>
+        <div class="info"><div class="info-title">Need access?</div><div class="info-text">Ask your parent or administrator to add this site via the GetBored macOS app.</div></div>
+        <button class="button" onclick="window.history.back()">Go Back</button>
+        <div class="footer">Protected by GetBored</div>
+        </div>
+        <script>
+        try {
+            var r = document.referrer;
+            if (r) {
+                var a = document.createElement('a');
+                a.href = r;
+                if (a.hostname) document.getElementById('blockedUrl').textContent = a.hostname;
+            }
+        } catch(e) {}
+        </script>
         </body>
         </html>
         """
 
-        // Encode HTML as base64 data URL so iOS can render it inline
-        let base64HTML = Data(blockPageHTML.utf8).base64EncodedString()
-        let dataURL = "data:text/html;base64,\(base64HTML)"
+        let blockPageDataURL = "data:text/html;base64,\(Data(blockPageHTML.utf8).base64EncodedString())"
 
-        // remediationMap tells iOS:
-        //   "BlockedURL" → what HTML to show
-        //   "RemediationButton" → what the button says
         remediationMap = [
             NEFilterProviderRemediationMapRemediationURLs: [
-                "BlockedURL": dataURL as NSString
+                "BlockedURL": blockPageDataURL as NSString
             ],
             NEFilterProviderRemediationMapRemediationButtonTexts: [
                 "RemediationButton": "Go Back" as NSString
             ]
         ]
 
-        os_log("Control provider ready with inline block page (%{public}d bytes)",
-               log: logger, type: .info, base64HTML.count)
+        os_log("Control provider ready with block page remediation", log: logger, type: .info)
         completionHandler(nil)
     }
 
@@ -147,6 +160,13 @@ class FilterControlProvider: NEFilterControlProvider {
         let flow = report.flow
         let sourceApp = flow?.sourceAppIdentifier
         let resolution = resolveBlockedHost(from: flow, sourceApp: sourceApp)
+
+        // Skip Apple infrastructure domains — they should be allowed by the DP
+        // but may arrive here via system reports for transient/failed connections.
+        if SystemAllowList.isSystemAllowed(resolution.displayDomain, suffixes: systemAllowedSuffixes) {
+            os_log("handle(report): skipping Apple domain %{public}@", log: logger, type: .debug, resolution.displayDomain)
+            return
+        }
 
         os_log(
             "handle(report): domain=%{public}@ source=%{public}@ resolvable=%{public}@ endpoint=%{public}@ sourceApp=%{public}@ event=%{public}d action=%{public}d",
@@ -205,6 +225,13 @@ class FilterControlProvider: NEFilterControlProvider {
             ?? (flow as? NEFilterSocketFlow)
                 .flatMap { ($0.remoteEndpoint as? NWHostEndpoint)?.hostname.lowercased() }
             ?? "unknown"
+
+        // Skip Apple infrastructure domains — shouldn't reach CP but handle defensively
+        if SystemAllowList.isSystemAllowed(host, suffixes: systemAllowedSuffixes) {
+            os_log("CP handleNewFlow: allowing Apple domain %{public}@", log: logger, type: .info, host)
+            completionHandler(.allow(withUpdateRules: false))
+            return
+        }
 
         // Safety check: the parent might have added this app to the allowed list
         // between when DP made its decision and when CP received the flow.

@@ -291,8 +291,9 @@ class FilterDataProvider: NEFilterDataProvider {
                            log: logger, type: .info, url.absoluteString)
                     return .allow()
                 }
-                os_log("handleNewFlow: BLOCKED %{public}@ (%{public}@) → routing to CP",
-                       log: logger, type: .info, host, result.reason)
+                os_log("handleNewFlow: BLOCKED %{public}@ sourceApp=%{public}@ (reason: %{public}@) → routing to CP via .needRules()",
+                       log: logger, type: .info, host, sourceApp ?? "nil", result.reason)
+                logBlockedAppTelemetry(sourceApp: sourceApp, domain: host, reason: result.reason, resolutionSource: "data-provider-browser")
                 return .needRules()
             }
             return .allow()
