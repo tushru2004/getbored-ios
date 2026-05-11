@@ -22,5 +22,6 @@
       "all_frames": false
     }
   ],
-  "permissions": ["nativeMessaging"]
+  "permissions": ["nativeMessaging"],
+  "host_permissions": ["<all_urls>"]
 }

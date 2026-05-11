@@ -1,11 +1,12 @@
 import Foundation
 import os.log
+import GetBoredCore
 
 class WhitelistManager {
     static let shared = WhitelistManager()
-    private let logger = Logger(subsystem: "com.getbored.filter", category: "WhitelistManager")
+    private let logger = Logger(subsystem: GetBoredIdentifiers.Logging.iOSFilterApp, category: "WhitelistManager")
 
-    private let appGroupIdentifier = "group.com.getbored.advance.whitelist"
+    private let appGroupIdentifier = GetBoredIdentifiers.AppGroup.iosAdvanceWhitelist
     private let whitelistKey = "whitelist_items"
     private let locationEntriesKey = "location_blocked_entries"
     private let locationListsConfiguredKey = "location_lists_configured"

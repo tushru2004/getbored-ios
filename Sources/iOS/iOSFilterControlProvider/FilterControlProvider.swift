@@ -12,22 +12,23 @@
 //
 
 import CloudKit
+import GetBoredCore
 import NetworkExtension
 import os.log
 
 class FilterControlProvider: NEFilterControlProvider {
 
-    private let logger = OSLog(subsystem: "com.getbored.ios", category: "FilterControlProvider")
+    private let logger = OSLog(subsystem: GetBoredIdentifiers.Logging.iOS, category: "FilterControlProvider")
 
     // MARK: - CloudKit Config
 
-    private let cloudContainerID = "iCloud.com.getbored.sync"
+    private let cloudContainerID = GetBoredIdentifiers.CloudKit.containerIdentifier
 
     /// Debug builds write to a separate CloudKit record so testing doesn't corrupt production data
     #if DEBUG
-    private let cloudRecordID = CKRecord.ID(recordName: "FilterConfig-debug")
+    private let cloudRecordID = CKRecord.ID(recordName: GetBoredIdentifiers.CloudKit.RecordName.sharedFilterConfigDebug)
     #else
-    private let cloudRecordID = CKRecord.ID(recordName: "FilterConfig-Production")
+    private let cloudRecordID = CKRecord.ID(recordName: GetBoredIdentifiers.CloudKit.RecordName.sharedFilterConfigProduction)
     #endif
 
     /// Debounce timer for CloudKit uploads — waits 2s after last log before uploading
@@ -438,7 +439,7 @@ class FilterControlProvider: NEFilterControlProvider {
                 return
             }
 
-            record["activityLogJSON"] = json as NSString
+            record[GetBoredIdentifiers.CloudKit.Field.activityLogJSON] = json as NSString
 
             db.save(record) { _, saveError in
                 if let saveError {

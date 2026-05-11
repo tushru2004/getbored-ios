@@ -1,10 +1,11 @@
 import Foundation
+import GetBoredCore
 import SafariServices
 import os.log
 
 final class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
     private let logger = Logger(
-        subsystem: "com.getbored.ios.safari-child-registration",
+        subsystem: GetBoredIdentifiers.Logging.iosSafariChildRegistration,
         category: "SafariWebExtensionHandler"
     )
     private let contextStore = SafariParentChildContextStore()

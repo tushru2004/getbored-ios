@@ -1,12 +1,13 @@
 import Foundation
 import CoreLocation
 import os.log
+import GetBoredCore
 
 class LocationBlockingManager: NSObject, ObservableObject, CLLocationManagerDelegate {
     static let shared = LocationBlockingManager()
 
     private let locationManager = CLLocationManager()
-    private let logger = Logger(subsystem: "com.getbored.filter", category: "LocationBlocking")
+    private let logger = Logger(subsystem: GetBoredIdentifiers.Logging.iOSFilterApp, category: "LocationBlocking")
 
     @Published var permissionStatus: CLAuthorizationStatus = .notDetermined
     @Published var activeZoneNames: Set<String> = []
@@ -18,7 +19,7 @@ class LocationBlockingManager: NSObject, ObservableObject, CLLocationManagerDele
     /// Tracks which region identifiers the device is currently inside
     private var enteredRegionIDs: Set<String> = []
 
-    private let appGroupIdentifier = "group.com.getbored.advance.whitelist"
+    private let appGroupIdentifier = GetBoredIdentifiers.AppGroup.iosAdvanceWhitelist
     private let lockdownKey = "location_permission_denied_lockdown"
     private let persistedListsKey = "location_filter_lists"
     private let persistedRegionIDsKey = "location_entered_region_ids"
@@ -299,8 +300,9 @@ class LocationBlockingManager: NSObject, ObservableObject, CLLocationManagerDele
     /// UserDefaults instead of waiting for its next periodic refresh.
     private func notifyExtensionOfLocationChange() {
         let center = CFNotificationCenterGetDarwinNotifyCenter()
-        CFNotificationCenterPostNotification(center, CFNotificationName("com.getbored.filter.locationEntriesChanged" as CFString), nil, nil, true)
-        logger.info("Posted Darwin notification: com.getbored.filter.locationEntriesChanged")
+        let notificationName = GetBoredIdentifiers.DarwinNotification.iOSLocationEntriesChanged
+        CFNotificationCenterPostNotification(center, CFNotificationName(notificationName as CFString), nil, nil, true)
+        logger.info("Posted Darwin notification: \(notificationName)")
     }
 
     private func updateActiveZoneNames() {

@@ -1,4 +1,5 @@
 import Foundation
+import GetBoredCore
 import Network
 import NetworkExtension
 import os.log
@@ -33,7 +34,7 @@ final class SafariAppProxyProvider: NEAppProxyProvider {
     /// `com.getbored.ios.safari-app-proxy`. Use `log show --predicate
     /// 'subsystem == "com.getbored.ios.safari-app-proxy"' --last 5m`.
     private let logger = Logger(
-        subsystem: "com.getbored.ios.safari-app-proxy",
+        subsystem: GetBoredIdentifiers.Logging.iosSafariAppProxy,
         category: "SafariAppProxyProvider"
     )
 
@@ -56,7 +57,7 @@ final class SafariAppProxyProvider: NEAppProxyProvider {
 
     /// Serial queue that owns all `NWConnection` + `relays` dict mutations.
     /// Single queue → no locks required, FIFO ordering of state transitions.
-    private let connectionQueue = DispatchQueue(label: "com.getbored.ios.safari-app-proxy.connections")
+    private let connectionQueue = DispatchQueue(label: GetBoredIdentifiers.Queue.iosSafariConnections)
 
     /// Strong references to in-flight relays, keyed by `ObjectIdentifier(flow)`.
     /// Without this dict, ARC would free a relay the moment `handleNewFlow`
@@ -494,8 +495,11 @@ final class SafariAppProxyProvider: NEAppProxyProvider {
         case SafariParentChildPolicy.Decision.noActiveContext,
              SafariParentChildPolicy.Decision.staleActiveContext,
              SafariParentChildPolicy.Decision.noActiveMatch:
-            appendEvent("APP_PROXY_BLOCK_PARENT_CHILD host=\(host) decision=\(decision.observationDecision) endpoint=\(endpoint)")
-            return false
+            // Spike: fail-open so Safari works while we observe which flows
+            // WOULD have been blocked. Flip back to `return false` once
+            // parent-child registration is reliable.
+            appendEvent("APP_PROXY_ALLOW_UNCLASSIFIED host=\(host) decision=\(decision.observationDecision) endpoint=\(endpoint)")
+            return true
         }
     }
 
