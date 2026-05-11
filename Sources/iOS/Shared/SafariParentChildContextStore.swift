@@ -1,7 +1,5 @@
 import Foundation
-#if canImport(GetBoredCore)
 import GetBoredCore
-#endif
 
 struct SafariParentChildContextStore {
     struct ActivePageContext: Codable, Equatable {
