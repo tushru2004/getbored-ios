@@ -1,0 +1,1501 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		0186EB2AE76340AE817DFF4F /* SafariSimulatorUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FECA319772A4BDBBB1DFB04 /* SafariSimulatorUITests.swift */; };
+		05753476881C485990506DE1 /* SafariDeviceUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D615CDD517A423BB7392497 /* SafariDeviceUITests.swift */; };
+		0A6797321316119EAA7F2E0E /* SafariAppProxyProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DD35A8E7BDBA66F99B4C580 /* SafariAppProxyProvider.swift */; };
+		0A6797321316119EAA7F2E0F /* SafariParentChildPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DD35A8E7BDBA66F99B4C581 /* SafariParentChildPolicy.swift */; };
+		0DD39139A2FE746EA71327A2 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1EE5A7D95D74D0CCC2393E1F /* ContentView.swift */; };
+		11CD9D06EDC0F07188FDCEAA /* messages.json in Resources */ = {isa = PBXBuildFile; fileRef = A9FF4B276136B5CDFD7D1A32 /* messages.json */; };
+		1294D34A1C4055A46E38B6CA /* SafariServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FC7C9C45648F8CA624EEC1E0 /* SafariServices.framework */; };
+		13AB0F0ED1724891B6000EDC /* SafariTestHarnessContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3287775BCA2749979ABFAB2B /* SafariTestHarnessContentView.swift */; };
+		13CA5AFA787C945F98069E2D /* background.js in Resources */ = {isa = PBXBuildFile; fileRef = D3C2B2DFF9189D73FFBB0547 /* background.js */; };
+		15A4720589D9AEFDFD52A8A4 /* iOSFilterDataProvider.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = B13C109D52BB8CF4949E1E76 /* iOSFilterDataProvider.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		1699D5F4A9B63F480FEA6969 /* SafariAppProxyProvider.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = 59841F631E2C9BFA4D39A6D3 /* SafariAppProxyProvider.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		20E57F207296D0DF42071525 /* iOSFilterControlProvider.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = 51FFB3E78FF333C5FA74A95F /* iOSFilterControlProvider.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		4A68D160529876E915DC147F /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CAF0878EF27A9625CCD0F666 /* Foundation.framework */; };
+		55C74922AB7F859C1F92C9B6 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 00E54D0F98645FFEB51C88D6 /* Assets.xcassets */; };
+		5894B360584FA5BCCA9AF7AE /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CAF0878EF27A9625CCD0F666 /* Foundation.framework */; };
+		5B794C01265F4B3980411B72 /* SafariTestHarnessApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90EB16EBC4784D4BA92EF651 /* SafariTestHarnessApp.swift */; };
+		6C54395330DA6A1140CD31A7 /* GetBored_iOSApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A1E8F55B4C8F1BAAA1032C9 /* GetBored_iOSApp.swift */; };
+		6D3BCB0DC703B1F9D3AAB797 /* NetworkExtension.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 729E48CD1BFC77ED88933AC0 /* NetworkExtension.framework */; };
+		6EC0E428783A72067C4280C9 /* manifest.json in Resources */ = {isa = PBXBuildFile; fileRef = 42F264EEC9F09FB4D8856E11 /* manifest.json */; };
+		76757F53CA9C4D2A850C6720 /* GetBoredUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3FF657EC2E114FF1903A8551 /* GetBoredUITests.swift */; };
+		7AA00CA8F6AC1C3DF9923E28 /* FilterControlProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10BFDEA06AA597F4DDE3805D /* FilterControlProvider.swift */; };
+		7C821DCF586174EFFC02CDA3 /* FilterDataProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 855DF3E6AC69A81713170DB1 /* FilterDataProvider.swift */; };
+		7E19871524EC6D109F8A6227 /* icon-48.png in Resources */ = {isa = PBXBuildFile; fileRef = 46A3E99B83BD1F3580BCA6C0 /* icon-48.png */; };
+		7E215C8357E59B878A2681A8 /* icon-512.png in Resources */ = {isa = PBXBuildFile; fileRef = A77015159D559FE37F614107 /* icon-512.png */; };
+		9036624EEAF9F16AAEA89B96 /* content.js in Resources */ = {isa = PBXBuildFile; fileRef = 28220110C03D8DA025447634 /* content.js */; };
+		90E17277773DF9448FC767C3 /* SafariChildRegistrationExtension.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = A60E5D972187DF777B271D91 /* SafariChildRegistrationExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		92A110529D6E62B466F97BC5 /* NetworkExtension.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 54D9BAA543B47311891D1707 /* NetworkExtension.framework */; };
+		A48FE532A8FC5A1BBBFC1069 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CAF0878EF27A9625CCD0F666 /* Foundation.framework */; };
+		BBBC86F552A8C1E7A52D3AEC /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CAF0878EF27A9625CCD0F666 /* Foundation.framework */; };
+		C916BF9EC78F2ED52F403727 /* icon-256.png in Resources */ = {isa = PBXBuildFile; fileRef = 1C37D159CC53DB5E921D9621 /* icon-256.png */; };
+		CD1A4BD68A1FDCBCE94D93DA /* icon-128.png in Resources */ = {isa = PBXBuildFile; fileRef = 2E1593454C4A4A047824CB58 /* icon-128.png */; };
+		DC2BFCC6E40C73EACED483AF /* SafariWebExtensionHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = C40B8E6852EC46DF4308D18E /* SafariWebExtensionHandler.swift */; };
+		E1F0FF1A025AC7A4F2CDF708 /* icon-96.png in Resources */ = {isa = PBXBuildFile; fileRef = 790C22BAE3CAAEEFF3CCD75D /* icon-96.png */; };
+		E26C8D22B1484557B7765293 /* blocked.html in Resources */ = {isa = PBXBuildFile; fileRef = 85A78E117BCD41F8830F6606 /* blocked.html */; };
+		ED1D7B0230D5E22C8F1D6245 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CAF0878EF27A9625CCD0F666 /* Foundation.framework */; };
+		F4D5E6F70819A2BC345DEFAB /* CoreLocation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F3C4D5E6F708192AB234CDEF /* CoreLocation.framework */; };
+		F5E6F7089012ABCDF1A2B3C4 /* FilterListModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1A2B3C4D5E6F7089012ABCD /* FilterListModels.swift */; };
+		F6F70819A123BCDEF2B3C4D5 /* LocationBlockingManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2B3C4D5E6F70819A123BCDE /* LocationBlockingManager.swift */; };
+		F7B26597259249DF92C6B642 /* BlockPageServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88523E61184142F0A5234736 /* BlockPageServer.swift */; };
+		WLITEM001000000000000001 /* WhitelistItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = WLITEM000000000000000001 /* WhitelistItem.swift */; };
+		WLMGR001000000000000001 /* WhitelistManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = WLMGR000000000000000001 /* WhitelistManager.swift */; };
+		SPMBUILDFILE000000000003 /* GetBoredCore in Frameworks */ = {isa = PBXBuildFile; productRef = SPMPROD00000000000000003 /* GetBoredCore */; };
+		SPMBUILDFILE000000000004 /* GetBoredCore in Frameworks */ = {isa = PBXBuildFile; productRef = SPMPROD00000000000000004 /* GetBoredCore */; };
+		SPMBUILDFILE000000000005 /* GetBoredCore in Frameworks */ = {isa = PBXBuildFile; productRef = SPMPROD00000000000000005 /* GetBoredCore */; };
+		SPMBUILDFILE000000000006 /* GetBoredCore in Frameworks */ = {isa = PBXBuildFile; productRef = SPMPROD00000000000000006 /* GetBoredCore */; };
+		SPMBUILDFILE000000000007 /* GetBoredCore in Frameworks */ = {isa = PBXBuildFile; productRef = SPMPROD00000000000000007 /* GetBoredCore */; };
+		SPMBUILDFILE00000000IOS3 /* GetBoredIOSCore in Frameworks */ = {isa = PBXBuildFile; productRef = SPMPROD0000000000000IOS3 /* GetBoredIOSCore */; };
+		SPMBUILDFILE00000000IOS4 /* GetBoredIOSCore in Frameworks */ = {isa = PBXBuildFile; productRef = SPMPROD0000000000000IOS4 /* GetBoredIOSCore */; };
+		SPMBUILDFILE00000000IOS5 /* GetBoredIOSCore in Frameworks */ = {isa = PBXBuildFile; productRef = SPMPROD0000000000000IOS5 /* GetBoredIOSCore */; };
+		SPMBUILDFILE00000000IOS6 /* GetBoredIOSCore in Frameworks */ = {isa = PBXBuildFile; productRef = SPMPROD0000000000000IOS6 /* GetBoredIOSCore */; };
+		SPMBUILDFILE00000000IOS7 /* GetBoredIOSCore in Frameworks */ = {isa = PBXBuildFile; productRef = SPMPROD0000000000000IOS7 /* GetBoredIOSCore */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		05A0D8C0043681058591011C /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 1A000000E /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 303D4C1F85FE4E126207E4B2;
+			remoteInfo = iOSFilterControlProvider;
+		};
+		3EEC1E5127DB5191459CE1FC /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 1A000000E /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 530DCDF5CC3DF5F5D0F3316D;
+			remoteInfo = SafariChildRegistrationExtension;
+		};
+		C4C552F8DB1D7E165341026E /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 1A000000E /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 629B003C175AB49BE145446F;
+			remoteInfo = SafariAppProxyProvider;
+		};
+		E2B62F79F75DCD563B0D6791 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 1A000000E /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 3D1C399E8FE922BBC7A0B4A5;
+			remoteInfo = iOSFilterDataProvider;
+		};
+		HARNESSPROXY00000000UI001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 1A000000E /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 6B8997C3015D473895FC311F;
+			remoteInfo = SafariTestHarness;
+		};
+		HARNESSPROXY00000000UI002 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 1A000000E /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 6B8997C3015D473895FC311F;
+			remoteInfo = SafariTestHarness;
+		};
+		APPPROXY00000000000UI0001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 1A000000E /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 95084DFB593BA97E92D5B0BE;
+			remoteInfo = "GetBored iOS";
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		F04B48411D2377BB118C7C00 /* Embed App Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				15A4720589D9AEFDFD52A8A4 /* iOSFilterDataProvider.appex in Embed App Extensions */,
+				20E57F207296D0DF42071525 /* iOSFilterControlProvider.appex in Embed App Extensions */,
+				90E17277773DF9448FC767C3 /* SafariChildRegistrationExtension.appex in Embed App Extensions */,
+				1699D5F4A9B63F480FEA6969 /* SafariAppProxyProvider.appex in Embed App Extensions */,
+			);
+			name = "Embed App Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		00E54D0F98645FFEB51C88D6 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Assets.xcassets; path = Sources/iOS/App/Assets.xcassets; sourceTree = "<group>"; };
+		04CDADA57F651C3DC77B1CA7 /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Sources/iOS/iOSFilterControlProvider/Info.plist; sourceTree = SOURCE_ROOT; };
+		10BFDEA06AA597F4DDE3805D /* FilterControlProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = Sources/iOS/iOSFilterControlProvider/FilterControlProvider.swift; sourceTree = SOURCE_ROOT; };
+		18C22B6A3A1A2710A8A8CCDE /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; name = Info.plist; path = Sources/iOS/App/Info.plist; sourceTree = SOURCE_ROOT; };
+		1C37D159CC53DB5E921D9621 /* icon-256.png */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = image.png; name = "icon-256.png"; path = "images/icon-256.png"; sourceTree = "<group>"; };
+		1EE5A7D95D74D0CCC2393E1F /* ContentView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ContentView.swift; path = Sources/iOS/App/ContentView.swift; sourceTree = "<group>"; };
+		28220110C03D8DA025447634 /* content.js */ = {isa = PBXFileReference; includeInIndex = 1; path = content.js; sourceTree = "<group>"; };
+		28827043679B0AA339B0AC65 /* GetBored.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = GetBored.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		2E1593454C4A4A047824CB58 /* icon-128.png */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = image.png; name = "icon-128.png"; path = "images/icon-128.png"; sourceTree = "<group>"; };
+		2F1C44A2C5B24D1010BB0986 /* SafariAppProxyProvider.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; path = Sources/iOS/SafariAppProxyProvider/SafariAppProxyProvider.entitlements; sourceTree = SOURCE_ROOT; };
+		2FECA319772A4BDBBB1DFB04 /* SafariSimulatorUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SafariSimulatorUITests.swift; sourceTree = "<group>"; };
+		3287775BCA2749979ABFAB2B /* SafariTestHarnessContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SafariTestHarnessContentView.swift; sourceTree = "<group>"; };
+		3B23D4366EBD7FDCF1CB268B /* iOSFilterControlProvider.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; path = Sources/iOS/iOSFilterControlProvider/iOSFilterControlProvider.entitlements; sourceTree = SOURCE_ROOT; };
+		3EF61BF872CC93A5034A0241 /* GetBored iOS.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; name = "GetBored iOS.entitlements"; path = "Sources/iOS/App/GetBored iOS.entitlements"; sourceTree = "<group>"; };
+		3FF657EC2E114FF1903A8551 /* GetBoredUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GetBoredUITests.swift; sourceTree = "<group>"; };
+		42F264EEC9F09FB4D8856E11 /* manifest.json */ = {isa = PBXFileReference; includeInIndex = 1; path = manifest.json; sourceTree = "<group>"; };
+		46A3E99B83BD1F3580BCA6C0 /* icon-48.png */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = image.png; name = "icon-48.png"; path = "images/icon-48.png"; sourceTree = "<group>"; };
+		49CE941972464DE2B869C53D /* Signing.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Signing.xcconfig; sourceTree = "<group>"; };
+		4A1E8F55B4C8F1BAAA1032C9 /* GetBored_iOSApp.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = GetBored_iOSApp.swift; path = Sources/iOS/App/GetBored_iOSApp.swift; sourceTree = "<group>"; };
+		51FFB3E78FF333C5FA74A95F /* iOSFilterControlProvider.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = iOSFilterControlProvider.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		5481C72386CD4D51A32FB335 /* SafariTestHarness.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SafariTestHarness.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		54D9BAA543B47311891D1707 /* NetworkExtension.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = NetworkExtension.framework; path = System/Library/Frameworks/NetworkExtension.framework; sourceTree = "<group>"; };
+		59841F631E2C9BFA4D39A6D3 /* SafariAppProxyProvider.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; name = SafariAppProxyProvider.appex; path = SafariAppProxyProvider.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		5D615CDD517A423BB7392497 /* SafariDeviceUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SafariDeviceUITests.swift; sourceTree = "<group>"; };
+		5DD35A8E7BDBA66F99B4C580 /* SafariAppProxyProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = Sources/iOS/SafariAppProxyProvider/SafariAppProxyProvider.swift; sourceTree = SOURCE_ROOT; };
+		5DD35A8E7BDBA66F99B4C581 /* SafariParentChildPolicy.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = Sources/iOS/SafariAppProxyProvider/SafariParentChildPolicy.swift; sourceTree = SOURCE_ROOT; };
+		614F239932F6AA8814E550E2 /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; name = Info.plist; path = Sources/iOS/iOSFilterDataProvider/Info.plist; sourceTree = SOURCE_ROOT; };
+		69CA805889DA4C398BEB75DE /* Info.plist */ = {isa = PBXFileReference; explicitFileType = text.plist.xml; path = Info.plist; sourceTree = SOURCE_ROOT; };
+		6C7DE1C69D38485D81EF611E /* GetBoredUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = GetBoredUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		6D5D684452274434A825522C /* Info.plist */ = {isa = PBXFileReference; explicitFileType = text.plist.xml; path = Info.plist; sourceTree = SOURCE_ROOT; };
+		729E48CD1BFC77ED88933AC0 /* NetworkExtension.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = System/Library/Frameworks/NetworkExtension.framework; sourceTree = SDKROOT; };
+		790C22BAE3CAAEEFF3CCD75D /* icon-96.png */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = image.png; name = "icon-96.png"; path = "images/icon-96.png"; sourceTree = "<group>"; };
+		855DF3E6AC69A81713170DB1 /* FilterDataProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = FilterDataProvider.swift; path = Sources/iOS/iOSFilterDataProvider/FilterDataProvider.swift; sourceTree = "<group>"; };
+		85A78E117BCD41F8830F6606 /* blocked.html */ = {isa = PBXFileReference; lastKnownFileType = text.html; name = blocked.html; path = Sources/iOS/App/blocked.html; sourceTree = "<group>"; };
+		88523E61184142F0A5234736 /* BlockPageServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = BlockPageServer.swift; path = Sources/iOS/App/BlockPageServer.swift; sourceTree = "<group>"; };
+		90EB16EBC4784D4BA92EF651 /* SafariTestHarnessApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SafariTestHarnessApp.swift; sourceTree = "<group>"; };
+		A60E5D972187DF777B271D91 /* SafariChildRegistrationExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; name = SafariChildRegistrationExtension.appex; path = SafariChildRegistrationExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		A77015159D559FE37F614107 /* icon-512.png */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = image.png; name = "icon-512.png"; path = "images/icon-512.png"; sourceTree = "<group>"; };
+		A9FF4B276136B5CDFD7D1A32 /* messages.json */ = {isa = PBXFileReference; includeInIndex = 1; name = messages.json; path = _locales/en/messages.json; sourceTree = "<group>"; };
+		B13C109D52BB8CF4949E1E76 /* iOSFilterDataProvider.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = iOSFilterDataProvider.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		C40B8E6852EC46DF4308D18E /* SafariWebExtensionHandler.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SafariWebExtensionHandler.swift; sourceTree = "<group>"; };
+		CA494B67AF3745B9807C86D8 /* SafariDeviceUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SafariDeviceUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		CAF0878EF27A9625CCD0F666 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
+		D32C98119DF940089D1CF5B9 /* Info.plist */ = {isa = PBXFileReference; explicitFileType = text.plist.xml; path = Info.plist; sourceTree = SOURCE_ROOT; };
+		D3C2B2DFF9189D73FFBB0547 /* background.js */ = {isa = PBXFileReference; includeInIndex = 1; path = background.js; sourceTree = "<group>"; };
+		E517431784A245AD86943D22 /* SafariSimulatorUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SafariSimulatorUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		E5E8702C81E4C7EC000CAB9E /* iOSFilterDataProvider.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; name = iOSFilterDataProvider.entitlements; path = Sources/iOS/iOSFilterDataProvider/iOSFilterDataProvider.entitlements; sourceTree = "<group>"; };
+		F1A2B3C4D5E6F7089012ABCD /* FilterListModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = FilterListModels.swift; path = Sources/iOS/App/FilterListModels.swift; sourceTree = SOURCE_ROOT; };
+		F2B3C4D5E6F70819A123BCDE /* LocationBlockingManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = LocationBlockingManager.swift; path = Sources/iOS/App/LocationBlockingManager.swift; sourceTree = SOURCE_ROOT; };
+		F3C4D5E6F708192AB234CDEF /* CoreLocation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreLocation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/CoreLocation.framework; sourceTree = DEVELOPER_DIR; };
+		F8B5E0A622CE50156F3873F7 /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Sources/iOS/SafariAppProxyProvider/Info.plist; sourceTree = SOURCE_ROOT; };
+		FC7C9C45648F8CA624EEC1E0 /* SafariServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = SafariServices.framework; sourceTree = "<group>"; };
+		WLITEM000000000000000001 /* WhitelistItem.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = WhitelistItem.swift; path = Sources/iOS/App/WhitelistItem.swift; sourceTree = SOURCE_ROOT; };
+		WLMGR000000000000000001 /* WhitelistManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = WhitelistManager.swift; path = Sources/iOS/App/WhitelistManager.swift; sourceTree = SOURCE_ROOT; };
+		SCRE0001SCRE00000001SCRE /* SafariChildRegistrationExtension.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; path = Sources/iOS/SafariChildRegistrationExtension/SafariChildRegistrationExtension.entitlements; sourceTree = SOURCE_ROOT; };
+		SCRE0002SCRE00000002SCRE /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Sources/iOS/SafariChildRegistrationExtension/Info.plist; sourceTree = SOURCE_ROOT; };
+/* End PBXFileReference section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		SPMLOCAL00000000000000001 /* XCLocalSwiftPackageReference "." */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = .;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		SPMREMOTE0000000000000001 /* XCRemoteSwiftPackageReference "getbored-core" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/tushru2004/getbored-core";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.1.1;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		SPMPROD00000000000000003 /* GetBoredCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = SPMREMOTE0000000000000001 /* XCRemoteSwiftPackageReference "getbored-core" */;
+			productName = GetBoredCore;
+		};
+		SPMPROD00000000000000004 /* GetBoredCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = SPMREMOTE0000000000000001 /* XCRemoteSwiftPackageReference "getbored-core" */;
+			productName = GetBoredCore;
+		};
+		SPMPROD00000000000000005 /* GetBoredCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = SPMREMOTE0000000000000001 /* XCRemoteSwiftPackageReference "getbored-core" */;
+			productName = GetBoredCore;
+		};
+		SPMPROD00000000000000006 /* GetBoredCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = SPMREMOTE0000000000000001 /* XCRemoteSwiftPackageReference "getbored-core" */;
+			productName = GetBoredCore;
+		};
+		SPMPROD00000000000000007 /* GetBoredCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = SPMREMOTE0000000000000001 /* XCRemoteSwiftPackageReference "getbored-core" */;
+			productName = GetBoredCore;
+		};
+		SPMPROD0000000000000IOS3 /* GetBoredIOSCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = GetBoredIOSCore;
+		};
+		SPMPROD0000000000000IOS4 /* GetBoredIOSCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = GetBoredIOSCore;
+		};
+		SPMPROD0000000000000IOS5 /* GetBoredIOSCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = GetBoredIOSCore;
+		};
+		SPMPROD0000000000000IOS6 /* GetBoredIOSCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = GetBoredIOSCore;
+		};
+		SPMPROD0000000000000IOS7 /* GetBoredIOSCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = GetBoredIOSCore;
+		};
+/* End XCSwiftPackageProductDependency section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		08FDAD93015789FD38A86771 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				ED1D7B0230D5E22C8F1D6245 /* Foundation.framework in Frameworks */,
+				SPMBUILDFILE000000000004 /* GetBoredCore in Frameworks */,
+				SPMBUILDFILE00000000IOS4 /* GetBoredIOSCore in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		12F74CC6789891117F8179FF /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				BBBC86F552A8C1E7A52D3AEC /* Foundation.framework in Frameworks */,
+				92A110529D6E62B466F97BC5 /* NetworkExtension.framework in Frameworks */,
+				SPMBUILDFILE000000000006 /* GetBoredCore in Frameworks */,
+				SPMBUILDFILE00000000IOS6 /* GetBoredIOSCore in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		ADEBBDB5095FC5ECDFA5333A /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4A68D160529876E915DC147F /* Foundation.framework in Frameworks */,
+				6D3BCB0DC703B1F9D3AAB797 /* NetworkExtension.framework in Frameworks */,
+				SPMBUILDFILE000000000005 /* GetBoredCore in Frameworks */,
+				SPMBUILDFILE00000000IOS5 /* GetBoredIOSCore in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AED9ADB26055B7A02A2A5E83 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A48FE532A8FC5A1BBBFC1069 /* Foundation.framework in Frameworks */,
+				1294D34A1C4055A46E38B6CA /* SafariServices.framework in Frameworks */,
+				SPMBUILDFILE000000000007 /* GetBoredCore in Frameworks */,
+				SPMBUILDFILE00000000IOS7 /* GetBoredIOSCore in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E75E238758A0043A8ABC3E68 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5894B360584FA5BCCA9AF7AE /* Foundation.framework in Frameworks */,
+				F4D5E6F70819A2BC345DEFAB /* CoreLocation.framework in Frameworks */,
+				SPMBUILDFILE000000000003 /* GetBoredCore in Frameworks */,
+				SPMBUILDFILE00000000IOS3 /* GetBoredIOSCore in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		HARNESSFRAMEWORKS0000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		UITESTSFRAMEWORKS001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		UITESTSFRAMEWORKS002 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		UITESTSFRAMEWORKS003 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		0B7192DEDDF34610857D8174 /* SafariDeviceUITests */ = {
+			isa = PBXGroup;
+			children = (
+				5D615CDD517A423BB7392497 /* SafariDeviceUITests.swift */,
+				69CA805889DA4C398BEB75DE /* Info.plist */,
+			);
+			path = tests/SafariTests/SafariDeviceUITests;
+			sourceTree = "<group>";
+		};
+		1722A8DC0192495296350B50 /* Config */ = {
+			isa = PBXGroup;
+			children = (
+				49CE941972464DE2B869C53D /* Signing.xcconfig */,
+			);
+			path = Config;
+			sourceTree = "<group>";
+		};
+		1A0000008 = {
+			isa = PBXGroup;
+			children = (
+				1722A8DC0192495296350B50 /* Config */,
+				8F56AA66D94D4D65A810100D /* GetBoredUITests */,
+				6C612438FD49424C99DBDFAA /* SafariTestHarness */,
+				DCFDC4205B1540308B6A694A /* SafariSimulatorUITests */,
+				0B7192DEDDF34610857D8174 /* SafariDeviceUITests */,
+				1A000000A /* Products */,
+				2FF00F104424F5D2D91D9D39 /* GetBored iOS */,
+				DC51A54532F08975462548E2 /* Frameworks */,
+				1C2E2F7A3BEFD31277A3AED3 /* Sources */,
+			);
+			sourceTree = "<group>";
+		};
+		1A000000A /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				6C7DE1C69D38485D81EF611E /* GetBoredUITests.xctest */,
+				E517431784A245AD86943D22 /* SafariSimulatorUITests.xctest */,
+				CA494B67AF3745B9807C86D8 /* SafariDeviceUITests.xctest */,
+				5481C72386CD4D51A32FB335 /* SafariTestHarness.app */,
+				28827043679B0AA339B0AC65 /* GetBored.app */,
+				B13C109D52BB8CF4949E1E76 /* iOSFilterDataProvider.appex */,
+				51FFB3E78FF333C5FA74A95F /* iOSFilterControlProvider.appex */,
+				A60E5D972187DF777B271D91 /* SafariChildRegistrationExtension.appex */,
+				59841F631E2C9BFA4D39A6D3 /* SafariAppProxyProvider.appex */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		1C2E2F7A3BEFD31277A3AED3 /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				8C52969D5F31EF005DEF0F3E /* iOS */,
+			);
+			name = Sources;
+			sourceTree = "<group>";
+		};
+		234D2F4B83FC934490C0E657 /* iOSFilterDataProvider */ = {
+			isa = PBXGroup;
+			children = (
+				855DF3E6AC69A81713170DB1 /* FilterDataProvider.swift */,
+				614F239932F6AA8814E550E2 /* Info.plist */,
+				E5E8702C81E4C7EC000CAB9E /* iOSFilterDataProvider.entitlements */,
+			);
+			name = iOSFilterDataProvider;
+			sourceTree = "<group>";
+		};
+		2FF00F104424F5D2D91D9D39 /* GetBored iOS */ = {
+			isa = PBXGroup;
+			children = (
+				A478A2D3A3B2CBDBBA9A96B8 /* App */,
+				234D2F4B83FC934490C0E657 /* iOSFilterDataProvider */,
+				675A39D4219C1C493877D617 /* iOSFilterControlProvider */,
+			);
+			name = "GetBored iOS";
+			sourceTree = "<group>";
+		};
+		4A4D1FF69525C6C4A14A18E7 /* SafariChildRegistrationExtension */ = {
+			isa = PBXGroup;
+			children = (
+				9CB663B5D468EE3B60B3BCF8 /* Resources */,
+				C40B8E6852EC46DF4308D18E /* SafariWebExtensionHandler.swift */,
+				SCRE0002SCRE00000002SCRE /* Info.plist */,
+				SCRE0001SCRE00000001SCRE /* SafariChildRegistrationExtension.entitlements */,
+			);
+			name = SafariChildRegistrationExtension;
+			path = Sources/iOS/SafariChildRegistrationExtension;
+			sourceTree = SOURCE_ROOT;
+		};
+		675A39D4219C1C493877D617 /* iOSFilterControlProvider */ = {
+			isa = PBXGroup;
+			children = (
+				10BFDEA06AA597F4DDE3805D /* FilterControlProvider.swift */,
+				04CDADA57F651C3DC77B1CA7 /* Info.plist */,
+				3B23D4366EBD7FDCF1CB268B /* iOSFilterControlProvider.entitlements */,
+			);
+			name = iOSFilterControlProvider;
+			sourceTree = "<group>";
+		};
+		6C612438FD49424C99DBDFAA /* SafariTestHarness */ = {
+			isa = PBXGroup;
+			children = (
+				90EB16EBC4784D4BA92EF651 /* SafariTestHarnessApp.swift */,
+				3287775BCA2749979ABFAB2B /* SafariTestHarnessContentView.swift */,
+			);
+			path = tests/SafariTests/SafariTestHarness;
+			sourceTree = "<group>";
+		};
+		70F836B76AC7E84EF305E396 /* iOS */ = {
+			isa = PBXGroup;
+			children = (
+				CAF0878EF27A9625CCD0F666 /* Foundation.framework */,
+				F3C4D5E6F708192AB234CDEF /* CoreLocation.framework */,
+			);
+			name = iOS;
+			sourceTree = "<group>";
+		};
+		8C52969D5F31EF005DEF0F3E /* iOS */ = {
+			isa = PBXGroup;
+			children = (
+				4A4D1FF69525C6C4A14A18E7 /* SafariChildRegistrationExtension */,
+				B19784FED597CE15F126D50A /* SafariAppProxyProvider */,
+			);
+			name = iOS;
+			sourceTree = "<group>";
+		};
+		8F56AA66D94D4D65A810100D /* GetBoredUITests */ = {
+			isa = PBXGroup;
+			children = (
+				3FF657EC2E114FF1903A8551 /* GetBoredUITests.swift */,
+				D32C98119DF940089D1CF5B9 /* Info.plist */,
+			);
+			path = tests/GetBoredUITests;
+			sourceTree = "<group>";
+		};
+		9CB663B5D468EE3B60B3BCF8 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				42F264EEC9F09FB4D8856E11 /* manifest.json */,
+				D3C2B2DFF9189D73FFBB0547 /* background.js */,
+				28220110C03D8DA025447634 /* content.js */,
+				A9FF4B276136B5CDFD7D1A32 /* messages.json */,
+				46A3E99B83BD1F3580BCA6C0 /* icon-48.png */,
+				790C22BAE3CAAEEFF3CCD75D /* icon-96.png */,
+				2E1593454C4A4A047824CB58 /* icon-128.png */,
+				1C37D159CC53DB5E921D9621 /* icon-256.png */,
+				A77015159D559FE37F614107 /* icon-512.png */,
+			);
+			name = Resources;
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		A478A2D3A3B2CBDBBA9A96B8 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				4A1E8F55B4C8F1BAAA1032C9 /* GetBored_iOSApp.swift */,
+				1EE5A7D95D74D0CCC2393E1F /* ContentView.swift */,
+				18C22B6A3A1A2710A8A8CCDE /* Info.plist */,
+				3EF61BF872CC93A5034A0241 /* GetBored iOS.entitlements */,
+				88523E61184142F0A5234736 /* BlockPageServer.swift */,
+				F2B3C4D5E6F70819A123BCDE /* LocationBlockingManager.swift */,
+				F1A2B3C4D5E6F7089012ABCD /* FilterListModels.swift */,
+				WLITEM000000000000000001 /* WhitelistItem.swift */,
+				WLMGR000000000000000001 /* WhitelistManager.swift */,
+				85A78E117BCD41F8830F6606 /* blocked.html */,
+				00E54D0F98645FFEB51C88D6 /* Assets.xcassets */,
+			);
+			name = App;
+			sourceTree = "<group>";
+		};
+		B19784FED597CE15F126D50A /* SafariAppProxyProvider */ = {
+			isa = PBXGroup;
+			children = (
+				5DD35A8E7BDBA66F99B4C580 /* SafariAppProxyProvider.swift */,
+				5DD35A8E7BDBA66F99B4C581 /* SafariParentChildPolicy.swift */,
+				F8B5E0A622CE50156F3873F7 /* Info.plist */,
+				2F1C44A2C5B24D1010BB0986 /* SafariAppProxyProvider.entitlements */,
+			);
+			name = SafariAppProxyProvider;
+			sourceTree = SOURCE_ROOT;
+		};
+		DC51A54532F08975462548E2 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				70F836B76AC7E84EF305E396 /* iOS */,
+				729E48CD1BFC77ED88933AC0 /* NetworkExtension.framework */,
+				FC7C9C45648F8CA624EEC1E0 /* SafariServices.framework */,
+				54D9BAA543B47311891D1707 /* NetworkExtension.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		DCFDC4205B1540308B6A694A /* SafariSimulatorUITests */ = {
+			isa = PBXGroup;
+			children = (
+				2FECA319772A4BDBBB1DFB04 /* SafariSimulatorUITests.swift */,
+				6D5D684452274434A825522C /* Info.plist */,
+			);
+			path = tests/SafariTests/SafariSimulatorUITests;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		303D4C1F85FE4E126207E4B2 /* iOSFilterControlProvider */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 66CC248E7029FE762DD08AA9 /* Build configuration list for PBXNativeTarget "iOSFilterControlProvider" */;
+			buildPhases = (
+				41947A62280D872B880DC0B3 /* Sources */,
+				ADEBBDB5095FC5ECDFA5333A /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = iOSFilterControlProvider;
+			packageProductDependencies = (
+				SPMPROD00000000000000005 /* GetBoredCore */,
+				SPMPROD0000000000000IOS5 /* GetBoredIOSCore */,
+			);
+			productName = iOSFilterControlProvider;
+			productReference = 51FFB3E78FF333C5FA74A95F /* iOSFilterControlProvider.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+		3D1C399E8FE922BBC7A0B4A5 /* iOSFilterDataProvider */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 76571D58AFEE7AC6B1599CDE /* Build configuration list for PBXNativeTarget "iOSFilterDataProvider" */;
+			buildPhases = (
+				7D4D882803D95285B5038473 /* Sources */,
+				08FDAD93015789FD38A86771 /* Frameworks */,
+				6F134E1E964377A187B95711 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = iOSFilterDataProvider;
+			packageProductDependencies = (
+				SPMPROD00000000000000004 /* GetBoredCore */,
+				SPMPROD0000000000000IOS4 /* GetBoredIOSCore */,
+			);
+			productName = iOSFilterDataProvider;
+			productReference = B13C109D52BB8CF4949E1E76 /* iOSFilterDataProvider.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+		3FBA6BFDEEBA4A81AE0EE44B /* SafariSimulatorUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 872C77341ED84380909AB8A2 /* Build configuration list for PBXNativeTarget "SafariSimulatorUITests" */;
+			buildPhases = (
+				B6B2C22DDB754ACC967EB9B7 /* Sources */,
+				UITESTSFRAMEWORKS002 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				UITESTDEP000000000UI002 /* PBXTargetDependency */,
+			);
+			name = SafariSimulatorUITests;
+			productName = SafariSimulatorUITests;
+			productReference = E517431784A245AD86943D22 /* SafariSimulatorUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+		530DCDF5CC3DF5F5D0F3316D /* SafariChildRegistrationExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 09B25F63BBBE9892F4368B3A /* Build configuration list for PBXNativeTarget "SafariChildRegistrationExtension" */;
+			buildPhases = (
+				9E0B437B5C4BD649A0D77B37 /* Sources */,
+				AED9ADB26055B7A02A2A5E83 /* Frameworks */,
+				C9131309C52B6730B7717C2A /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = SafariChildRegistrationExtension;
+			packageProductDependencies = (
+				SPMPROD00000000000000007 /* GetBoredCore */,
+				SPMPROD0000000000000IOS7 /* GetBoredIOSCore */,
+			);
+			productName = SafariChildRegistrationExtension;
+			productReference = A60E5D972187DF777B271D91 /* SafariChildRegistrationExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+		629B003C175AB49BE145446F /* SafariAppProxyProvider */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 7A3B37A2FE526061E0C22CAD /* Build configuration list for PBXNativeTarget "SafariAppProxyProvider" */;
+			buildPhases = (
+				25232264DC073CDF0D5AFB43 /* Sources */,
+				12F74CC6789891117F8179FF /* Frameworks */,
+				517EEC8984A7C3C92F51C74E /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = SafariAppProxyProvider;
+			packageProductDependencies = (
+				SPMPROD00000000000000006 /* GetBoredCore */,
+				SPMPROD0000000000000IOS6 /* GetBoredIOSCore */,
+			);
+			productName = SafariAppProxyProvider;
+			productReference = 59841F631E2C9BFA4D39A6D3 /* SafariAppProxyProvider.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+		6B8997C3015D473895FC311F /* SafariTestHarness */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 6D7B284C662244E2871A1CEF /* Build configuration list for PBXNativeTarget "SafariTestHarness" */;
+			buildPhases = (
+				7DCD907CEEB348B6826F8810 /* Sources */,
+				HARNESSFRAMEWORKS0000001 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = SafariTestHarness;
+			productName = SafariTestHarness;
+			productReference = 5481C72386CD4D51A32FB335 /* SafariTestHarness.app */;
+			productType = "com.apple.product-type.application";
+		};
+		95084DFB593BA97E92D5B0BE /* GetBored iOS */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 0A1FF606E797A36097FAABC7 /* Build configuration list for PBXNativeTarget "GetBored iOS" */;
+			buildPhases = (
+				21A6FBD05149665FD3543DAC /* Sources */,
+				E75E238758A0043A8ABC3E68 /* Frameworks */,
+				F544731C65EDE08AB2B8F2FD /* Resources */,
+				F04B48411D2377BB118C7C00 /* Embed App Extensions */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				3B4796C4AE0342AEE3EF626E /* PBXTargetDependency */,
+				2A19DB638FE97A0283F4C24D /* PBXTargetDependency */,
+				34166C6ACB2B3FBABF517652 /* PBXTargetDependency */,
+				27508A945D547BC48C08EAB6 /* PBXTargetDependency */,
+			);
+			name = "GetBored iOS";
+			packageProductDependencies = (
+				SPMPROD00000000000000003 /* GetBoredCore */,
+				SPMPROD0000000000000IOS3 /* GetBoredIOSCore */,
+			);
+			productName = GetBored;
+			productReference = 28827043679B0AA339B0AC65 /* GetBored.app */;
+			productType = "com.apple.product-type.application";
+		};
+		C14C25AA1F504C139BB5E045 /* GetBoredUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 4B326A904CCF4D5DA2357207 /* Build configuration list for PBXNativeTarget "GetBoredUITests" */;
+			buildPhases = (
+				0B8EB24F49E7406D9346C64D /* Sources */,
+				UITESTSFRAMEWORKS001 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				UITESTDEP000000000UI001 /* PBXTargetDependency */,
+			);
+			name = GetBoredUITests;
+			productName = GetBoredUITests;
+			productReference = 6C7DE1C69D38485D81EF611E /* GetBoredUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+		C15BA97AF4EA43A6B62A181E /* SafariDeviceUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 62BE5910AAB14676A924772E /* Build configuration list for PBXNativeTarget "SafariDeviceUITests" */;
+			buildPhases = (
+				6E05A647C2CB4D0DAF1436E7 /* Sources */,
+				UITESTSFRAMEWORKS003 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				UITESTDEP000000000UI003 /* PBXTargetDependency */,
+			);
+			name = SafariDeviceUITests;
+			productName = SafariDeviceUITests;
+			productReference = CA494B67AF3745B9807C86D8 /* SafariDeviceUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		1A000000E /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1500;
+				LastUpgradeCheck = 1500;
+			};
+			buildConfigurationList = 1A000000F /* Build configuration list for PBXProject "GetBoredIOS" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 1A0000008;
+			productRefGroup = 1A000000A /* Products */;
+			packageReferences = (
+				SPMLOCAL00000000000000001 /* XCLocalSwiftPackageReference "." */,
+				SPMREMOTE0000000000000001 /* XCRemoteSwiftPackageReference "getbored-core" */,
+			);
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				95084DFB593BA97E92D5B0BE /* GetBored iOS */,
+				3D1C399E8FE922BBC7A0B4A5 /* iOSFilterDataProvider */,
+				303D4C1F85FE4E126207E4B2 /* iOSFilterControlProvider */,
+				530DCDF5CC3DF5F5D0F3316D /* SafariChildRegistrationExtension */,
+				629B003C175AB49BE145446F /* SafariAppProxyProvider */,
+				6B8997C3015D473895FC311F /* SafariTestHarness */,
+				C14C25AA1F504C139BB5E045 /* GetBoredUITests */,
+				3FBA6BFDEEBA4A81AE0EE44B /* SafariSimulatorUITests */,
+				C15BA97AF4EA43A6B62A181E /* SafariDeviceUITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		517EEC8984A7C3C92F51C74E /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		6F134E1E964377A187B95711 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C9131309C52B6730B7717C2A /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				6EC0E428783A72067C4280C9 /* manifest.json in Resources */,
+				13CA5AFA787C945F98069E2D /* background.js in Resources */,
+				9036624EEAF9F16AAEA89B96 /* content.js in Resources */,
+				11CD9D06EDC0F07188FDCEAA /* messages.json in Resources */,
+				7E19871524EC6D109F8A6227 /* icon-48.png in Resources */,
+				E1F0FF1A025AC7A4F2CDF708 /* icon-96.png in Resources */,
+				CD1A4BD68A1FDCBCE94D93DA /* icon-128.png in Resources */,
+				C916BF9EC78F2ED52F403727 /* icon-256.png in Resources */,
+				7E215C8357E59B878A2681A8 /* icon-512.png in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F544731C65EDE08AB2B8F2FD /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E26C8D22B1484557B7765293 /* blocked.html in Resources */,
+				55C74922AB7F859C1F92C9B6 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		0B8EB24F49E7406D9346C64D /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				76757F53CA9C4D2A850C6720 /* GetBoredUITests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		21A6FBD05149665FD3543DAC /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				6C54395330DA6A1140CD31A7 /* GetBored_iOSApp.swift in Sources */,
+				0DD39139A2FE746EA71327A2 /* ContentView.swift in Sources */,
+				F7B26597259249DF92C6B642 /* BlockPageServer.swift in Sources */,
+				F5E6F7089012ABCDF1A2B3C4 /* FilterListModels.swift in Sources */,
+				F6F70819A123BCDEF2B3C4D5 /* LocationBlockingManager.swift in Sources */,
+				WLITEM001000000000000001 /* WhitelistItem.swift in Sources */,
+				WLMGR001000000000000001 /* WhitelistManager.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		25232264DC073CDF0D5AFB43 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				0A6797321316119EAA7F2E0E /* SafariAppProxyProvider.swift in Sources */,
+				0A6797321316119EAA7F2E0F /* SafariParentChildPolicy.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		41947A62280D872B880DC0B3 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7AA00CA8F6AC1C3DF9923E28 /* FilterControlProvider.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		6E05A647C2CB4D0DAF1436E7 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				05753476881C485990506DE1 /* SafariDeviceUITests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7D4D882803D95285B5038473 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7C821DCF586174EFFC02CDA3 /* FilterDataProvider.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7DCD907CEEB348B6826F8810 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5B794C01265F4B3980411B72 /* SafariTestHarnessApp.swift in Sources */,
+				13AB0F0ED1724891B6000EDC /* SafariTestHarnessContentView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9E0B437B5C4BD649A0D77B37 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				DC2BFCC6E40C73EACED483AF /* SafariWebExtensionHandler.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B6B2C22DDB754ACC967EB9B7 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				0186EB2AE76340AE817DFF4F /* SafariSimulatorUITests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		27508A945D547BC48C08EAB6 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = SafariAppProxyProvider;
+			target = 629B003C175AB49BE145446F /* SafariAppProxyProvider */;
+			targetProxy = C4C552F8DB1D7E165341026E /* PBXContainerItemProxy */;
+		};
+		2A19DB638FE97A0283F4C24D /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = iOSFilterControlProvider;
+			target = 303D4C1F85FE4E126207E4B2 /* iOSFilterControlProvider */;
+			targetProxy = 05A0D8C0043681058591011C /* PBXContainerItemProxy */;
+		};
+		34166C6ACB2B3FBABF517652 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = SafariChildRegistrationExtension;
+			target = 530DCDF5CC3DF5F5D0F3316D /* SafariChildRegistrationExtension */;
+			targetProxy = 3EEC1E5127DB5191459CE1FC /* PBXContainerItemProxy */;
+		};
+		3B4796C4AE0342AEE3EF626E /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = iOSFilterDataProvider;
+			target = 3D1C399E8FE922BBC7A0B4A5 /* iOSFilterDataProvider */;
+			targetProxy = E2B62F79F75DCD563B0D6791 /* PBXContainerItemProxy */;
+		};
+		UITESTDEP000000000UI001 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = "GetBored iOS";
+			target = 95084DFB593BA97E92D5B0BE /* GetBored iOS */;
+			targetProxy = APPPROXY00000000000UI0001 /* PBXContainerItemProxy */;
+		};
+		UITESTDEP000000000UI002 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = SafariTestHarness;
+			target = 6B8997C3015D473895FC311F /* SafariTestHarness */;
+			targetProxy = HARNESSPROXY00000000UI001 /* PBXContainerItemProxy */;
+		};
+		UITESTDEP000000000UI003 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = SafariTestHarness;
+			target = 6B8997C3015D473895FC311F /* SafariTestHarness */;
+			targetProxy = HARNESSPROXY00000000UI002 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		1589CE9A50F20814849F73FA /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_ENTITLEMENTS = Sources/iOS/iOSFilterDataProvider/iOSFilterDataProvider.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 3A3AVFF22Q;
+				INFOPLIST_FILE = Sources/iOS/iOSFilterDataProvider/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.getbored.filter.extension;
+				PRODUCT_NAME = iOSFilterDataProvider;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		1A0000012 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		1A0000013 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+			};
+			name = Release;
+		};
+		2BD203D17E7643A291162D2A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 49CE941972464DE2B869C53D /* Signing.xcconfig */;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 3A3AVFF22Q;
+				INFOPLIST_FILE = tests/SafariTests/SafariDeviceUITests/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.getbored.macos.safaritestharness.devuitests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = SafariTestHarness;
+			};
+			name = Debug;
+		};
+		434408B64B094BC69EE617E9 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 49CE941972464DE2B869C53D /* Signing.xcconfig */;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 3A3AVFF22Q;
+				INFOPLIST_FILE = tests/SafariTests/SafariDeviceUITests/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.getbored.macos.safaritestharness.devuitests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = SafariTestHarness;
+			};
+			name = Release;
+		};
+		52CB578A1F7350A62910D197 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_ENTITLEMENTS = "Sources/iOS/App/GetBored iOS.entitlements";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 3A3AVFF22Q;
+				GETBORED_DISPLAY_NAME = GetBored;
+				INFOPLIST_FILE = Sources/iOS/App/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.getbored.filter;
+				PRODUCT_NAME = GetBored;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		668C8D14930E58EC3820684A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_ENTITLEMENTS = Sources/iOS/SafariAppProxyProvider/SafariAppProxyProvider.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 3A3AVFF22Q;
+				INFOPLIST_FILE = Sources/iOS/SafariAppProxyProvider/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "com.getbored.filter.safari-app-proxy-provider";
+				PRODUCT_NAME = SafariAppProxyProvider;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		6D037BA533CD6037F4B42A07 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_ENTITLEMENTS = Sources/iOS/SafariAppProxyProvider/SafariAppProxyProvider.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 3A3AVFF22Q;
+				INFOPLIST_FILE = Sources/iOS/SafariAppProxyProvider/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "com.getbored.filter.safari-app-proxy-provider";
+				PRODUCT_NAME = SafariAppProxyProvider;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		7D6CFBBA745D0264BEEE5F60 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_ENTITLEMENTS = Sources/iOS/iOSFilterControlProvider/iOSFilterControlProvider.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 3A3AVFF22Q;
+				INFOPLIST_FILE = Sources/iOS/iOSFilterControlProvider/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.getbored.filter.control;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		82554C4729C362A2623025D3 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_ENTITLEMENTS = "Sources/iOS/App/GetBored iOS.entitlements";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 3A3AVFF22Q;
+				GETBORED_DISPLAY_NAME = "GetBored DBG";
+				INFOPLIST_FILE = Sources/iOS/App/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.getbored.filter;
+				PRODUCT_NAME = GetBored;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		A4002442D1D03F5EEE2C9404 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_ENTITLEMENTS = Sources/iOS/iOSFilterControlProvider/iOSFilterControlProvider.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 3A3AVFF22Q;
+				INFOPLIST_FILE = Sources/iOS/iOSFilterControlProvider/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.getbored.filter.control;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		A716E2AC39604F3F870A86E1 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 3A3AVFF22Q;
+				INFOPLIST_FILE = tests/GetBoredUITests/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = tushru.GetBoredUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = "GetBored iOS";
+			};
+			name = Release;
+		};
+		AF48478F49434D9BA3C909A2 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGNING_ALLOWED = NO;
+				DEVELOPMENT_TEAM = 3A3AVFF22Q;
+				INFOPLIST_FILE = tests/SafariTests/SafariSimulatorUITests/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.getbored.macos.safaritestharness.simuitests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphonesimulator;
+				SUPPORTED_PLATFORMS = iphonesimulator;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = SafariTestHarness;
+			};
+			name = Release;
+		};
+		BDE69B24C15F082F566A5BE5 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_ENTITLEMENTS = Sources/iOS/SafariChildRegistrationExtension/SafariChildRegistrationExtension.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 3A3AVFF22Q;
+				INFOPLIST_FILE = Sources/iOS/SafariChildRegistrationExtension/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.getbored.filter.safarichildregistration;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		BF4BB5E57ACA393A4D9E0A14 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_ENTITLEMENTS = Sources/iOS/iOSFilterDataProvider/iOSFilterDataProvider.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 3A3AVFF22Q;
+				INFOPLIST_FILE = Sources/iOS/iOSFilterDataProvider/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.getbored.filter.extension;
+				PRODUCT_NAME = iOSFilterDataProvider;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		C28BFBAC5A8B4015B0B7E5F4 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGNING_ALLOWED = NO;
+				DEVELOPMENT_TEAM = 3A3AVFF22Q;
+				INFOPLIST_FILE = tests/SafariTests/SafariSimulatorUITests/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.getbored.macos.safaritestharness.simuitests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphonesimulator;
+				SUPPORTED_PLATFORMS = iphonesimulator;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = SafariTestHarness;
+			};
+			name = Debug;
+		};
+		C7F659E5A9A446709E113A37 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 49CE941972464DE2B869C53D /* Signing.xcconfig */;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 3A3AVFF22Q;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = SafariTestHarness;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.getbored.macos.safaritestharness;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		CB4112C1D8894F90AD00CB09 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 49CE941972464DE2B869C53D /* Signing.xcconfig */;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 3A3AVFF22Q;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = SafariTestHarness;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.getbored.macos.safaritestharness;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		E906116DE875417B8A684B69 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 3A3AVFF22Q;
+				INFOPLIST_FILE = tests/GetBoredUITests/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = tushru.GetBoredUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = "GetBored iOS";
+			};
+			name = Debug;
+		};
+		F274148A2679028E495EDBF1 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_ENTITLEMENTS = Sources/iOS/SafariChildRegistrationExtension/SafariChildRegistrationExtension.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 3A3AVFF22Q;
+				INFOPLIST_FILE = Sources/iOS/SafariChildRegistrationExtension/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.getbored.filter.safarichildregistration;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		09B25F63BBBE9892F4368B3A /* Build configuration list for PBXNativeTarget "SafariChildRegistrationExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BDE69B24C15F082F566A5BE5 /* Release */,
+				F274148A2679028E495EDBF1 /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		0A1FF606E797A36097FAABC7 /* Build configuration list for PBXNativeTarget "GetBored iOS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				52CB578A1F7350A62910D197 /* Release */,
+				82554C4729C362A2623025D3 /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		1A000000F /* Build configuration list for PBXProject "GetBoredIOS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1A0000012 /* Debug */,
+				1A0000013 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		4B326A904CCF4D5DA2357207 /* Build configuration list for PBXNativeTarget "GetBoredUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				E906116DE875417B8A684B69 /* Debug */,
+				A716E2AC39604F3F870A86E1 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		62BE5910AAB14676A924772E /* Build configuration list for PBXNativeTarget "SafariDeviceUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2BD203D17E7643A291162D2A /* Debug */,
+				434408B64B094BC69EE617E9 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		66CC248E7029FE762DD08AA9 /* Build configuration list for PBXNativeTarget "iOSFilterControlProvider" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				7D6CFBBA745D0264BEEE5F60 /* Release */,
+				A4002442D1D03F5EEE2C9404 /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		6D7B284C662244E2871A1CEF /* Build configuration list for PBXNativeTarget "SafariTestHarness" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				CB4112C1D8894F90AD00CB09 /* Debug */,
+				C7F659E5A9A446709E113A37 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		76571D58AFEE7AC6B1599CDE /* Build configuration list for PBXNativeTarget "iOSFilterDataProvider" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1589CE9A50F20814849F73FA /* Release */,
+				BF4BB5E57ACA393A4D9E0A14 /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		7A3B37A2FE526061E0C22CAD /* Build configuration list for PBXNativeTarget "SafariAppProxyProvider" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				6D037BA533CD6037F4B42A07 /* Release */,
+				668C8D14930E58EC3820684A /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		872C77341ED84380909AB8A2 /* Build configuration list for PBXNativeTarget "SafariSimulatorUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C28BFBAC5A8B4015B0B7E5F4 /* Debug */,
+				AF48478F49434D9BA3C909A2 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 1A000000E /* Project object */;
+}

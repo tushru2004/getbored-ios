@@ -1,0 +1,15 @@
+{
+  "originHash" : "d66665f7ee89b295f527070095a14caddf08877b29450136df7bdaefadeba022",
+  "pins" : [
+    {
+      "identity" : "getbored-core",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/tushru2004/getbored-core",
+      "state" : {
+        "revision" : "d9ff47832c497ba2a7a3054e31d4d96d3f4d0006",
+        "version" : "0.1.1"
+      }
+    }
+  ],
+  "version" : 3
+}
