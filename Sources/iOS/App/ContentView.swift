@@ -118,6 +118,24 @@ struct ContentView: View {
         activityEntries.filter { $0.isResolvableHostname }
     }
 
+    /// Deduplicate by domain, keeping the most recent entry per domain
+    private var deduplicatedActivityEntries: [ActivityLogEntry] {
+        var seen: [String: Int] = [:]
+        var result: [ActivityLogEntry] = []
+        for entry in resolvedActivityEntries {
+            let key = entry.displayDomain.lowercased()
+            if let idx = seen[key] {
+                if entry.timestamp > result[idx].timestamp {
+                    result[idx] = entry
+                }
+            } else {
+                seen[key] = result.count
+                result.append(entry)
+            }
+        }
+        return result
+    }
+
     /// Count of entries we filtered out (IPs, unresolvable)
     private var unresolvedActivityCount: Int {
         activityEntries.count - resolvedActivityEntries.count
@@ -643,8 +661,20 @@ struct ContentView: View {
 
                 Spacer()
 
-                // Count badge — total resolved entries
-                Text("\(resolvedActivityEntries.count)")
+                if !deduplicatedActivityEntries.isEmpty {
+                    Button {
+                        IOSActivityLogger.shared.clearLog()
+                        activityEntries = []
+                        Task { await uploadActivityLogToCloudKit() }
+                    } label: {
+                        Image(systemName: "trash")
+                            .font(.system(size: 12))
+                    }
+                    .foregroundStyle(.red)
+                }
+
+                // Count badge — total deduplicated entries
+                Text("\(deduplicatedActivityEntries.count)")
                     .font(.caption2.weight(.bold))
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 8)
@@ -660,7 +690,7 @@ struct ContentView: View {
 
             // Activity entries — show top 5 only.
             // Each row is rendered by activityRow() (defined in chunk 7).
-            if resolvedActivityEntries.isEmpty {
+            if deduplicatedActivityEntries.isEmpty {
                 Text("No blocked activity yet")
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -670,9 +700,9 @@ struct ContentView: View {
                 LazyVStack(spacing: 0) {
                     // prefix(5) — only show the 5 most recent entries.
                     // The full list is available via the "See All" sheet.
-                    ForEach(Array(resolvedActivityEntries.prefix(5))) { entry in
+                    ForEach(Array(deduplicatedActivityEntries.prefix(5).enumerated()), id: \.element.id) { index, entry in
                         activityRow(entry)
-                        if entry.id != resolvedActivityEntries.prefix(5).last?.id {
+                        if index < min(deduplicatedActivityEntries.count, 5) - 1 {
                             Divider().padding(.leading, 14)
                         }
                     }
@@ -680,7 +710,7 @@ struct ContentView: View {
             }
 
             // Footer: unresolved count + "See All" button
-            if !resolvedActivityEntries.isEmpty {
+            if !deduplicatedActivityEntries.isEmpty {
                 Divider()
 
                 VStack(spacing: 6) {
@@ -718,13 +748,21 @@ struct ContentView: View {
         .sheet(isPresented: $showFullActivityLog) {
             NavigationView {
                 List {
-                    ForEach(resolvedActivityEntries) { entry in
+                    ForEach(deduplicatedActivityEntries) { entry in
                         activityRow(entry)
                     }
                 }
                 .navigationTitle("Block Log")
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
+                    ToolbarItem(placement: .navigationBarLeading) {
+                        Button("Clear") {
+                            IOSActivityLogger.shared.clearLog()
+                            activityEntries = []
+                            Task { await uploadActivityLogToCloudKit() }
+                        }
+                        .foregroundStyle(.red)
+                    }
                     ToolbarItem(placement: .navigationBarTrailing) {
                         Button("Done") {
                             showFullActivityLog = false
