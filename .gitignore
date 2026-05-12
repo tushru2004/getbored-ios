@@ -1,0 +1,73 @@
+.DS_Store
+.reference/
+
+# Xcode / SwiftPM
+DerivedData/
+DerivedData-*/
+ProDerivedData/
+ProDerivedData-*/
+SignedDerivedData/
+iOSDeviceDerivedData/
+iOSWorkspaceDerivedData/
+MacWorkspaceDerivedData/
+.compile
+.swiftpm/
+buildServer.json
+*.xcuserstate
+xcuserdata/
+*.xccheckout
+*.xcscmblueprint
+*.xcresult
+*.xcresult/
+*.xctestrun
+
+# SwiftPM
+.build/
+Package.resolved
+GetBoredIOS.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved
+GetBoredIOS.xcworkspace/xcshareddata/swiftpm/Package.resolved
+
+# Build artifacts
+build/
+build-ios/
+build-local/
+pkg-build/
+artifacts/
+*.pkg
+*.dmg
+
+# Tool outputs
+node_modules/
+dist/
+coverage/
+
+# Logs
+logs/
+*.log
+
+# Python
+.venv/
+tests/.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Local tooling state
+.claude/worktrees/
+.gemini/
+.playwright-mcp/
+.idea/
+.cmux/
+
+# Screenshots
+/tmp/getbored-screenshots/
+
+# Sensitive profiles
+*.mobileconfig
+!Config/xr-focused-*.mobileconfig
+*.p12
+*.pfx
+*.pem
+*.key
+*.cer
+*.der
