@@ -25,7 +25,7 @@ xcuserdata/
 .build/
 Package.resolved
 GetBoredIOS.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved
-GetBoredIOS.xcworkspace/xcshareddata/swiftpm/Package.resolved
+GetBoredIOS.xcworkspace/
 
 # Build artifacts
 build/
