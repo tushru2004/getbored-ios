@@ -5,7 +5,7 @@ final class CloudKitSchemaUsageTests: XCTestCase {
     func testCloudKitCodeUsesSharedSchemaConstants() throws {
         let paths = [
             "Sources/iOS/App/ContentView.swift",
-            "Sources/iOS/iOSFilterControlProvider/FilterControlProvider.swift",
+            "Sources/iOS/iOSBlockHandler/BlockHandler.swift",
         ]
 
         let forbiddenPatterns = [

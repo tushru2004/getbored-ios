@@ -1,5 +1,5 @@
 //
-//  FilterControlProvider.swift
+//  BlockHandler.swift
 //  GetBored
 //
 //  Handles escalated flows from the Data Provider, activity logging,
@@ -16,9 +16,9 @@ import GetBoredCore
 import NetworkExtension
 import os.log
 
-class FilterControlProvider: NEFilterControlProvider {
+class BlockHandler: NEFilterControlProvider {
 
-    private let logger = OSLog(subsystem: GetBoredIdentifiers.Logging.iOS, category: "FilterControlProvider")
+    private let logger = OSLog(subsystem: GetBoredIdentifiers.Logging.iOS, category: "BlockHandler")
 
     // MARK: - CloudKit Config
 

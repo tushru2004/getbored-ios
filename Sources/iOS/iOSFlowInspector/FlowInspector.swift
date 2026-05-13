@@ -1,6 +1,6 @@
 //
-//  FilterDataProvider.swift
-//  iOSFilterDataProvider
+//  FlowInspector.swift
+//  iOSFlowInspector
 //
 //  Created by Tushar on 25.02.26.
 //
@@ -10,9 +10,9 @@ import GetBoredCore
 import NetworkExtension
 import os.log
 
-class FilterDataProvider: NEFilterDataProvider {
+class FlowInspector: NEFilterDataProvider {
 
-    private let logger = OSLog(subsystem: GetBoredIdentifiers.Logging.iOS, category: "FilterDataProvider")
+    private let logger = OSLog(subsystem: GetBoredIdentifiers.Logging.iOS, category: "FlowInspector")
     private let safariParentChildContextStore = SafariParentChildContextStore()
     private let safariParentChildObservationMaxAge: TimeInterval = 10
 
@@ -28,7 +28,7 @@ class FilterDataProvider: NEFilterDataProvider {
     /// Apple infrastructure domains that must always be allowed.
     /// Blocking these breaks iCloud, App Store, certificate validation, etc.
     /// Reference: https://support.apple.com/en-us/101555
-    private let systemAllowedSuffixes: [String] = SystemAllowList.load(from: Bundle(for: FilterDataProvider.self))
+    private let systemAllowedSuffixes: [String] = SystemAllowList.load(from: Bundle(for: FlowInspector.self))
 
     /// Check if a host is an Apple system domain that should never be blocked
     private func isSystemAllowed(_ host: String) -> Bool {
