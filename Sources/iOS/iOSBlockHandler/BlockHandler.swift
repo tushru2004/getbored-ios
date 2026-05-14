@@ -3,7 +3,7 @@
 //  GetBored
 //
 //  Handles escalated flows from the Data Provider, activity logging,
-//  block page display, and CloudKit upload.
+//  and CloudKit upload.
 //
 //  The CP exists because the DP (Data Provider) runs in a restricted sandbox
 //  and CANNOT write to UserDefaults. When DP blocks a flow, it returns
@@ -34,102 +34,25 @@ class BlockHandler: NEFilterControlProvider {
     /// Debounce timer for CloudKit uploads — waits 2s after last log before uploading
     private var pendingUploadWorkItem: DispatchWorkItem?
 
-    // MARK: - Start Filter (Block Page Setup)
+    // MARK: - Start / Stop Filter
 
-    /// Called once when iOS activates the content filter.
-    /// We build the block page HTML here and store it in remediationMap
-    /// so iOS knows what to show in Safari when a site is blocked.
-    ///
-    /// Flow:
-    ///   DP returns .remediate() for browser flows
-    ///     → iOS looks up CP's remediationMap
-    ///       → Safari renders the base64 HTML block page
-    ///         → User sees "Content Blocked" card with shield icon
     override func startFilter(completionHandler: @escaping (Error?) -> Void) {
         os_log("Control provider started", log: logger, type: .info)
-
-        let blockPageHTML = """
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-            <title>Content Blocked</title>
-            <style>
-                * { margin: 0; padding: 0; box-sizing: border-box; }
-                body { font-family: -apple-system, system-ui, sans-serif; background: #f5f5f7;
-                       display: flex; align-items: center; justify-content: center;
-                       min-height: 100vh; padding: 24px; }
-                .card { background: white; border-radius: 16px; padding: 48px 32px 36px;
-                        max-width: 400px; width: 100%; text-align: center;
-                        box-shadow: 0 2px 20px rgba(0,0,0,0.06); }
-                .icon { font-size: 48px; margin-bottom: 20px; }
-                h1 { color: #1d1d1f; font-size: 22px; font-weight: 600; margin-bottom: 8px; }
-                .msg { color: #86868b; font-size: 15px; line-height: 1.5; margin-bottom: 8px; }
-                .sub { color: #c7c7cc; font-size: 13px; line-height: 1.4; }
-            </style>
-        </head>
-        <body>
-            <div class="card">
-                <div class="icon">\u{1F6E1}\u{FE0F}</div>
-                <h1>Content Blocked</h1>
-                <p class="msg">This website is restricted by GetBored.</p>
-                <p class="sub">Managed by your parent via the macOS companion app.</p>
-            </div>
-        </body>
-        </html>
-        """
-
-        // Encode HTML as base64 data URL so iOS can render it inline
-        let base64HTML = Data(blockPageHTML.utf8).base64EncodedString()
-        let dataURL = "data:text/html;base64,\(base64HTML)"
-
-        // remediationMap tells iOS:
-        //   "BlockedURL" → what HTML to show
-        //   "RemediationButton" → what the button says
-        remediationMap = [
-            NEFilterProviderRemediationMapRemediationURLs: [
-                "BlockedURL": dataURL as NSString
-            ],
-            NEFilterProviderRemediationMapRemediationButtonTexts: [
-                "RemediationButton": "Go Back" as NSString
-            ]
-        ]
-
-        os_log("Control provider ready with inline block page (%{public}d bytes)",
-               log: logger, type: .info, base64HTML.count)
         completionHandler(nil)
     }
-
-    // MARK: - Stop Filter
 
     override func stopFilter(with reason: NEProviderStopReason, completionHandler: @escaping () -> Void) {
         os_log("Control provider stopped: %{public}@", log: logger, type: .info, String(describing: reason))
         completionHandler()
     }
 
-    // MARK: - Handle Remediation (Block Page Button)
-
-    /// Called when the user taps "Go Back" on the block page.
-    /// We just drop the flow — there's nothing else to do.
-    override func handleRemediation(for flow: NEFilterFlow, completionHandler: @escaping (NEFilterControlVerdict) -> Void) {
-        completionHandler(.drop(withUpdateRules: false))
-    }
-
     // MARK: - Handle Report (Post-Verdict Logging)
 
-    /// Called by iOS AFTER the DP makes a verdict (.drop or .remediate).
+    /// Called by iOS AFTER the DP makes a verdict.
     /// This is how we log blocks that the DP handled directly.
     ///
-    /// .drop vs .remediate:
-    ///   .remediate() → blocks the flow AND shows the "Content Blocked" page in Safari.
-    ///                   Only works for browser flows where Safari can render HTML.
-    ///   .drop()      → silently kills the connection. No block page.
-    ///                   Used for non-browser apps (TikTok, Instagram, etc.)
-    ///                   since there's no browser to show a page in.
-    ///   Both kill the connection — .remediate() just adds a user-friendly page.
-    ///
     /// Decision tree:
-    ///   report.action == .drop or .remediate?
+    ///   report.action == .drop?
     ///     NO  → ignore (we only care about blocks)
     ///     YES → resolve hostname from flow metadata
     ///           → log via IOSActivityLogger
@@ -142,7 +65,7 @@ class BlockHandler: NEFilterControlProvider {
     ///   4. fallback to sourceApp → e.g. "app:com.unknown.app"
     override func handle(_ report: NEFilterReport) {
         let action = report.action
-        guard action == .drop || action == .remediate else { return }
+        guard action == .drop else { return }
 
         let flow = report.flow
         let sourceApp = flow?.sourceAppIdentifier
@@ -185,7 +108,6 @@ class BlockHandler: NEFilterControlProvider {
     /// Why does DP use .needRules() instead of .drop()?
     ///   .needRules() routes the flow to CP where we CAN log.
     ///   .drop() would block silently with no logging.
-    ///   For browser flows, .needRules() also enables the block page.
     ///
     /// Decision tree:
     ///   DP returns .needRules()
