@@ -82,6 +82,11 @@ class FlowInspector: NEFilterDataProvider {
         // Always re-read the mode — it could change at any time via CloudKit sync
         currentMode = IOSRuleStore.shared.getMode()
 
+        // Captive portal session: fail-open so the user can authenticate to hotel/airport WiFi
+        if IOSRuleStore.shared.isCaptivePortalModeActive() {
+            return (false, "Captive portal session active")
+        }
+
         // Block-everything mode: only sites in the list (and their CDNs) are allowed
         if currentMode == "whiteList" {
             if IOSRuleStore.shared.isListed(url: host) {

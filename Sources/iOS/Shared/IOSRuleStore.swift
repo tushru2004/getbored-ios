@@ -47,6 +47,9 @@ class IOSRuleStore {
     /// JSON-encoded [ActivityLogEntry] — filter decision log
     private let logKey = "activity_log_entries"
 
+    /// Unix timestamp (Double) after which captive portal mode expires. Absent = inactive.
+    private let captivePortalExpiresAtKey = "captive_portal_expires_at"
+
     // MARK: - Cached UserDefaults
 
     /// Cached UserDefaults instance. Re-creating UserDefaults(suiteName:) on every call
@@ -219,6 +222,29 @@ class IOSRuleStore {
             logger.info("isAppAllowed: \(bundleID) is allowed")
         }
         return result
+    }
+
+    // MARK: - Captive Portal Session
+
+    /// Returns true if a captive portal session is currently active (expiry in the future).
+    func isCaptivePortalModeActive() -> Bool {
+        let expires = sharedDefaults?.double(forKey: captivePortalExpiresAtKey) ?? 0
+        return expires > Date().timeIntervalSince1970
+    }
+
+    /// Allow all traffic for `duration` seconds (default 5 min) so the user can authenticate.
+    func activateCaptivePortalMode(duration: TimeInterval = 300) {
+        let expires = Date().timeIntervalSince1970 + duration
+        logger.info("activateCaptivePortalMode: active for \(Int(duration))s, expires at \(expires)")
+        sharedDefaults?.set(expires, forKey: captivePortalExpiresAtKey)
+        sharedDefaults?.synchronize()
+    }
+
+    /// Cancel an active captive portal session immediately.
+    func deactivateCaptivePortalMode() {
+        logger.info("deactivateCaptivePortalMode")
+        sharedDefaults?.removeObject(forKey: captivePortalExpiresAtKey)
+        sharedDefaults?.synchronize()
     }
 
     // MARK: - CDN / Related Domain Detection

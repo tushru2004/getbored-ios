@@ -595,6 +595,11 @@ final class SafariAppProxyProvider: NEAppProxyProvider {
             return true
         }
 
+        let portalExpiry = defaults?.double(forKey: "captive_portal_expires_at") ?? 0
+        if portalExpiry > Date().timeIntervalSince1970 {
+            return true
+        }
+
         let mode = defaults?.string(forKey: "filter_mode") ?? "blockSpecific"
         let listed = matchingListedDomain(for: host) != nil
 
