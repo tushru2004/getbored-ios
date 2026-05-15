@@ -40,12 +40,10 @@
 		CD1A4BD68A1FDCBCE94D93DA /* icon-128.png in Resources */ = {isa = PBXBuildFile; fileRef = 2E1593454C4A4A047824CB58 /* icon-128.png */; };
 		DC2BFCC6E40C73EACED483AF /* SafariWebExtensionHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = C40B8E6852EC46DF4308D18E /* SafariWebExtensionHandler.swift */; };
 		E1F0FF1A025AC7A4F2CDF708 /* icon-96.png in Resources */ = {isa = PBXBuildFile; fileRef = 790C22BAE3CAAEEFF3CCD75D /* icon-96.png */; };
-		E26C8D22B1484557B7765293 /* blocked.html in Resources */ = {isa = PBXBuildFile; fileRef = 85A78E117BCD41F8830F6606 /* blocked.html */; };
 		ED1D7B0230D5E22C8F1D6245 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CAF0878EF27A9625CCD0F666 /* Foundation.framework */; };
 		F4D5E6F70819A2BC345DEFAB /* CoreLocation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F3C4D5E6F708192AB234CDEF /* CoreLocation.framework */; };
 		F5E6F7089012ABCDF1A2B3C4 /* FilterListModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1A2B3C4D5E6F7089012ABCD /* FilterListModels.swift */; };
 		F6F70819A123BCDEF2B3C4D5 /* LocationBlockingManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2B3C4D5E6F70819A123BCDE /* LocationBlockingManager.swift */; };
-		F7B26597259249DF92C6B642 /* BlockPageServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88523E61184142F0A5234736 /* BlockPageServer.swift */; };
 		WLITEM001000000000000001 /* WhitelistItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = WLITEM000000000000000001 /* WhitelistItem.swift */; };
 		WLMGR001000000000000001 /* WhitelistManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = WLMGR000000000000000001 /* WhitelistManager.swift */; };
 		SPMBUILDFILE000000000003 /* GetBoredCore in Frameworks */ = {isa = PBXBuildFile; productRef = SPMPROD00000000000000003 /* GetBoredCore */; };
@@ -164,8 +162,6 @@
 		729E48CD1BFC77ED88933AC0 /* NetworkExtension.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = System/Library/Frameworks/NetworkExtension.framework; sourceTree = SDKROOT; };
 		790C22BAE3CAAEEFF3CCD75D /* icon-96.png */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = image.png; name = "icon-96.png"; path = "images/icon-96.png"; sourceTree = "<group>"; };
 		855DF3E6AC69A81713170DB1 /* FlowInspector.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = FlowInspector.swift; path = Sources/iOS/iOSFlowInspector/FlowInspector.swift; sourceTree = "<group>"; };
-		85A78E117BCD41F8830F6606 /* blocked.html */ = {isa = PBXFileReference; lastKnownFileType = text.html; name = blocked.html; path = Sources/iOS/App/blocked.html; sourceTree = "<group>"; };
-		88523E61184142F0A5234736 /* BlockPageServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = BlockPageServer.swift; path = Sources/iOS/App/BlockPageServer.swift; sourceTree = "<group>"; };
 		90EB16EBC4784D4BA92EF651 /* SafariTestHarnessApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SafariTestHarnessApp.swift; sourceTree = "<group>"; };
 		A60E5D972187DF777B271D91 /* SafariChildRegistrationExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; name = SafariChildRegistrationExtension.appex; path = SafariChildRegistrationExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		A77015159D559FE37F614107 /* icon-512.png */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = image.png; name = "icon-512.png"; path = "images/icon-512.png"; sourceTree = "<group>"; };
@@ -486,12 +482,10 @@
 				1EE5A7D95D74D0CCC2393E1F /* ContentView.swift */,
 				18C22B6A3A1A2710A8A8CCDE /* Info.plist */,
 				3EF61BF872CC93A5034A0241 /* GetBored iOS.entitlements */,
-				88523E61184142F0A5234736 /* BlockPageServer.swift */,
 				F2B3C4D5E6F70819A123BCDE /* LocationBlockingManager.swift */,
 				F1A2B3C4D5E6F7089012ABCD /* FilterListModels.swift */,
 				WLITEM000000000000000001 /* WhitelistItem.swift */,
 				WLMGR000000000000000001 /* WhitelistManager.swift */,
-				85A78E117BCD41F8830F6606 /* blocked.html */,
 				00E54D0F98645FFEB51C88D6 /* Assets.xcassets */,
 			);
 			name = App;
@@ -777,7 +771,6 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				E26C8D22B1484557B7765293 /* blocked.html in Resources */,
 				55C74922AB7F859C1F92C9B6 /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -800,7 +793,6 @@
 				6C54395330DA6A1140CD31A7 /* GetBored_iOSApp.swift in Sources */,
 				0DD39139A2FE746EA71327A2 /* ContentView.swift in Sources */,
 				3866DA922000B43E04EFB167 /* IOSRuleStore.swift in Sources */,
-				F7B26597259249DF92C6B642 /* BlockPageServer.swift in Sources */,
 				F5E6F7089012ABCDF1A2B3C4 /* FilterListModels.swift in Sources */,
 				F6F70819A123BCDEF2B3C4D5 /* LocationBlockingManager.swift in Sources */,
 				WLITEM001000000000000001 /* WhitelistItem.swift in Sources */,
