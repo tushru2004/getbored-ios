@@ -1,0 +1,53 @@
+{
+  "files.exclude": {
+    "**/.DS_Store": true,
+    "**/.build": true,
+    "**/.swiftpm": true,
+    "**/.compile": true,
+    "**/DerivedData": true,
+    "**/DerivedData-*": true,
+    "**/ProDerivedData": true,
+    "**/ProDerivedData-*": true,
+    "**/SignedDerivedData": true,
+    "**/iOSDeviceDerivedData": true,
+    "**/iOSWorkspaceDerivedData": true,
+    "**/MacWorkspaceDerivedData": true,
+    "**/xcuserdata": true,
+    "**/*.xcuserstate": true,
+    "**/*.xccheckout": true,
+    "**/*.xcscmblueprint": true,
+    "**/*.xcresult": true,
+    "**/*.xctestrun": true,
+    "**/buildServer.json": true,
+    "**/Package.resolved": true,
+    "**/build": true,
+    "**/.reference": true
+  },
+  "search.exclude": {
+    "**/.build": true,
+    "**/.swiftpm": true,
+    "**/DerivedData": true,
+    "**/DerivedData-*": true,
+    "**/iOSDeviceDerivedData": true,
+    "**/iOSWorkspaceDerivedData": true,
+    "**/MacWorkspaceDerivedData": true,
+    "**/SignedDerivedData": true,
+    "**/ProDerivedData": true,
+    "**/ProDerivedData-*": true,
+    "**/xcuserdata": true,
+    "**/build": true,
+    "**/Package.resolved": true,
+    "**/*.xcresult": true
+  },
+  "files.watcherExclude": {
+    "**/.build/**": true,
+    "**/.swiftpm/**": true,
+    "**/DerivedData*/**": true,
+    "**/iOSDeviceDerivedData/**": true,
+    "**/iOSWorkspaceDerivedData/**": true,
+    "**/MacWorkspaceDerivedData/**": true,
+    "**/SignedDerivedData/**": true,
+    "**/ProDerivedData*/**": true,
+    "**/build/**": true
+  }
+}
