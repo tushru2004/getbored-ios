@@ -1,5 +1,5 @@
 SCHEME          := GetBored iOS
-WORKSPACE       := GetBoredIOS.xcworkspace
+PROJECT         := GetBoredIOS.xcodeproj
 DERIVED_DATA    := ./iOSDeviceDerivedData
 APP_PATH        := $(DERIVED_DATA)/Build/Products/Debug-iphoneos/GetBored.app
 RELEASE_APP     := $(DERIVED_DATA)/Build/Products/Release-iphoneos/GetBored.app
@@ -17,7 +17,7 @@ all: build
 # Unsigned simulator/CI build (no device required)
 build:
 	xcodebuild \
-		-workspace $(WORKSPACE) \
+		-project $(PROJECT) \
 		-scheme "$(SCHEME)" \
 		-destination 'generic/platform=iOS' \
 		-derivedDataPath $(DERIVED_DATA) \
@@ -27,7 +27,7 @@ build:
 # Signed Debug build for physical device (requires connected XR + keychain unlock)
 build-device:
 	xcodebuild \
-		-workspace $(WORKSPACE) \
+		-project $(PROJECT) \
 		-scheme "$(SCHEME)" \
 		-destination 'generic/platform=iOS' \
 		-derivedDataPath $(DERIVED_DATA) \
@@ -38,7 +38,7 @@ build-device:
 # Signed Release build
 build-release:
 	xcodebuild \
-		-workspace $(WORKSPACE) \
+		-project $(PROJECT) \
 		-scheme "$(SCHEME)" \
 		-destination 'generic/platform=iOS' \
 		-derivedDataPath $(DERIVED_DATA) \
