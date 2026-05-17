@@ -82,6 +82,11 @@ class FlowInspector: NEFilterDataProvider {
         // Always re-read the mode — it could change at any time via CloudKit sync
         currentMode = IOSRuleStore.shared.getMode()
 
+        // Captive portal session: fail-open so the user can authenticate to hotel/airport WiFi
+        if IOSRuleStore.shared.isCaptivePortalModeActive() {
+            return (false, "Captive portal session active")
+        }
+
         // Block-everything mode: only sites in the list (and their CDNs) are allowed
         if currentMode == "whiteList" {
             if IOSRuleStore.shared.isListed(url: host) {
@@ -223,6 +228,20 @@ class FlowInspector: NEFilterDataProvider {
     override func handleNewFlow(_ flow: NEFilterFlow) -> NEFilterNewFlowVerdict {
         let sourceApp = flow.sourceAppIdentifier
 
+        // ── Step 0: Loopback bypass (Metro dev server, local sockets) ────
+        // RN's Metro connects to localhost:8081 via usbmuxd. The source app
+        // may be nil during RN bridge startup, so we cannot rely on Step 1.
+        // Always allow loopback regardless of sourceApp.
+        if let socketFlow = flow as? NEFilterSocketFlow,
+           let endpoint = socketFlow.remoteEndpoint as? NWHostEndpoint {
+            let host = endpoint.hostname
+            if host == "127.0.0.1" || host == "::1" || host == "localhost" {
+                os_log("handleNewFlow: bypassing loopback %{public}@:%{public}@",
+                       log: logger, type: .info, host, endpoint.port)
+                return .allow()
+            }
+        }
+
         // ── Step 1 & 2: Per-app checks ──────────────────────────────────
         if let sourceApp {
             os_log("handleNewFlow: checking sourceApp=%{public}@", log: logger, type: .info, sourceApp)
@@ -235,8 +254,11 @@ class FlowInspector: NEFilterDataProvider {
 
             // 1b. Always allow Apple system apps (com.apple.*) — they use CDN domains
             //     that would clutter the Block Log. Safari excluded: it's a browser.
-            if (appLower.hasSuffix(".com.apple.") || appLower.contains(".com.apple."))
-                && !appLower.contains("mobilesafari") {
+            //     Includes sharingd (AirDrop), mDNSResponder (Bonjour), WirelessProximity,
+            //     and other system daemons.
+            if appLower.hasPrefix("com.apple.") && !appLower.contains("mobilesafari") {
+                os_log("handleNewFlow: bypassing Apple system app: %{public}@",
+                       log: logger, type: .info, sourceApp)
                 return .allow()
             }
 
