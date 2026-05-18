@@ -2,10 +2,9 @@ import UIKit
 import React
 import React_RCTAppDelegate
 
-/// UIKit AppDelegate that owns the window and mounts the React Native root view.
-/// Uses RCTAppDelegate (New Architecture) so that RCTNewArchEnabled=true in Info.plist
-/// is honoured. GetBored_iOSApp.swift stays as @main and bridges here via
-/// @UIApplicationDelegateAdaptor — the WindowGroup body is intentionally empty.
+/// UIKit @main AppDelegate that owns the window and mounts the React Native root view.
+/// Subclasses RCTAppDelegate so RCTNewArchEnabled=true in Info.plist is honoured.
+@main
 @objc(AppDelegate)
 final class AppDelegate: RCTAppDelegate {
 
@@ -24,6 +23,7 @@ final class AppDelegate: RCTAppDelegate {
 
     override func bundleURL() -> URL? {
         #if DEBUG
+        RCTBundleURLProvider.sharedSettings().jsLocation = "192.168.0.137"
         return RCTBundleURLProvider.sharedSettings().jsBundleURL(forBundleRoot: "index")
         #else
         return Bundle.main.url(forResource: "main", withExtension: "jsbundle")
