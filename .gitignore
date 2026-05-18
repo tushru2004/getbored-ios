@@ -12,6 +12,9 @@ iOSWorkspaceDerivedData/
 MacWorkspaceDerivedData/
 .compile
 .swiftpm/
+.gradle/
+.kotlin/
+**/build/
 buildServer.json
 *.xcuserstate
 xcuserdata/
