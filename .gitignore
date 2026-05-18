@@ -26,6 +26,12 @@ xcuserdata/
 Package.resolved
 GetBoredIOS.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved
 
+# Kotlin Multiplatform build output
+shared-kotlin/build/
+.gradle/
+.kotlin/
+local.properties
+
 # Build artifacts
 build/
 build-ios/
