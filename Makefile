@@ -10,7 +10,11 @@ DEVICE_UDID     ?= 00008020-0004695621DA002E
 # iPhone 13 mini — production Release installs
 PROD_DEVICE_UDID ?= 00008110-0016786001D2401E
 
-.PHONY: all build build-release build-device install install-only swift-test clean
+# Java for Gradle (KMP XCFramework builds)
+JAVA_HOME       ?= /opt/homebrew/opt/openjdk
+export JAVA_HOME
+
+.PHONY: all build build-release build-device install install-only swift-test clean kmp kmp-clean
 
 all: build
 
@@ -60,6 +64,13 @@ install-only:
 
 swift-test:
 	swift test --filter IOSContractTests
+
+# Rebuild the Kotlin GetBoredSharedCore.xcframework (run after editing shared-kotlin/**)
+kmp:
+	./gradlew :shared-kotlin:assembleGetBoredSharedCoreXCFramework
+
+kmp-clean:
+	./gradlew :shared-kotlin:clean
 
 clean:
 	rm -rf $(DERIVED_DATA)

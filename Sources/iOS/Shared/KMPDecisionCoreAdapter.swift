@@ -46,6 +46,77 @@ public enum KMPDecisionCoreAdapter {
         public let shouldAllow: Bool
     }
 
+    public struct FilterStatusViewModel {
+        public let filterState: String
+        public let filterLabel: String
+        public let icloudState: String
+        public let icloudLabel: String
+
+        public func toDictionary() -> [String: String] {
+            [
+                "filterState": filterState,
+                "filterLabel": filterLabel,
+                "icloudState": icloudState,
+                "icloudLabel": icloudLabel,
+            ]
+        }
+    }
+
+    public static func filterStatusViewModel(
+        filterEnabled: Bool?,
+        filterErrorMessage: String?,
+        icloudAvailable: Bool?,
+        icloudErrorMessage: String?
+    ) -> FilterStatusViewModel {
+        #if canImport(GetBoredSharedCore)
+        let vm = GetBoredSharedCore.FilterStatusCore().viewModel(
+            filterEnabled: filterEnabled.map { KotlinBoolean(bool: $0) },
+            filterErrorMessage: filterErrorMessage,
+            icloudAvailable: icloudAvailable.map { KotlinBoolean(bool: $0) },
+            icloudErrorMessage: icloudErrorMessage
+        )
+        return FilterStatusViewModel(
+            filterState: vm.filterState,
+            filterLabel: vm.filterLabel,
+            icloudState: vm.icloudState,
+            icloudLabel: vm.icloudLabel
+        )
+        #else
+        let filterState: String
+        let filterLabel: String
+        if let filterErrorMessage {
+            filterState = "error"
+            filterLabel = filterErrorMessage
+        } else if let filterEnabled {
+            filterState = filterEnabled ? "active" : "inactive"
+            filterLabel = filterEnabled ? "Active & Protecting" : "Inactive"
+        } else {
+            filterState = "checking"
+            filterLabel = "Checking..."
+        }
+
+        let icloudState: String
+        let icloudLabel: String
+        if let icloudErrorMessage {
+            icloudState = "unavailable"
+            icloudLabel = icloudErrorMessage
+        } else if let icloudAvailable {
+            icloudState = icloudAvailable ? "available" : "unavailable"
+            icloudLabel = icloudAvailable ? "Connected" : "Not signed in"
+        } else {
+            icloudState = "checking"
+            icloudLabel = "Checking..."
+        }
+
+        return FilterStatusViewModel(
+            filterState: filterState,
+            filterLabel: filterLabel,
+            icloudState: icloudState,
+            icloudLabel: icloudLabel
+        )
+        #endif
+    }
+
     public static func shouldBlock(_ url: String, using loadedFilterRules: LoadedFilterRules) -> Bool {
         #if canImport(GetBoredSharedCore)
         return GetBoredSharedCore.DecisionCore().shouldBlock(
