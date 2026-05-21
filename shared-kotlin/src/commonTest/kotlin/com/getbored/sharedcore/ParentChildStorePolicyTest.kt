@@ -620,6 +620,27 @@ class ParentChildStorePolicyTest {
     }
 
     @Test
+    fun activePageContextRequiresTypedSwiftWireFormatNotLegacyPayload() {
+        val legacyJson = """
+            {
+              "type": "getbored.childRegistrationProbe",
+              "url": "https://parent.com/page",
+              "parentDomain": "parent.com",
+              "childDomains": ["child1.com", "child2.com"],
+              "source": "safari-extension",
+              "receivedAt": "2024-05-21T14:30:00Z"
+            }
+        """.trimIndent()
+
+        val result = policy.dynamicChildren(
+            activeContextJson = legacyJson,
+            registryJson = null,
+            parentDomain = "parent.com",
+        )
+        assertTrue(result.isEmpty())
+    }
+
+    @Test
     fun registryDecodesFromSwiftCourierJsonFormat() {
         // Swift courier JSON-encodes the plist [String:[String]] dict before handing to Kotlin
         val wireJson = """{"parent.com":["child1.com","child2.com"]}"""

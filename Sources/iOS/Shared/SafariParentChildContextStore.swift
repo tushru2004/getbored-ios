@@ -144,7 +144,7 @@ struct SafariParentChildContextStore {
         guard let parent = Self.normalizedHost(parentDomain) else { return [] }
         return KMPDecisionCoreAdapter.parentChildMergedChildren(
             parentChildMapJson: loadParentChildMapJson(),
-            activeContextJson: loadActiveContextJson(),
+            activeContextJson: loadActiveContextJSONForKotlin(),
             registryJson: loadRegistryJson(),
             parentDomain: parent
         )
@@ -211,7 +211,7 @@ struct SafariParentChildContextStore {
         guard let host = Self.normalizedHost(requestHost) else { return nil }
         guard let match = KMPDecisionCoreAdapter.freshChildAllowMatch(
             flowObservationJson: loadFlowObservationJson(),
-            activeContextJson: loadActiveContextJson(),
+            activeContextJson: loadActiveContextJSONForKotlin(),
             parentChildMapJson: loadParentChildMapJson(),
             registryJson: loadRegistryJson(),
             requestHost: host,
@@ -254,11 +254,17 @@ struct SafariParentChildContextStore {
         return String(data: data, encoding: .utf8)
     }
 
-    private func loadActiveContextJson() -> String? {
+    private func loadActiveContextJSONForKotlin() -> String? {
         if let data = defaults?.data(forKey: Self.activeContextDataKey) {
             return String(data: data, encoding: .utf8)
         }
-        return defaults?.string(forKey: Self.legacyActiveContextKey)
+
+        // Legacy storage uses the debug payload shape; Kotlin expects ActivePageContext Codable JSON.
+        guard let context = loadActiveContext(),
+              let data = try? encoder.encode(context) else {
+            return nil
+        }
+        return String(data: data, encoding: .utf8)
     }
 
     private func loadParentChildMap() -> ParentChildMap? {
@@ -295,7 +301,7 @@ struct SafariParentChildContextStore {
     private func dynamicChildren(for parentDomain: String) -> Set<String> {
         guard let parent = Self.normalizedHost(parentDomain) else { return [] }
         return KMPDecisionCoreAdapter.parentChildDynamicChildren(
-            activeContextJson: loadActiveContextJson(),
+            activeContextJson: loadActiveContextJSONForKotlin(),
             registryJson: loadRegistryJson(),
             parentDomain: parent
         )
