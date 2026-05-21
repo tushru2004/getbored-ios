@@ -69,13 +69,6 @@ final class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
         logger.info("Cleared Safari extension active page context")
     }
 
-    private func normalizedHost(_ value: String?) -> String? {
-        value?
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .lowercased()
-            .trimmingCharacters(in: CharacterSet(charactersIn: "."))
-    }
-
     private func normalizedPayload(from message: Any?, receivedAt: Date) -> [String: Any] {
         let dictionary = message as? [String: Any] ?? [:]
         return [
