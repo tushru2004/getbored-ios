@@ -61,7 +61,6 @@
 		EB8B943EF30F07FE5886D526 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 6964DDE065BE32959A0A45E8 /* PrivacyInfo.xcprivacy */; };
 		EBDD6122FA1BDE26F3E43E5E /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 6964DDE065BE32959A0A45E8 /* PrivacyInfo.xcprivacy */; };
 		ED1D7B0230D5E22C8F1D6245 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CAF0878EF27A9625CCD0F666 /* Foundation.framework */; };
-		F4D5E6F70819A2BC345DEFAB /* CoreLocation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F3C4D5E6F708192AB234CDEF /* CoreLocation.framework */; };
 		F5E6F7089012ABCDF1A2B3C4 /* FilterListModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1A2B3C4D5E6F7089012ABCD /* FilterListModels.swift */; };
 		SPMBUILDFILE000000000003 /* GetBoredCore in Frameworks */ = {isa = PBXBuildFile; productRef = SPMPROD00000000000000003 /* GetBoredCore */; };
 		SPMBUILDFILE000000000004 /* GetBoredCore in Frameworks */ = {isa = PBXBuildFile; productRef = SPMPROD00000000000000004 /* GetBoredCore */; };
@@ -196,7 +195,6 @@
 		E517431784A245AD86943D22 /* SafariSimulatorUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SafariSimulatorUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		E5E8702C81E4C7EC000CAB9E /* iOSFlowInspector.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; name = iOSFlowInspector.entitlements; path = Sources/iOS/iOSFlowInspector/iOSFlowInspector.entitlements; sourceTree = "<group>"; };
 		F1A2B3C4D5E6F7089012ABCD /* FilterListModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = FilterListModels.swift; path = Sources/iOS/App/FilterListModels.swift; sourceTree = SOURCE_ROOT; };
-		F3C4D5E6F708192AB234CDEF /* CoreLocation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreLocation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/CoreLocation.framework; sourceTree = DEVELOPER_DIR; };
 		F8B5E0A622CE50156F3873F7 /* Sources/iOS/SafariAppProxyProvider/Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Sources/iOS/SafariAppProxyProvider/Info.plist; sourceTree = SOURCE_ROOT; };
 		FC7C9C45648F8CA624EEC1E0 /* SafariServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = SafariServices.framework; sourceTree = "<group>"; };
 		SCRE0001SCRE00000001SCRE /* Sources/iOS/SafariChildRegistrationExtension/SafariChildRegistrationExtension.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; path = Sources/iOS/SafariChildRegistrationExtension/SafariChildRegistrationExtension.entitlements; sourceTree = SOURCE_ROOT; };
@@ -254,7 +252,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				5894B360584FA5BCCA9AF7AE /* Foundation.framework in Frameworks */,
-				F4D5E6F70819A2BC345DEFAB /* CoreLocation.framework in Frameworks */,
 				SPMBUILDFILE000000000003 /* GetBoredCore in Frameworks */,
 				D10000000000000000000002 /* GetBoredSharedCore.xcframework in Frameworks */,
 				443040EDA4807A81C2B76CF1 /* libPods-GetBored iOS.a in Frameworks */,
@@ -407,7 +404,6 @@
 			isa = PBXGroup;
 			children = (
 				CAF0878EF27A9625CCD0F666 /* Foundation.framework */,
-				F3C4D5E6F708192AB234CDEF /* CoreLocation.framework */,
 			);
 			name = iOS;
 			sourceTree = "<group>";
