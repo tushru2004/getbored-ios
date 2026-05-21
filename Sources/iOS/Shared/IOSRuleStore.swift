@@ -246,25 +246,9 @@ class IOSActivityLogger {
 
     // MARK: - Team ID Stripping
 
-    /// Strip team ID prefix from sourceAppIdentifier.
-    /// NEFilterFlow.sourceAppIdentifier returns "TEAMID.com.bundle.id" — we want just "com.bundle.id"
+    /// Strip team ID prefix from sourceAppIdentifier. Delegates to Kotlin ActivityLogPolicy.
     private func stripTeamID(_ identifier: String?) -> String? {
-        guard let identifier, !identifier.isEmpty else { return nil }
-        let prefixes = ["com.", "org.", "net.", "de.", "io.", "me.", "app.", "co.", "uk.", "fr.", "jp.", "au.", "at."]
-        for prefix in prefixes {
-            if let range = identifier.range(of: prefix) {
-                return String(identifier[range.lowerBound...])
-            }
-        }
-        // If no known prefix, check for team ID pattern (uppercase alphanumeric, ~10 chars)
-        let parts = identifier.split(separator: ".")
-        if parts.count >= 3 {
-            let first = String(parts[0])
-            if first.count >= 8 && first.allSatisfy({ $0.isUppercase || $0.isNumber }) {
-                return parts.dropFirst().joined(separator: ".")
-            }
-        }
-        return identifier
+        KMPDecisionCoreAdapter.activityLogStripTeamID(identifier)
     }
 
     // MARK: - Logging
@@ -332,22 +316,11 @@ class IOSActivityLogger {
             existing = (try? JSONDecoder().decode([ActivityLogEntry].self, from: data)) ?? []
         }
 
-        // Prepend new entries and trim to max, ensuring fair per-app representation
-        existing = newEntries + existing
-        if existing.count > maxEntries {
-            // Keep at most 50 entries per app to prevent one noisy app from pushing others out
-            let maxPerApp = 50
-            var counts: [String: Int] = [:]
-            existing = existing.filter { entry in
-                let key = entry.sourceApp?.lowercased() ?? "__nil__"
-                let count = counts[key, default: 0]
-                counts[key] = count + 1
-                return count < maxPerApp
-            }
-            if existing.count > maxEntries {
-                existing = Array(existing.prefix(maxEntries))
-            }
-        }
+        existing = KMPDecisionCoreAdapter.activityLogMergeAndTrim(
+            existing: existing,
+            newEntries: newEntries,
+            maxTotal: maxEntries
+        )
 
         if let data = try? JSONEncoder().encode(existing) {
             defaults.set(data, forKey: logKey)
