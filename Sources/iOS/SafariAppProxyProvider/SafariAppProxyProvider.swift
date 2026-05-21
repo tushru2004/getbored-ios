@@ -574,10 +574,7 @@ final class SafariAppProxyProvider: NEAppProxyProvider {
     /// Used both for incoming flow hosts and for the `site_rules` rule URLs
     /// so comparisons are apples-to-apples.
     private func normalizedHost(_ value: String?) -> String? {
-        value?
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .lowercased()
-            .trimmingCharacters(in: CharacterSet(charactersIn: "."))
+        SafariParentChildContextStore.normalizedHost(value)
     }
 
     /// Direct allow check that bypasses parent-child policy.
@@ -626,7 +623,7 @@ final class SafariAppProxyProvider: NEAppProxyProvider {
     }
 
     private func hostMatchesRule(_ host: String, _ rule: String) -> Bool {
-        host == rule || host.hasSuffix("." + rule)
+        SafariParentChildContextStore.host(host, matchesDomain: rule)
     }
 
     /// Best-effort domain extraction from a site_rule's `url` field.

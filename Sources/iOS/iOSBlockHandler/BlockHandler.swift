@@ -177,8 +177,8 @@ class BlockHandler: NEFilterControlProvider {
         let rawURLHost = flow?.url?.host
         let rawEndpoint = (flow as? NEFilterSocketFlow)
             .flatMap { ($0.remoteEndpoint as? NWHostEndpoint)?.hostname }
-        let normalizedURLHost = normalizeHost(rawURLHost)
-        let normalizedEndpoint = normalizeHost(rawEndpoint)
+        let normalizedURLHost = normalizedBlockedHost(rawURLHost)
+        let normalizedEndpoint = normalizedBlockedHost(rawEndpoint)
 
         // 1. Try URL host (browser flows like Safari give us this directly)
         if let urlHost = normalizedURLHost, isResolvableHost(urlHost) {
@@ -241,10 +241,9 @@ class BlockHandler: NEFilterControlProvider {
 
     // MARK: - Hostname Helpers
 
-    /// Trim trailing dots, lowercase, reject empty or "unknown"
-    private func normalizeHost(_ value: String?) -> String? {
-        guard let value else { return nil }
-        let host = value.trimmingCharacters(in: CharacterSet(charactersIn: ".")).lowercased()
+    /// Normalize through the shared rule store, then reject unhelpful placeholders.
+    private func normalizedBlockedHost(_ value: String?) -> String? {
+        guard let host = IOSRuleStore.normalizedHost(value) else { return nil }
         guard !host.isEmpty, host != "unknown" else { return nil }
         return host
     }

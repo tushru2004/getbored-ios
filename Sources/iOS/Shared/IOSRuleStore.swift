@@ -247,17 +247,25 @@ class IOSRuleStore {
 
     // MARK: - Helpers
 
-    /// Extract the domain from a URL string or hostname.
-    /// Strips scheme, path, port, and query string.
-    private func extractDomain(from input: String) -> String {
-        var str = input
+    /// Normalize a URL string or hostname for shared iOS filter comparisons.
+    static func normalizedHost(_ value: String?) -> String? {
+        guard var str = value?.trimmingCharacters(in: .whitespacesAndNewlines) else { return nil }
         if let range = str.range(of: "://") {
             str = String(str[range.upperBound...])
         }
         if let slash = str.firstIndex(of: "/") { str = String(str[..<slash]) }
         if let colon = str.firstIndex(of: ":") { str = String(str[..<colon]) }
         if let question = str.firstIndex(of: "?") { str = String(str[..<question]) }
-        return str
+        let host = str
+            .trimmingCharacters(in: CharacterSet(charactersIn: "."))
+            .lowercased()
+        return host.isEmpty ? nil : host
+    }
+
+    /// Extract the domain from a URL string or hostname.
+    /// Strips scheme, path, port, and query string.
+    private func extractDomain(from input: String) -> String {
+        Self.normalizedHost(input) ?? ""
     }
 }
 
