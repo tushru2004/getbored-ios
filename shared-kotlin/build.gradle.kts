@@ -2,6 +2,7 @@ import org.jetbrains.kotlin.gradle.plugin.mpp.apple.XCFramework
 
 plugins {
     id("org.jetbrains.kotlin.multiplatform")
+    kotlin("plugin.serialization") version "2.3.21"
 }
 
 kotlin {
@@ -32,6 +33,9 @@ kotlin {
     }
 
     sourceSets {
+        commonMain.dependencies {
+            implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0")
+        }
         commonTest.dependencies {
             implementation(kotlin("test"))
         }

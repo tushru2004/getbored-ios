@@ -319,6 +319,78 @@ public enum KMPDecisionCoreAdapter {
         #endif
     }
 
+    // MARK: - Activity Log Policy
+
+    /// Strip team-ID prefix from a sourceAppIdentifier. Delegates to Kotlin ActivityLogPolicy.
+    public static func activityLogStripTeamID(_ identifier: String?) -> String? {
+        #if canImport(GetBoredSharedCore)
+        return GetBoredSharedCore.ActivityLogPolicy().stripTeamID(identifier: identifier)
+        #else
+        kotlinCoreUnavailable()
+        #endif
+    }
+
+    /// Prepend newEntries onto existing, then apply per-app fairness cap + total cap.
+    /// Delegates to Kotlin ActivityLogPolicy.mergeAndTrimEntries.
+    public static func activityLogMergeAndTrim(
+        existing: [GetBoredCore.ActivityLogEntry],
+        newEntries: [GetBoredCore.ActivityLogEntry],
+        maxTotal: Int = 500,
+        maxPerApp: Int = 50
+    ) -> [GetBoredCore.ActivityLogEntry] {
+        #if canImport(GetBoredSharedCore)
+        let kotlinExisting = existing.map { kotlinActivityLogEntry(from: $0) }
+        let kotlinNew = newEntries.map { kotlinActivityLogEntry(from: $0) }
+        let result = GetBoredSharedCore.ActivityLogPolicy().mergeAndTrimEntries(
+            existing: kotlinExisting,
+            newEntries: kotlinNew,
+            maxTotal: Int32(maxTotal),
+            maxPerApp: Int32(maxPerApp)
+        )
+        return result.map { swiftActivityLogEntry(from: $0) }
+        #else
+        kotlinCoreUnavailable()
+        #endif
+    }
+
+    #if canImport(GetBoredSharedCore)
+    // MARK: - ActivityLogEntry DTO conversion helpers
+
+    private static func kotlinActivityLogEntry(from entry: GetBoredCore.ActivityLogEntry) -> GetBoredSharedCore.ActivityLogEntry {
+        GetBoredSharedCore.ActivityLogEntry(
+            id: entry.id.uuidString,
+            displayDomain: entry.displayDomain,
+            blocked: entry.blocked,
+            reason: entry.reason,
+            sourceApp: entry.sourceApp,
+            rawEndpoint: entry.rawEndpoint,
+            resolutionSource: entry.resolutionSource,
+            isResolvableHostname: entry.isResolvableHostname,
+            timestamp: entry.timestamp.timeIntervalSinceReferenceDate
+        )
+    }
+
+    private static func swiftActivityLogEntry(from entry: GetBoredSharedCore.ActivityLogEntry) -> GetBoredCore.ActivityLogEntry {
+        // Route through JSON so GetBoredCore.ActivityLogEntry.init(from:) preserves
+        // the Kotlin-supplied id. Its public memberwise inits always generate a
+        // fresh UUID, which would break identity tracking on every round-trip.
+        var dict: [String: Any] = [
+            "id": entry.id,
+            "displayDomain": entry.displayDomain,
+            "domain": entry.displayDomain,
+            "resolutionSource": entry.resolutionSource,
+            "isResolvableHostname": entry.isResolvableHostname,
+            "blocked": entry.blocked,
+            "reason": entry.reason,
+            "timestamp": entry.timestamp,
+        ]
+        if let rawEndpoint = entry.rawEndpoint { dict["rawEndpoint"] = rawEndpoint }
+        if let sourceApp = entry.sourceApp { dict["sourceApp"] = sourceApp }
+        let data = try! JSONSerialization.data(withJSONObject: dict)
+        return try! JSONDecoder().decode(GetBoredCore.ActivityLogEntry.self, from: data)
+    }
+    #endif
+
     #if canImport(GetBoredSharedCore)
     private static func kotlinPolicySnapshot(
         from loadedFilterRules: LoadedFilterRules,
