@@ -117,14 +117,7 @@ class WhitelistManager {
     }
 
     func isLocationListed(url: String) -> Bool {
-        let entries = loadLocationEntries()
-        guard !entries.isEmpty else { return false }
-        let host = extractDomain(from: url).lowercased()
-        guard !host.isEmpty else { return false }
-        return entries.contains { entry in
-            let domain = extractDomain(from: entry).lowercased()
-            return host == domain || host.hasSuffix("." + domain)
-        }
+        KMPDecisionCoreAdapter.matchesSiteRule(url, siteRules: loadLocationEntries())
     }
 
     /// Returns true if location-based lists exist but location permission was denied.
@@ -134,14 +127,7 @@ class WhitelistManager {
     }
 
     func isListed(url: String) -> Bool {
-        let items = loadWhitelist()
-        let host = extractDomain(from: url).lowercased()
-        guard !host.isEmpty else { return false }
-        return items.contains { item in
-            let domain = extractDomain(from: item.url).lowercased()
-            // Exact match or subdomain match (e.g. "www.google.com" matches "google.com")
-            return host == domain || host.hasSuffix("." + domain)
-        }
+        KMPDecisionCoreAdapter.matchesSiteRule(url, siteRules: loadWhitelist().map(\.url))
     }
 
     func isWhitelisted(url: String) -> Bool {
@@ -162,26 +148,7 @@ class WhitelistManager {
     }
 
     func isExcepted(fullURL: String) -> Bool {
-        let exceptions = loadExceptions()
-        guard !exceptions.isEmpty else { return false }
-        var normalized = fullURL.lowercased()
-        if let range = normalized.range(of: "://") {
-            normalized = String(normalized[range.upperBound...])
-        }
-        if normalized.hasPrefix("www.") {
-            normalized = String(normalized.dropFirst(4))
-        }
-        for exception in exceptions {
-            var pattern = exception.lowercased()
-            if let range = pattern.range(of: "://") {
-                pattern = String(pattern[range.upperBound...])
-            }
-            if pattern.hasPrefix("www.") {
-                pattern = String(pattern.dropFirst(4))
-            }
-            if normalized.hasPrefix(pattern) { return true }
-        }
-        return false
+        KMPDecisionCoreAdapter.matchesException(fullURL, exceptions: loadExceptions())
     }
 
     // MARK: - Mode
@@ -215,15 +182,7 @@ class WhitelistManager {
     }
 
     func isAppAllowed(_ bundleID: String) -> Bool {
-        let allowed = loadAllowedApps()
-        guard !allowed.isEmpty else { return false }
-        let id = bundleID.lowercased()
-        // Match both exact and suffix — sourceAppIdentifier may have team prefix
-        // e.g., "EQHXZ8M8AV.com.google.Gmail" should match stored "com.google.Gmail"
-        let result = allowed.contains { stored in
-            let s = stored.lowercased()
-            return s == id || id.hasSuffix(".\(s)")
-        }
+        let result = KMPDecisionCoreAdapter.matchesAllowedApp(bundleID, allowedAppBundleIDs: loadAllowedApps())
         if result {
             logger.info("isAppAllowed: \(bundleID) is allowed")
         }
@@ -232,53 +191,15 @@ class WhitelistManager {
 
     // MARK: - CDN / Related Domain Detection (keyword matching)
 
-    /// Extracts the "base keyword" from a domain for CDN matching.
-    /// e.g. "amazon.de" → "amazon", "maps.google.com" → "google", "uber.com" → "uber"
-    private func baseKeyword(from domain: String) -> String? {
-        let parts = domain.lowercased().split(separator: ".")
-        guard parts.count >= 2 else { return nil }
-        // Take the second-to-last part (SLD): "amazon" from "amazon.de", "google" from "google.com"
-        let sld = String(parts[parts.count - 2])
-        // Skip very short or generic keywords that would match too broadly
-        guard sld.count >= 4 else { return nil }
-        return sld
-    }
-
     /// Returns true if the host contains a keyword from any location entry.
     /// e.g. host "images-eu.ssl-images-amazon.com" contains "amazon" from entry "amazon.de"
     func isRelatedToLocationEntry(host: String) -> Bool {
-        let entries = loadLocationEntries()
-        guard !entries.isEmpty else { return false }
-        let h = host.lowercased()
-        return entries.contains { entry in
-            guard let keyword = baseKeyword(from: extractDomain(from: entry)) else { return false }
-            return h.contains(keyword)
-        }
+        KMPDecisionCoreAdapter.hostContainsAnyRelatedKeyword(host, domains: loadLocationEntries())
     }
 
     /// Returns true if the host contains a keyword from any global allowlist entry.
     func isRelatedToAllowedEntry(host: String) -> Bool {
-        let items = loadWhitelist()
-        guard !items.isEmpty else { return false }
-        let h = host.lowercased()
-        return items.contains { item in
-            guard let keyword = baseKeyword(from: extractDomain(from: item.url)) else { return false }
-            return h.contains(keyword)
-        }
-    }
-
-    /// Extract the domain from a URL string or hostname.
-    private func extractDomain(from input: String) -> String {
-        // Strip scheme if present
-        var s = input
-        if let range = s.range(of: "://") {
-            s = String(s[range.upperBound...])
-        }
-        // Strip path, port, query
-        if let slash = s.firstIndex(of: "/") { s = String(s[..<slash]) }
-        if let colon = s.firstIndex(of: ":") { s = String(s[..<colon]) }
-        if let question = s.firstIndex(of: "?") { s = String(s[..<question]) }
-        return s
+        KMPDecisionCoreAdapter.hostContainsAnyRelatedKeyword(host, domains: loadWhitelist().map(\.url))
     }
 
     private func defaultWhitelist() -> [WhitelistItem] {
