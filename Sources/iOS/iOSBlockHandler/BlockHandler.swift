@@ -241,9 +241,9 @@ class BlockHandler: NEFilterControlProvider {
 
     // MARK: - Hostname Helpers
 
-    /// Normalize through the shared rule store, then reject unhelpful placeholders.
+    /// Normalize through Kotlin-owned host rules, then reject unhelpful placeholders.
     private func normalizedBlockedHost(_ value: String?) -> String? {
-        guard let host = IOSRuleStore.normalizedHost(value) else { return nil }
+        guard let host = KMPDecisionCoreAdapter.normalizeHost(value) else { return nil }
         guard !host.isEmpty, host != "unknown" else { return nil }
         return host
     }

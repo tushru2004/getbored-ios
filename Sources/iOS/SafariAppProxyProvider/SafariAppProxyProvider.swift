@@ -9,8 +9,9 @@ import os.log
 /// **Role in the parent-child architecture:**
 /// This is layer 1 of 3 in the Safari filter defense — it intercepts every
 /// outbound TCP flow from Safari and decides allow/block based on:
-/// 1. `isDirectlyAllowed` — site_rules + system allowlist (apple.com, icloud.com, …).
-/// 2. `parentChildPolicy.decide()` — does this host match the active Safari
+/// 1. `KMPDecisionCoreAdapter.directSafariProxyDecision` — site_rules + system
+///    allowlist (apple.com, icloud.com, …).
+/// 2. `KMPDecisionCoreAdapter.parentChildDecision` — does this host match the active Safari
 ///    parent context (last URL bar nav within 5s) or one of its registered
 ///    children (subresource hosts that the Safari Web Extension probe captured)?
 ///
@@ -23,13 +24,6 @@ import os.log
 /// **Per-app VPN scope:** Safari only (Mobile Safari bundle ID).
 /// **Profile:** `com.getbored.ios.safari-app-proxy-spike` (mobileconfig).
 final class SafariAppProxyProvider: NEAppProxyProvider {
-    /// Lightweight decoder for entries in the App Group `site_rules` JSON blob.
-    /// Only the `url` field is needed for host matching here.
-    /// Full schema lives in `Sources/Shared/SiteRule.swift`.
-    private struct ProxySiteRule: Decodable {
-        let url: String
-    }
-
     /// Unified-logging handle. Subsystem visible in Console.app under
     /// `com.getbored.ios.safari-app-proxy`. Use `log show --predicate
     /// 'subsystem == "com.getbored.ios.safari-app-proxy"' --last 5m`.
@@ -44,11 +38,22 @@ final class SafariAppProxyProvider: NEAppProxyProvider {
     /// - this provider (reader)
     /// - host app `ContentView` (reader for the spike inspector UI).
     private let contextStore = SafariParentChildContextStore()
+    private let ruleStore = IOSRuleStore.shared
 
-    /// Decides whether an outbound host matches the current active page context.
     /// Contexts older than 60s are treated as stale to prevent background tabs
     /// from reusing old whitelists while still allowing delayed CNBC resources.
-    private let parentChildPolicy = SafariParentChildPolicy(activeContextMaxAge: 60)
+    private let activeContextMaxAge: TimeInterval = 60
+
+    /// Apple/system infrastructure domains that must always be allowed. Loaded
+    /// from GetBoredCore's bundled list with a legacy Safari App Proxy fallback
+    /// suffix preserved for compatibility.
+    private let systemAllowedSuffixes: [String] = {
+        var suffixes = SystemAllowList.load(from: Bundle(for: SafariAppProxyProvider.self))
+        if !suffixes.contains("amazontrust.com") {
+            suffixes.append("amazontrust.com")
+        }
+        return suffixes
+    }()
 
     /// App Group `UserDefaults` shared with the host app, the iOS content
     /// filter, and the Safari registration extension.
@@ -108,9 +113,9 @@ final class SafariAppProxyProvider: NEAppProxyProvider {
     /// (per-app VPN scope means there is no system fallback path).
     ///
     /// Step-by-step:
-    /// 1. **Policy gate** (`shouldRelayFlow`) — runs `isDirectlyAllowed`
-    ///    (site_rules / system allowlist) + `parentChildPolicy.decide()`
-    ///    (active Safari page context match).
+    /// 1. **Policy gate** (`shouldRelayFlow`) — runs the KMP direct Safari
+    ///    proxy decision (site_rules / system allowlist) + KMP parent-child
+    ///    decision (active Safari page context match).
     ///    - `cnbc.com` is the active parent → `Decision.matchActiveParent` → allow.
     ///    - `sb.scorecardresearch.com` is a registered child of `cnbc.com`
     ///      within the 5s active window → `Decision.matchActiveChild` → allow.
@@ -444,10 +449,11 @@ final class SafariAppProxyProvider: NEAppProxyProvider {
     ///
     /// Order of checks (first match wins):
     /// 1. **Endpoint parse** — junk endpoint → block.
-    /// 2. **`isDirectlyAllowed`** — site_rules + system allowlist (apple.com
-    ///    etc.) → allow without consulting parent-child policy.
-    /// 3. **`parentChildPolicy.decide(...)`** — match against the active
-    ///    Safari page context.
+    /// 2. **`KMPDecisionCoreAdapter.directSafariProxyDecision(...)`** —
+    ///    site_rules + system allowlist (apple.com etc.) → allow without
+    ///    consulting parent-child policy.
+    /// 3. **`KMPDecisionCoreAdapter.parentChildDecision(...)`** — match
+    ///    against the active Safari page context.
     ///    - `Decision.matchActiveParent` (host == active parent) → allow.
     ///    - `Decision.matchActiveChild`  (host registered as child of active parent
     ///      and within the 5s window) → allow + persist a flow observation
@@ -463,21 +469,26 @@ final class SafariAppProxyProvider: NEAppProxyProvider {
             return false
         }
 
-        if isDirectlyAllowed(host) {
+        let filterRules = loadedFilterRules()
+        let directDecision = KMPDecisionCoreAdapter.directSafariProxyDecision(
+            host: host,
+            using: filterRules,
+            systemAllowedSuffixes: systemAllowedSuffixes
+        )
+        if !directDecision.blocked {
             refreshActiveContextIfDirectHostMatchesActiveParent(host)
             appendEvent("APP_PROXY_ALLOW_DIRECT host=\(host) endpoint=\(endpoint)")
             return true
         }
 
-        let decision = parentChildPolicy.decide(
-            requestHost: host,
-            endpoint: endpoint,
-            activeContext: activePageContext()
+        let decision = parentChildDecision(
+            host: host,
+            endpoint: endpoint
         )
-        if case SafariParentChildPolicy.Decision.matchActiveChild(_, let parent, _) = decision {
+        if decision.kind == .matchActiveChild {
             contextStore.saveFlowObservation(
                 requestHost: host,
-                parentDomain: parent,
+                parentDomain: decision.activeParent,
                 decision: decision.observationDecision,
                 endpoint: endpoint,
                 observedAt: Date()
@@ -485,16 +496,16 @@ final class SafariAppProxyProvider: NEAppProxyProvider {
         }
         appendEvent(decision.event)
 
-        switch decision {
-        case SafariParentChildPolicy.Decision.matchActiveParent:
+        switch decision.kind {
+        case .matchActiveParent:
             appendEvent("APP_PROXY_ALLOW_ACTIVE_PARENT host=\(host) endpoint=\(endpoint)")
             return true
-        case SafariParentChildPolicy.Decision.matchActiveChild(_, let parent, _):
-            appendEvent("APP_PROXY_ALLOW_ACTIVE_CHILD host=\(host) parent=\(parent) endpoint=\(endpoint)")
+        case .matchActiveChild:
+            appendEvent("APP_PROXY_ALLOW_ACTIVE_CHILD host=\(host) parent=\(decision.activeParent) endpoint=\(endpoint)")
             return true
-        case SafariParentChildPolicy.Decision.noActiveContext,
-             SafariParentChildPolicy.Decision.staleActiveContext,
-             SafariParentChildPolicy.Decision.noActiveMatch:
+        case .noActiveContext,
+             .staleActiveContext,
+             .noActiveMatch:
             // Spike: fail-open so Safari works while we observe which flows
             // WOULD have been blocked. Flip back to `return false` once
             // parent-child registration is reliable.
@@ -536,23 +547,37 @@ final class SafariAppProxyProvider: NEAppProxyProvider {
     }
 
     /// Hydrate the current Safari page context (parent + merged children) for
-    /// the policy decider.
+    /// the KMP policy decider.
     ///
     /// The Safari Web Extension's `content.js` writes `parentDomain` on every
     /// nav and the static + dynamic child sets are merged via
     /// `mergedChildren(for:)` so the policy sees one unified child list.
     ///
-    /// Returns nil when no page is active (e.g. Safari just launched and no
-    /// page has been visited yet) → policy falls into `Decision.noActiveContext`.
-    private func activePageContext() -> SafariParentChildPolicy.ActivePageContext? {
+    /// When no page is active (e.g. Safari just launched and no page has been
+    /// visited yet), the adapter falls into `noActiveContext`.
+    private func parentChildDecision(
+        host: String,
+        endpoint: String,
+        now: Date = Date()
+    ) -> KMPDecisionCoreAdapter.ParentChildDecision {
         guard let active = contextStore.loadActiveContext() else {
-            return nil
+            return KMPDecisionCoreAdapter.parentChildDecision(
+                host: host,
+                endpoint: endpoint,
+                activeParent: nil,
+                activeChildren: [],
+                activeContextAge: 0,
+                activeContextMaxAge: activeContextMaxAge
+            )
         }
 
-        return SafariParentChildPolicy.ActivePageContext(
-            parent: active.parentDomain,
-            children: contextStore.mergedChildren(for: active.parentDomain),
-            receivedAt: active.receivedAt
+        return KMPDecisionCoreAdapter.parentChildDecision(
+            host: host,
+            endpoint: endpoint,
+            activeParent: active.parentDomain,
+            activeChildren: Array(contextStore.mergedChildren(for: active.parentDomain)).sorted(),
+            activeContextAge: now.timeIntervalSince(active.receivedAt),
+            activeContextMaxAge: activeContextMaxAge
         )
     }
 
@@ -574,32 +599,13 @@ final class SafariAppProxyProvider: NEAppProxyProvider {
     /// Used both for incoming flow hosts and for the `site_rules` rule URLs
     /// so comparisons are apples-to-apples.
     private func normalizedHost(_ value: String?) -> String? {
-        SafariParentChildContextStore.normalizedHost(value)
+        KMPDecisionCoreAdapter.normalizeHost(value)
     }
 
-    /// Direct allow check that bypasses parent-child policy.
-    ///
-    /// Two layers:
-    /// 1. **System allowlist** (`isSystemAllowed`) — apple.com, icloud.com,
-    ///    digicert.com etc. Always allowed; needed for OCSP/CRL/MDM checkin.
-    /// 2. **Mode-aware site_rules** —
-    ///    - `whiteList` mode: host listed → allow, else block.
-    ///    - `blockSpecific` mode (default): host listed → block, else allow.
-    ///
-    /// `filter_mode` key is written by the host app and shared via App Group.
-    private func isDirectlyAllowed(_ host: String) -> Bool {
-        if isSystemAllowed(host) {
-            return true
-        }
-
-        let mode = defaults?.string(forKey: "filter_mode") ?? "blockSpecific"
-        let listed = matchingListedDomain(for: host) != nil
-
-        if mode == "whiteList" {
-            return listed
-        }
-
-        return !listed
+    /// Load the Swift-owned policy snapshot from App Group storage, then pass
+    /// it across the KMP adapter boundary for pure decision logic.
+    private func loadedFilterRules() -> LoadedFilterRules {
+        ruleStore.loadFilterRules()
     }
 
     /// Does `host` match any rule in App Group `site_rules`?
@@ -609,21 +615,16 @@ final class SafariAppProxyProvider: NEAppProxyProvider {
     /// `evilcnbc.com` (no leading dot).
     /// Decode failures (no key, malformed JSON) → returns false (= host not listed).
     private func matchingListedDomain(for host: String) -> String? {
-        guard let data = defaults?.data(forKey: "site_rules"),
-              let rules = try? JSONDecoder().decode([ProxySiteRule].self, from: data) else {
-            return nil
-        }
-
-        return rules.compactMap { rule -> String? in
+        loadedFilterRules().siteRules.compactMap { rule -> String? in
             guard let domain = normalizedRuleHost(rule.url), !domain.isEmpty else {
                 return nil
             }
-            return hostMatchesRule(host, domain) ? domain : nil
+            return KMPDecisionCoreAdapter.hostMatchesDomain(host, domain: domain) ? domain : nil
         }.first
     }
 
     private func hostMatchesRule(_ host: String, _ rule: String) -> Bool {
-        SafariParentChildContextStore.host(host, matchesDomain: rule)
+        KMPDecisionCoreAdapter.hostMatchesDomain(host, domain: rule)
     }
 
     /// Best-effort domain extraction from a site_rule's `url` field.
@@ -633,31 +634,7 @@ final class SafariAppProxyProvider: NEAppProxyProvider {
     /// - `cnbc.com`                     → `cnbc.com` (auto-prefixes `https://`)
     /// - `cnbc.com/feeds`               → `cnbc.com` (path-only fallback)
     private func normalizedRuleHost(_ value: String) -> String? {
-        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
-        if let url = URL(string: trimmed), let host = url.host {
-            return normalizedHost(host)
-        }
-        if let url = URL(string: "https://\(trimmed)"), let host = url.host {
-            return normalizedHost(host)
-        }
-        return normalizedHost(trimmed.components(separatedBy: "/").first)
-    }
-
-    /// Hard-coded always-allow list for Apple system services.
-    /// Without this, OCSP / CRL / push / iCloud calls from Safari would be
-    /// blocked, which can break TLS validation or sign-in flows.
-    /// Match = exact or proper subdomain (same rule as `isListed`).
-    private func isSystemAllowed(_ host: String) -> Bool {
-        [
-            "apple.com",
-            "amazontrust.com",
-            "icloud.com",
-            "cdn-apple.com",
-            "entrust.net",
-            "digicert.com"
-        ].contains { suffix in
-            host == suffix || host.hasSuffix("." + suffix)
-        }
+        normalizedHost(value)
     }
 
     /// Append a single line to the App Group spike event log.

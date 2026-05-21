@@ -236,36 +236,15 @@ struct SafariParentChildContextStore {
     }
 
     static func normalizedHost(_ value: String?) -> String? {
-        value?
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .lowercased()
-            .trimmingCharacters(in: CharacterSet(charactersIn: "."))
+        KMPDecisionCoreAdapter.normalizeHost(value)
     }
 
     static func host(_ host: String, matchesDomain domain: String) -> Bool {
-        guard let normalizedRequestHost = normalizedHost(host),
-              let normalizedDomain = normalizedHost(domain),
-              !normalizedRequestHost.isEmpty,
-              !normalizedDomain.isEmpty else {
-            return false
-        }
-        return normalizedRequestHost == normalizedDomain || normalizedRequestHost.hasSuffix("." + normalizedDomain)
+        KMPDecisionCoreAdapter.hostMatchesDomain(host, domain: domain)
     }
 
     static func host(_ requestHost: String, matchesChildPattern childPattern: String) -> Bool {
-        guard let normalizedRequestHost = normalizedHost(requestHost),
-              let normalizedPattern = normalizedChildPattern(childPattern),
-              !normalizedRequestHost.isEmpty,
-              !normalizedPattern.isEmpty else {
-            return false
-        }
-
-        if normalizedPattern.hasPrefix("*.") {
-            let suffix = String(normalizedPattern.dropFirst(2))
-            return normalizedRequestHost == suffix || normalizedRequestHost.hasSuffix("." + suffix)
-        }
-
-        return Self.host(normalizedRequestHost, matchesDomain: normalizedPattern)
+        KMPDecisionCoreAdapter.hostMatchesChildPattern(requestHost, childPattern: childPattern)
     }
 
     private func loadFlowObservation() -> FlowObservation? {
@@ -333,15 +312,9 @@ struct SafariParentChildContextStore {
     }
 
     private static func normalizedChildPattern(_ value: String?) -> String? {
-        let trimmed = value?
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .lowercased()
-            .trimmingCharacters(in: CharacterSet(charactersIn: "."))
-        guard let trimmed, !trimmed.isEmpty else { return nil }
-        if trimmed.hasPrefix("*.") {
-            let suffix = String(trimmed.dropFirst(2)).trimmingCharacters(in: CharacterSet(charactersIn: "."))
-            return suffix.isEmpty ? nil : "*." + suffix
+        guard let pattern = KMPDecisionCoreAdapter.normalizeChildPattern(value), !pattern.isEmpty else {
+            return nil
         }
-        return trimmed
+        return pattern
     }
 }

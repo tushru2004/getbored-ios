@@ -40,6 +40,18 @@ node_modules/
 dist/
 coverage/
 
+# CocoaPods
+Pods/
+*.xcworkspace/xcuserdata/
+
+# Kotlin Multiplatform build output
+shared-kotlin/build/
+.gradle/
+local.properties
+
+# React Native
+.xcode.env.local
+
 # Logs
 logs/
 *.log
@@ -55,8 +67,15 @@ __pycache__/
 .claude/worktrees/
 .gemini/
 .playwright-mcp/
-.idea/
 .cmux/
+
+# IntelliJ / JetBrains
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+.idea_modules/
 
 # Screenshots
 /tmp/getbored-screenshots/

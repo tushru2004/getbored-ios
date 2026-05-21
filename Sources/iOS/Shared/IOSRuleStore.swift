@@ -85,6 +85,18 @@ class IOSRuleStore {
         return items
     }
 
+    /// Load the full policy snapshot expected by the shared decision core.
+    func loadFilterRules() -> LoadedFilterRules {
+        let rawMode = sharedDefaults?.string(forKey: modeKey) ?? FilterMode.blockSpecific.rawValue
+        let mode = FilterMode(rawValue: rawMode) ?? .blockSpecific
+        return LoadedFilterRules(
+            siteRules: loadSiteRules(),
+            filterMode: mode,
+            exceptions: loadExceptions(),
+            allowedAppBundleIDs: loadAllowedApps()
+        )
+    }
+
     /// Save site rules to shared UserDefaults
     func saveSiteRules(_ items: [SiteRule]) {
         guard let data = try? JSONEncoder().encode(items) else {
@@ -118,18 +130,12 @@ class IOSRuleStore {
 
     /// Check if a host matches any site rule (exact or subdomain match)
     func isListed(url: String) -> Bool {
-        let items = loadSiteRules()
-        let host = extractDomain(from: url).lowercased()
-        guard !host.isEmpty else { return false }
-        return items.contains { item in
-            let domain = extractDomain(from: item.url).lowercased()
-            return host == domain || host.hasSuffix("." + domain)
-        }
+        KMPDecisionCoreAdapter.matchesSiteRule(url, using: loadFilterRules())
     }
 
     /// Returns true if there are any site rules configured
     func hasAnyEntries() -> Bool {
-        !loadSiteRules().isEmpty
+        !loadFilterRules().siteRules.isEmpty
     }
 
     // MARK: - Filter Mode
@@ -164,29 +170,7 @@ class IOSRuleStore {
 
     /// Check if a full URL matches any exception pattern
     func isExcepted(fullURL: String) -> Bool {
-        let exceptions = loadExceptions()
-        guard !exceptions.isEmpty else { return false }
-
-        // Normalize: strip scheme and "www."
-        var normalized = fullURL.lowercased()
-        if let range = normalized.range(of: "://") {
-            normalized = String(normalized[range.upperBound...])
-        }
-        if normalized.hasPrefix("www.") {
-            normalized = String(normalized.dropFirst(4))
-        }
-
-        for exception in exceptions {
-            var pattern = exception.lowercased()
-            if let range = pattern.range(of: "://") {
-                pattern = String(pattern[range.upperBound...])
-            }
-            if pattern.hasPrefix("www.") {
-                pattern = String(pattern.dropFirst(4))
-            }
-            if normalized.hasPrefix(pattern) { return true }
-        }
-        return false
+        KMPDecisionCoreAdapter.matchesException(fullURL, using: loadFilterRules())
     }
 
     // MARK: - Allowed Apps (per-app bypass)
@@ -208,13 +192,7 @@ class IOSRuleStore {
     /// Check if an app is in the allowed list.
     /// Handles team ID prefix — "EQHXZ8M8AV.com.google.Gmail" matches stored "com.google.Gmail"
     func isAppAllowed(_ bundleID: String) -> Bool {
-        let allowed = loadAllowedApps()
-        guard !allowed.isEmpty else { return false }
-        let id = bundleID.lowercased()
-        let result = allowed.contains { stored in
-            let lowered = stored.lowercased()
-            return lowered == id || id.hasSuffix(".\(lowered)")
-        }
+        let result = KMPDecisionCoreAdapter.matchesAllowedApp(bundleID, using: loadFilterRules())
         if result {
             logger.info("isAppAllowed: \(bundleID) is allowed")
         }
@@ -223,49 +201,14 @@ class IOSRuleStore {
 
     // MARK: - CDN / Related Domain Detection
 
-    /// Extracts the "base keyword" from a domain for CDN matching.
-    /// e.g. "amazon.de" -> "amazon", "maps.google.com" -> "google"
-    private func baseKeyword(from domain: String) -> String? {
-        let parts = domain.lowercased().split(separator: ".")
-        guard parts.count >= 2 else { return nil }
-        let sld = String(parts[parts.count - 2])
-        // Skip short/generic keywords that would match too broadly
-        guard sld.count >= 4 else { return nil }
-        return sld
-    }
-
     /// Returns true if the host contains a keyword from any site rule.
     func isRelatedToAllowedEntry(host: String) -> Bool {
         let items = loadSiteRules()
         guard !items.isEmpty else { return false }
-        let lowered = host.lowercased()
-        return items.contains { item in
-            guard let keyword = baseKeyword(from: extractDomain(from: item.url)) else { return false }
-            return lowered.contains(keyword)
-        }
-    }
-
-    // MARK: - Helpers
-
-    /// Normalize a URL string or hostname for shared iOS filter comparisons.
-    static func normalizedHost(_ value: String?) -> String? {
-        guard var str = value?.trimmingCharacters(in: .whitespacesAndNewlines) else { return nil }
-        if let range = str.range(of: "://") {
-            str = String(str[range.upperBound...])
-        }
-        if let slash = str.firstIndex(of: "/") { str = String(str[..<slash]) }
-        if let colon = str.firstIndex(of: ":") { str = String(str[..<colon]) }
-        if let question = str.firstIndex(of: "?") { str = String(str[..<question]) }
-        let host = str
-            .trimmingCharacters(in: CharacterSet(charactersIn: "."))
-            .lowercased()
-        return host.isEmpty ? nil : host
-    }
-
-    /// Extract the domain from a URL string or hostname.
-    /// Strips scheme, path, port, and query string.
-    private func extractDomain(from input: String) -> String {
-        Self.normalizedHost(input) ?? ""
+        return KMPDecisionCoreAdapter.hostContainsAnyRelatedKeyword(
+            host,
+            domains: items.map(\.url)
+        )
     }
 }
 
