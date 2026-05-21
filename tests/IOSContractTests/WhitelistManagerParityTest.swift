@@ -1,6 +1,6 @@
 // WhitelistManagerParityTest.swift
 //
-// Parity tests for WhitelistManager's 8 public decision methods.
+// Parity tests for WhitelistManager's 6 public decision methods.
 //
 // INSTANTIATION STRATEGY: WhitelistManager lives in Sources/iOS/App which is NOT
 // part of the GetBoredIOSCore SwiftPM target — it is only compiled by Xcode.
@@ -13,15 +13,13 @@
 // WhitelistManager and the future KMP-forwarding version must satisfy. Any
 // refactored implementation that alters these outcomes will break these tests.
 //
-// The 8 logical "methods" tested correspond to the WhitelistManager public API:
+// The 6 logical "methods" tested correspond to the WhitelistManager public API:
 //   isExcepted(fullURL:)            → testIsExcepted*
 //   isAppAllowed(_:)                → testIsAppAllowed*
 //   baseKeyword(from:)              → testBaseKeyword*
 //   extractDomain(from:)            → testExtractDomain*
-//   isRelatedToLocationEntry(host:) → testIsRelatedToLocationEntry*
 //   isRelatedToAllowedEntry(host:)  → testIsRelatedToAllowedEntry*
 //   isListed(url:)                  → testIsListed*
-//   isLocationListed(url:)          → testIsLocationListed*
 
 import XCTest
 
@@ -86,30 +84,11 @@ private func isListed(url: String, items: [String]) -> Bool {
     }
 }
 
-private func isLocationListed(url: String, entries: [String]) -> Bool {
-    guard !entries.isEmpty else { return false }
-    let host = extractDomain(from: url).lowercased()
-    guard !host.isEmpty else { return false }
-    return entries.contains { entry in
-        let domain = extractDomain(from: entry).lowercased()
-        return host == domain || host.hasSuffix("." + domain)
-    }
-}
-
 private func isRelatedToAllowedEntry(host: String, items: [String]) -> Bool {
     guard !items.isEmpty else { return false }
     let h = host.lowercased()
     return items.contains { item in
         guard let keyword = baseKeyword(from: extractDomain(from: item)) else { return false }
-        return h.contains(keyword)
-    }
-}
-
-private func isRelatedToLocationEntry(host: String, entries: [String]) -> Bool {
-    guard !entries.isEmpty else { return false }
-    let h = host.lowercased()
-    return entries.contains { entry in
-        guard let keyword = baseKeyword(from: extractDomain(from: entry)) else { return false }
         return h.contains(keyword)
     }
 }
@@ -308,36 +287,6 @@ final class WhitelistManagerParityTest: XCTestCase {
         XCTAssertFalse(isListed(url: "https://google.com", items: ["mail.google.com"]))
     }
 
-    // MARK: isLocationListed(url:)
-
-    func testIsLocationListed_exactMatch() {
-        XCTAssertTrue(isLocationListed(url: "https://library.org", entries: ["library.org"]))
-    }
-
-    func testIsLocationListed_subdomainMatch() {
-        XCTAssertTrue(isLocationListed(url: "https://catalog.library.org", entries: ["library.org"]))
-    }
-
-    func testIsLocationListed_noMatch() {
-        XCTAssertFalse(isLocationListed(url: "https://other.org", entries: ["library.org"]))
-    }
-
-    func testIsLocationListed_emptyEntries_returnsFalse() {
-        XCTAssertFalse(isLocationListed(url: "https://library.org", entries: []))
-    }
-
-    func testIsLocationListed_emptyURL_returnsFalse() {
-        XCTAssertFalse(isLocationListed(url: "", entries: ["library.org"]))
-    }
-
-    func testIsLocationListed_unicodeEntry() {
-        XCTAssertTrue(isLocationListed(url: "https://bücher.example/page", entries: ["bücher.example"]))
-    }
-
-    func testIsLocationListed_portSuffix() {
-        XCTAssertTrue(isLocationListed(url: "library.org:8080", entries: ["library.org"]))
-    }
-
     // MARK: isRelatedToAllowedEntry(host:)
 
     func testIsRelatedToAllowedEntry_keywordMatch() {
@@ -360,24 +309,6 @@ final class WhitelistManagerParityTest: XCTestCase {
 
     func testIsRelatedToAllowedEntry_exactKeywordContainment() {
         XCTAssertTrue(isRelatedToAllowedEntry(host: "www.googlevideo.com", items: ["google.com"]))
-    }
-
-    // MARK: isRelatedToLocationEntry(host:)
-
-    func testIsRelatedToLocationEntry_keywordMatch() {
-        XCTAssertTrue(isRelatedToLocationEntry(host: "static.starbucks-cdn.com", entries: ["starbucks.com"]))
-    }
-
-    func testIsRelatedToLocationEntry_noMatch() {
-        XCTAssertFalse(isRelatedToLocationEntry(host: "cdn.unrelated.net", entries: ["starbucks.com"]))
-    }
-
-    func testIsRelatedToLocationEntry_emptyEntries_returnsFalse() {
-        XCTAssertFalse(isRelatedToLocationEntry(host: "starbucks-cdn.com", entries: []))
-    }
-
-    func testIsRelatedToLocationEntry_shortSLD_skipped() {
-        XCTAssertFalse(isRelatedToLocationEntry(host: "api.go.co", entries: ["go.co"]))
     }
 
     // MARK: Cross-cutting: Unicode + mixed-case
@@ -415,13 +346,11 @@ final class WhitelistManagerParityTest: XCTestCase {
     func testCrossCutting_whitespaceInputs() {
         XCTAssertEqual(extractDomain(from: ""), "")
         XCTAssertFalse(isListed(url: "", items: ["example.com"]))
-        XCTAssertFalse(isLocationListed(url: "", entries: ["example.com"]))
         XCTAssertFalse(isExcepted(fullURL: "", exceptions: ["example.com"]))
         XCTAssertFalse(isAppAllowed("", allowedApps: ["com.example.app"]))
     }
 
     func testCrossCutting_trailingSlashAndPort() {
         XCTAssertTrue(isListed(url: "https://example.com:443/", items: ["example.com"]))
-        XCTAssertTrue(isLocationListed(url: "https://library.org:80/", entries: ["library.org"]))
     }
 }

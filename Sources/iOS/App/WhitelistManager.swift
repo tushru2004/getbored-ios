@@ -8,9 +8,6 @@ class WhitelistManager {
 
     private let appGroupIdentifier = GetBoredIdentifiers.AppGroup.iosAdvanceWhitelist
     private let whitelistKey = "whitelist_items"
-    private let locationEntriesKey = "location_blocked_entries"
-    private let locationListsConfiguredKey = "location_lists_configured"
-    private let locationModeKey = "location_mode"
     private let exceptionsKey = "filter_exceptions"
     private let modeKey = "filter_mode"
     private let allowedAppsKey = "allowedAppBundleIDs"
@@ -68,62 +65,7 @@ class WhitelistManager {
     }
 
     func hasAnyEntries() -> Bool {
-        !loadWhitelist().isEmpty || hasLocationEntries() || hasLocationListsConfigured()
-    }
-
-    // MARK: - Location Entries (separate from main whitelist)
-
-    func setLocationEntries(_ entries: [String]) {
-        logger.info("setLocationEntries: \(entries.count) entries")
-        sharedDefaults?.set(entries, forKey: locationEntriesKey)
-        sharedDefaults?.synchronize()
-        logger.debug("setLocationEntries: entries persisted to shared defaults")
-    }
-
-    func loadLocationEntries() -> [String] {
-        let entries = sharedDefaults?.stringArray(forKey: locationEntriesKey) ?? []
-        logger.debug("loadLocationEntries: \(entries.count) entries")
-        return entries
-    }
-
-    func hasLocationEntries() -> Bool {
-        !loadLocationEntries().isEmpty
-    }
-
-    /// Tracks whether any location-based filter lists are configured (even if not currently active).
-    /// Prevents the no-entries lockdown from triggering when outside all geofences.
-    func setLocationListsConfigured(_ configured: Bool) {
-        sharedDefaults?.set(configured, forKey: locationListsConfiguredKey)
-        sharedDefaults?.synchronize()
-    }
-
-    func hasLocationListsConfigured() -> Bool {
-        return sharedDefaults?.bool(forKey: locationListsConfiguredKey) ?? false
-    }
-
-    /// The mode of the currently active location lists (whiteList or nil).
-    /// When set to "whiteList", location entries are treated as ALLOWED sites.
-    func setLocationMode(_ mode: String?) {
-        if let mode = mode {
-            sharedDefaults?.set(mode, forKey: locationModeKey)
-        } else {
-            sharedDefaults?.removeObject(forKey: locationModeKey)
-        }
-        sharedDefaults?.synchronize()
-    }
-
-    func getLocationMode() -> String? {
-        return sharedDefaults?.string(forKey: locationModeKey)
-    }
-
-    func isLocationListed(url: String) -> Bool {
-        KMPDecisionCoreAdapter.matchesSiteRule(url, siteRules: loadLocationEntries())
-    }
-
-    /// Returns true if location-based lists exist but location permission was denied.
-    /// The filter extension should block all non-system traffic in this case.
-    func isLocationLockdownActive() -> Bool {
-        return sharedDefaults?.bool(forKey: "location_permission_denied_lockdown") ?? false
+        !loadWhitelist().isEmpty
     }
 
     func isListed(url: String) -> Bool {
@@ -190,12 +132,6 @@ class WhitelistManager {
     }
 
     // MARK: - CDN / Related Domain Detection (keyword matching)
-
-    /// Returns true if the host contains a keyword from any location entry.
-    /// e.g. host "images-eu.ssl-images-amazon.com" contains "amazon" from entry "amazon.de"
-    func isRelatedToLocationEntry(host: String) -> Bool {
-        KMPDecisionCoreAdapter.hostContainsAnyRelatedKeyword(host, domains: loadLocationEntries())
-    }
 
     /// Returns true if the host contains a keyword from any global allowlist entry.
     func isRelatedToAllowedEntry(host: String) -> Bool {
