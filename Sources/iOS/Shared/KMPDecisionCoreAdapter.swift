@@ -129,11 +129,33 @@ public enum KMPDecisionCoreAdapter {
         #endif
     }
 
+    public static func matchesAllowedApp(_ bundleID: String, allowedAppBundleIDs: [String]) -> Bool {
+        #if canImport(GetBoredSharedCore)
+        return GetBoredSharedCore.DecisionCore().matchesAllowedApp(
+            bundleId: bundleID,
+            allowedAppBundleIds: allowedAppBundleIDs
+        )
+        #else
+        kotlinCoreUnavailable()
+        #endif
+    }
+
     public static func matchesSiteRule(_ url: String, using loadedFilterRules: LoadedFilterRules) -> Bool {
         #if canImport(GetBoredSharedCore)
         return GetBoredSharedCore.DecisionCore().matchesSiteRule(
             url: url,
             siteRules: loadedFilterRules.siteRules.map(\.url)
+        )
+        #else
+        kotlinCoreUnavailable()
+        #endif
+    }
+
+    public static func matchesSiteRule(_ url: String, siteRules: [String]) -> Bool {
+        #if canImport(GetBoredSharedCore)
+        return GetBoredSharedCore.DecisionCore().matchesSiteRule(
+            url: url,
+            siteRules: siteRules
         )
         #else
         kotlinCoreUnavailable()
@@ -174,6 +196,14 @@ public enum KMPDecisionCoreAdapter {
         #endif
     }
 
+    public static func baseKeyword(_ domainOrUrl: String) -> String {
+        #if canImport(GetBoredSharedCore)
+        return GetBoredSharedCore.DecisionCore().baseKeyword(domainOrUrl: domainOrUrl)
+        #else
+        kotlinCoreUnavailable()
+        #endif
+    }
+
     public static func hostContainsAnyRelatedKeyword(_ host: String, domains: [String]) -> Bool {
         #if canImport(GetBoredSharedCore)
         return GetBoredSharedCore.DecisionCore().hostContainsAnyRelatedKeyword(
@@ -190,6 +220,17 @@ public enum KMPDecisionCoreAdapter {
         return GetBoredSharedCore.DecisionCore().matchesException(
             url: url,
             exceptions: loadedFilterRules.exceptions
+        )
+        #else
+        kotlinCoreUnavailable()
+        #endif
+    }
+
+    public static func matchesException(_ url: String, exceptions: [String]) -> Bool {
+        #if canImport(GetBoredSharedCore)
+        return GetBoredSharedCore.DecisionCore().matchesException(
+            url: url,
+            exceptions: exceptions
         )
         #else
         kotlinCoreUnavailable()

@@ -10,7 +10,6 @@
 		0186EB2AE76340AE817DFF4F /* SafariSimulatorUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FECA319772A4BDBBB1DFB04 /* SafariSimulatorUITests.swift */; };
 		05753476881C485990506DE1 /* SafariDeviceUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D615CDD517A423BB7392497 /* SafariDeviceUITests.swift */; };
 		0A6797321316119EAA7F2E0E /* Sources/iOS/SafariAppProxyProvider/SafariAppProxyProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DD35A8E7BDBA66F99B4C580 /* Sources/iOS/SafariAppProxyProvider/SafariAppProxyProvider.swift */; };
-		0A6797321316119EAA7F2E0F /* Sources/iOS/SafariAppProxyProvider/SafariParentChildPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DD35A8E7BDBA66F99B4C581 /* Sources/iOS/SafariAppProxyProvider/SafariParentChildPolicy.swift */; };
 		0A6797321316119EAA7F2E10 /* SafariParentChildContextStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A6797321316119EAA7F2E11 /* SafariParentChildContextStore.swift */; };
 		0A6797321316119EAA7F2E12 /* SafariParentChildContextStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A6797321316119EAA7F2E11 /* SafariParentChildContextStore.swift */; };
 		0A6797321316119EAA7F2E13 /* SafariParentChildContextStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A6797321316119EAA7F2E11 /* SafariParentChildContextStore.swift */; };
@@ -170,7 +169,6 @@
 		59B254730C35953F1A589436 /* Pods-GetBored iOS.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-GetBored iOS.debug.xcconfig"; path = "Target Support Files/Pods-GetBored iOS/Pods-GetBored iOS.debug.xcconfig"; sourceTree = "<group>"; };
 		5D615CDD517A423BB7392497 /* SafariDeviceUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SafariDeviceUITests.swift; sourceTree = "<group>"; };
 		5DD35A8E7BDBA66F99B4C580 /* Sources/iOS/SafariAppProxyProvider/SafariAppProxyProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = Sources/iOS/SafariAppProxyProvider/SafariAppProxyProvider.swift; sourceTree = SOURCE_ROOT; };
-		5DD35A8E7BDBA66F99B4C581 /* Sources/iOS/SafariAppProxyProvider/SafariParentChildPolicy.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = Sources/iOS/SafariAppProxyProvider/SafariParentChildPolicy.swift; sourceTree = SOURCE_ROOT; };
 		614F239932F6AA8814E550E2 /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; name = Info.plist; path = Sources/iOS/iOSFlowInspector/Info.plist; sourceTree = SOURCE_ROOT; };
 		6964DDE065BE32959A0A45E8 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xml; name = PrivacyInfo.xcprivacy; path = Sources/iOS/App/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		69CA805889DA4C398BEB75DE /* Info.plist */ = {isa = PBXFileReference; explicitFileType = text.plist.xml; path = Info.plist; sourceTree = SOURCE_ROOT; };
@@ -479,7 +477,6 @@
 			isa = PBXGroup;
 			children = (
 				5DD35A8E7BDBA66F99B4C580 /* Sources/iOS/SafariAppProxyProvider/SafariAppProxyProvider.swift */,
-				5DD35A8E7BDBA66F99B4C581 /* Sources/iOS/SafariAppProxyProvider/SafariParentChildPolicy.swift */,
 				F8B5E0A622CE50156F3873F7 /* Sources/iOS/SafariAppProxyProvider/Info.plist */,
 				2F1C44A2C5B24D1010BB0986 /* Sources/iOS/SafariAppProxyProvider/SafariAppProxyProvider.entitlements */,
 			);
@@ -988,7 +985,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				0A6797321316119EAA7F2E0E /* Sources/iOS/SafariAppProxyProvider/SafariAppProxyProvider.swift in Sources */,
-				0A6797321316119EAA7F2E0F /* Sources/iOS/SafariAppProxyProvider/SafariParentChildPolicy.swift in Sources */,
 				0A6797321316119EAA7F2E10 /* SafariParentChildContextStore.swift in Sources */,
 				D20000000000000000000001 /* IOSRuleStore.swift in Sources */,
 				A1B2C3D4E5F60718293A4B5E /* KMPDecisionCoreAdapter.swift in Sources */,
