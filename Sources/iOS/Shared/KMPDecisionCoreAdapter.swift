@@ -319,6 +319,134 @@ public enum KMPDecisionCoreAdapter {
         #endif
     }
 
+    // MARK: - Parent-Child Store Policy
+
+    public struct ChildAllowMatch: Equatable {
+        public let parentDomain: String
+        public let requestHost: String
+        public let age: TimeInterval
+    }
+
+    /// Merged children: static parent-child map takes precedence; falls back to dynamic
+    /// (active-context children ∪ registry). Mirrors Swift `mergedChildren(for:)`.
+    public static func parentChildMergedChildren(
+        parentChildMapJson: String?,
+        activeContextJson: String?,
+        registryJson: String?,
+        parentDomain: String
+    ) -> Set<String> {
+        #if canImport(GetBoredSharedCore)
+        let result = GetBoredSharedCore.ParentChildStorePolicy().mergedChildren(
+            parentChildMapJson: parentChildMapJson,
+            activeContextJson: activeContextJson,
+            registryJson: registryJson,
+            parentDomain: parentDomain
+        )
+        return result
+        #else
+        kotlinCoreUnavailable()
+        #endif
+    }
+
+    /// Fresh child allow match. Returns nil when observation is stale, mismatched,
+    /// or no active context covers the request host.
+    /// Mirrors Swift `freshChildAllowMatch(for:maxAge:now:)`.
+    public static func freshChildAllowMatch(
+        flowObservationJson: String?,
+        activeContextJson: String?,
+        parentChildMapJson: String?,
+        registryJson: String?,
+        requestHost: String,
+        maxAgeSeconds: Double,
+        nowEpochSeconds: Double
+    ) -> ChildAllowMatch? {
+        #if canImport(GetBoredSharedCore)
+        guard let match = GetBoredSharedCore.ParentChildStorePolicy().freshChildAllowMatch(
+            flowObservationJson: flowObservationJson,
+            activeContextJson: activeContextJson,
+            parentChildMapJson: parentChildMapJson,
+            registryJson: registryJson,
+            requestHost: requestHost,
+            maxAgeSeconds: maxAgeSeconds,
+            nowEpochSeconds: nowEpochSeconds
+        ) else {
+            return nil
+        }
+        return ChildAllowMatch(
+            parentDomain: match.parentDomain,
+            requestHost: match.requestHost,
+            age: match.age
+        )
+        #else
+        kotlinCoreUnavailable()
+        #endif
+    }
+
+    /// Dynamic children: active-context children ∪ registry for the given parent.
+    /// Mirrors Swift private `dynamicChildren(for:)`.
+    public static func parentChildDynamicChildren(
+        activeContextJson: String?,
+        registryJson: String?,
+        parentDomain: String
+    ) -> Set<String> {
+        #if canImport(GetBoredSharedCore)
+        let result = GetBoredSharedCore.ParentChildStorePolicy().dynamicChildren(
+            activeContextJson: activeContextJson,
+            registryJson: registryJson,
+            parentDomain: parentDomain
+        )
+        return result
+        #else
+        kotlinCoreUnavailable()
+        #endif
+    }
+
+    /// Registry children for a parent domain from a JSON-encoded registry dict.
+    /// Mirrors Swift private `registryChildren(for:)`.
+    public static func parentChildRegistryChildren(
+        registryJson: String?,
+        parentDomain: String
+    ) -> Set<String> {
+        #if canImport(GetBoredSharedCore)
+        let result = GetBoredSharedCore.ParentChildStorePolicy().registryChildren(
+            registryJson: registryJson,
+            parentDomain: parentDomain
+        )
+        return result
+        #else
+        kotlinCoreUnavailable()
+        #endif
+    }
+
+    /// Legacy payload dict for the "last message" UserDefaults key.
+    /// Mirrors Swift private `legacyPayload(for:)`.
+    public static func parentChildLegacyPayload(
+        parentDomain: String,
+        childDomains: [String],
+        url: String,
+        receivedAtSwiftRefSeconds: Double
+    ) -> [String: Any] {
+        #if canImport(GetBoredSharedCore)
+        let context = GetBoredSharedCore.ActivePageContext(
+            parentDomain: parentDomain,
+            childDomains: childDomains,
+            url: url,
+            receivedAt: receivedAtSwiftRefSeconds
+        )
+        let probe = GetBoredSharedCore.ParentChildStorePolicy().legacyPayload(context: context)
+        return [
+            "type": probe.type,
+            "url": probe.url,
+            "parentDomain": probe.parentDomain,
+            "childDomains": probe.childDomains,
+            "source": probe.source,
+            "receivedAt": probe.receivedAt,
+        ]
+        #else
+        kotlinCoreUnavailable()
+        #endif
+    }
+
     // MARK: - Activity Log Policy
 
     /// Strip team-ID prefix from a sourceAppIdentifier. Delegates to Kotlin ActivityLogPolicy.
