@@ -5,12 +5,13 @@ import GetBoredCore
 import GetBoredSharedCore
 #endif
 
-/// Adapter seam for the Kotlin DecisionCore POC.
+/// Adapter seam for Kotlin-owned decision logic.
 ///
-/// The production version of this file should be the only Swift code that
-/// knows about the generated `GetBoredSharedCore` Kotlin/Native framework. That
-/// keeps NetworkExtension providers Swift-owned while allowing policy logic to
-/// move behind a Kotlin-owned boundary.
+/// Swift owns platform collection and type conversion. The Kotlin
+/// `GetBoredSharedCore` framework owns policy, normalization, status mapping,
+/// and parent-child decisions. When the framework is not importable, this file
+/// still compiles for SwiftPM contract tests, but business calls fail fast
+/// instead of carrying a second Swift implementation.
 public enum KMPDecisionCoreAdapter {
     public enum PolicyDecisionKind {
         case allow
@@ -82,38 +83,7 @@ public enum KMPDecisionCoreAdapter {
             icloudLabel: vm.icloudLabel
         )
         #else
-        let filterState: String
-        let filterLabel: String
-        if let filterErrorMessage {
-            filterState = "error"
-            filterLabel = filterErrorMessage
-        } else if let filterEnabled {
-            filterState = filterEnabled ? "active" : "inactive"
-            filterLabel = filterEnabled ? "Active & Protecting" : "Inactive"
-        } else {
-            filterState = "checking"
-            filterLabel = "Checking..."
-        }
-
-        let icloudState: String
-        let icloudLabel: String
-        if let icloudErrorMessage {
-            icloudState = "unavailable"
-            icloudLabel = icloudErrorMessage
-        } else if let icloudAvailable {
-            icloudState = icloudAvailable ? "available" : "unavailable"
-            icloudLabel = icloudAvailable ? "Connected" : "Not signed in"
-        } else {
-            icloudState = "checking"
-            icloudLabel = "Checking..."
-        }
-
-        return FilterStatusViewModel(
-            filterState: filterState,
-            filterLabel: filterLabel,
-            icloudState: icloudState,
-            icloudLabel: icloudLabel
-        )
+        kotlinCoreUnavailable()
         #endif
     }
 
@@ -126,11 +96,7 @@ public enum KMPDecisionCoreAdapter {
             exceptions: loadedFilterRules.exceptions
         )
         #else
-        if matchesException(url, using: loadedFilterRules) {
-            return false
-        }
-        let matchedSiteRule = GetBoredCore.DecisionCore.matchesSiteRule(url, using: loadedFilterRules)
-        return loadedFilterRules.filterMode == .whiteList ? !matchedSiteRule : matchedSiteRule
+        kotlinCoreUnavailable()
         #endif
     }
 
@@ -146,34 +112,9 @@ public enum KMPDecisionCoreAdapter {
             policy: kotlinPolicySnapshot(from: loadedFilterRules, systemAllowedSuffixes: systemAllowedSuffixes),
             allowedSafariParent: allowedSafariParent
         )
-        return PolicyDecision(
-            kind: decision.kind == GetBoredSharedCore.PolicyDecisionKind.block ? .block : .allow,
-            reason: decision.reason
-        )
+        return policyDecision(from: decision)
         #else
-        let normalizedHost = normalizedHost(host)
-        if normalizedHost.isEmpty {
-            return PolicyDecision(kind: .allow, reason: "Empty host")
-        }
-        if isSystemAllowed(host, systemAllowedSuffixes: systemAllowedSuffixes) {
-            return PolicyDecision(kind: .allow, reason: "System allowed")
-        }
-        if loadedFilterRules.filterMode == .whiteList {
-            if GetBoredCore.DecisionCore.matchesSiteRule(host, using: loadedFilterRules) {
-                return PolicyDecision(kind: .allow, reason: "In allowed list")
-            }
-            if let allowedSafariParent, !allowedSafariParent.isEmpty {
-                return PolicyDecision(kind: .allow, reason: "Child of allowed Safari parent \(allowedSafariParent)")
-            }
-            return PolicyDecision(kind: .block, reason: "Block everything mode")
-        }
-        if loadedFilterRules.siteRules.isEmpty {
-            return PolicyDecision(kind: .block, reason: "No entries (lockdown)")
-        }
-        if GetBoredCore.DecisionCore.matchesSiteRule(host, using: loadedFilterRules) {
-            return PolicyDecision(kind: .block, reason: "In blocklist")
-        }
-        return PolicyDecision(kind: .allow, reason: "Not listed")
+        kotlinCoreUnavailable()
         #endif
     }
 
@@ -184,7 +125,7 @@ public enum KMPDecisionCoreAdapter {
             allowedAppBundleIds: loadedFilterRules.allowedAppBundleIDs
         )
         #else
-        return GetBoredCore.DecisionCore.matchesAllowedApp(bundleID, using: loadedFilterRules)
+        kotlinCoreUnavailable()
         #endif
     }
 
@@ -195,7 +136,7 @@ public enum KMPDecisionCoreAdapter {
             siteRules: loadedFilterRules.siteRules.map(\.url)
         )
         #else
-        return GetBoredCore.DecisionCore.matchesSiteRule(url, using: loadedFilterRules)
+        kotlinCoreUnavailable()
         #endif
     }
 
@@ -204,7 +145,7 @@ public enum KMPDecisionCoreAdapter {
         #if canImport(GetBoredSharedCore)
         return GetBoredSharedCore.DecisionCore().normalizeHost(input: value)
         #else
-        return normalizedHost(value)
+        kotlinCoreUnavailable()
         #endif
     }
 
@@ -213,16 +154,7 @@ public enum KMPDecisionCoreAdapter {
         #if canImport(GetBoredSharedCore)
         return GetBoredSharedCore.DecisionCore().normalizeChildPattern(input: value)
         #else
-        let trimmed = value
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .lowercased()
-            .trimmingCharacters(in: CharacterSet(charactersIn: "."))
-        guard !trimmed.isEmpty else { return "" }
-        if trimmed.hasPrefix("*.") {
-            let suffix = String(trimmed.dropFirst(2)).trimmingCharacters(in: CharacterSet(charactersIn: "."))
-            return suffix.isEmpty ? "" : "*.\(suffix)"
-        }
-        return trimmed
+        kotlinCoreUnavailable()
         #endif
     }
 
@@ -230,10 +162,7 @@ public enum KMPDecisionCoreAdapter {
         #if canImport(GetBoredSharedCore)
         return GetBoredSharedCore.DecisionCore().hostMatchesDomain(hostOrUrl: host, domainOrUrl: domain)
         #else
-        let normalizedHost = normalizedHost(host)
-        let normalizedDomain = normalizedHost(domain)
-        guard !normalizedHost.isEmpty, !normalizedDomain.isEmpty else { return false }
-        return normalizedHost == normalizedDomain || normalizedHost.hasSuffix(".\(normalizedDomain)")
+        kotlinCoreUnavailable()
         #endif
     }
 
@@ -241,17 +170,7 @@ public enum KMPDecisionCoreAdapter {
         #if canImport(GetBoredSharedCore)
         return GetBoredSharedCore.DecisionCore().hostMatchesChildPattern(hostOrUrl: host, childPattern: childPattern)
         #else
-        let normalizedHost = normalizedHost(host)
-        guard let normalizedPattern = normalizeChildPattern(childPattern),
-              !normalizedHost.isEmpty,
-              !normalizedPattern.isEmpty else {
-            return false
-        }
-        if normalizedPattern.hasPrefix("*.") {
-            let suffix = String(normalizedPattern.dropFirst(2))
-            return normalizedHost == suffix || normalizedHost.hasSuffix(".\(suffix)")
-        }
-        return hostMatchesDomain(normalizedHost, domain: normalizedPattern)
+        kotlinCoreUnavailable()
         #endif
     }
 
@@ -262,14 +181,7 @@ public enum KMPDecisionCoreAdapter {
             domainOrUrls: domains
         )
         #else
-        let lowered = normalizedHost(host)
-        return domains.contains { domain in
-            let parts = normalizedHost(domain).split(separator: ".")
-            guard parts.count >= 2 else { return false }
-            let keyword = String(parts[parts.count - 2])
-            guard keyword.count >= 4 else { return false }
-            return lowered.contains(keyword)
-        }
+        kotlinCoreUnavailable()
         #endif
     }
 
@@ -280,7 +192,7 @@ public enum KMPDecisionCoreAdapter {
             exceptions: loadedFilterRules.exceptions
         )
         #else
-        return matchesIOSExceptionPrefix(url, exceptions: loadedFilterRules.exceptions)
+        kotlinCoreUnavailable()
         #endif
     }
 
@@ -291,15 +203,7 @@ public enum KMPDecisionCoreAdapter {
             policy: kotlinPolicySnapshot(from: loadedFilterRules, systemAllowedSuffixes: [])
         )
         #else
-        let appLower = sourceApp.lowercased()
-        if appLower.contains(GetBoredIdentifiers.bundlePrefix) {
-            return true
-        }
-        if (appLower.hasSuffix(".com.apple.") || appLower.contains(".com.apple."))
-            && !appLower.contains("mobilesafari") {
-            return true
-        }
-        return GetBoredCore.DecisionCore.matchesAllowedApp(sourceApp, using: loadedFilterRules)
+        kotlinCoreUnavailable()
         #endif
     }
 
@@ -310,8 +214,7 @@ public enum KMPDecisionCoreAdapter {
             policy: kotlinPolicySnapshot(from: loadedFilterRules, systemAllowedSuffixes: [])
         )
         #else
-        guard let sourceApp, !sourceApp.isEmpty else { return false }
-        return loadedFilterRules.filterMode == .whiteList && !shouldAllowApp(sourceApp, using: loadedFilterRules)
+        kotlinCoreUnavailable()
         #endif
     }
 
@@ -322,11 +225,7 @@ public enum KMPDecisionCoreAdapter {
             systemAllowedSuffixes: systemAllowedSuffixes
         )
         #else
-        let host = normalizedHost(host)
-        return systemAllowedSuffixes.contains { suffix in
-            let normalizedSuffix = normalizedHost(suffix)
-            return host == normalizedSuffix || host.hasSuffix(".\(normalizedSuffix)")
-        }
+        kotlinCoreUnavailable()
         #endif
     }
 
@@ -340,23 +239,9 @@ public enum KMPDecisionCoreAdapter {
             host: host,
             policy: kotlinPolicySnapshot(from: loadedFilterRules, systemAllowedSuffixes: systemAllowedSuffixes)
         )
-        return PolicyDecision(
-            kind: decision.kind == GetBoredSharedCore.PolicyDecisionKind.block ? .block : .allow,
-            reason: decision.reason
-        )
+        return policyDecision(from: decision)
         #else
-        if isSystemAllowed(host, systemAllowedSuffixes: systemAllowedSuffixes) {
-            return PolicyDecision(kind: .allow, reason: "System allowed")
-        }
-        let listed = GetBoredCore.DecisionCore.matchesSiteRule(host, using: loadedFilterRules)
-        if loadedFilterRules.filterMode == .whiteList {
-            return listed
-                ? PolicyDecision(kind: .allow, reason: "In allowed list")
-                : PolicyDecision(kind: .block, reason: "Not in allowed list")
-        }
-        return listed
-            ? PolicyDecision(kind: .block, reason: "In blocklist")
-            : PolicyDecision(kind: .allow, reason: "Not listed")
+        kotlinCoreUnavailable()
         #endif
     }
 
@@ -389,14 +274,7 @@ public enum KMPDecisionCoreAdapter {
             shouldAllow: decision.shouldAllow
         )
         #else
-        return swiftParentChildDecision(
-            host: host,
-            endpoint: endpoint,
-            activeParent: activeParent,
-            activeChildren: activeChildren,
-            activeContextAge: activeContextAge,
-            activeContextMaxAge: activeContextMaxAge
-        )
+        kotlinCoreUnavailable()
         #endif
     }
 
@@ -412,6 +290,15 @@ public enum KMPDecisionCoreAdapter {
             allowedAppBundleIds: loadedFilterRules.allowedAppBundleIDs,
             ownAppBundlePrefixes: [GetBoredIdentifiers.bundlePrefix],
             systemAllowedSuffixes: systemAllowedSuffixes
+        )
+    }
+
+    private static func policyDecision(
+        from decision: GetBoredSharedCore.PolicyDecision
+    ) -> PolicyDecision {
+        PolicyDecision(
+            kind: decision.kind == GetBoredSharedCore.PolicyDecisionKind.block ? .block : .allow,
+            reason: decision.reason
         )
     }
 
@@ -433,132 +320,14 @@ public enum KMPDecisionCoreAdapter {
     }
     #endif
 
-    private static func swiftParentChildDecision(
-        host: String,
-        endpoint: String,
-        activeParent: String?,
-        activeChildren: [String],
-        activeContextAge: TimeInterval,
-        activeContextMaxAge: TimeInterval
-    ) -> ParentChildDecision {
-        let host = normalizedHost(host)
-        guard let activeParent, !activeParent.isEmpty else {
-            return ParentChildDecision(
-                kind: .noActiveContext,
-                host: host,
-                endpoint: endpoint,
-                activeParent: "",
-                ageSeconds: 0,
-                childCount: 0,
-                event: "BLOCK_NO_CONTEXT host=\(host) endpoint=\(endpoint)",
-                observationDecision: "noActiveContext",
-                shouldAllow: false
-            )
-        }
-
-        let normalizedParent = normalizedHost(activeParent)
-        if activeContextAge > activeContextMaxAge {
-            return ParentChildDecision(
-                kind: .staleActiveContext,
-                host: host,
-                endpoint: endpoint,
-                activeParent: normalizedParent,
-                ageSeconds: activeContextAge,
-                childCount: activeChildren.count,
-                event: "BLOCK_STALE host=\(host) activeParent=\(normalizedParent) age=\(formatAge(activeContextAge))",
-                observationDecision: "staleActiveContext",
-                shouldAllow: false
-            )
-        }
-
-        if host == normalizedParent {
-            return ParentChildDecision(
-                kind: .matchActiveParent,
-                host: host,
-                endpoint: endpoint,
-                activeParent: normalizedParent,
-                ageSeconds: activeContextAge,
-                childCount: activeChildren.count,
-                event: "ALLOW_PARENT host=\(host) parent=\(normalizedParent) age=\(formatAge(activeContextAge))",
-                observationDecision: "matchActiveParent",
-                shouldAllow: true
-            )
-        }
-
-        if activeChildren.contains(where: { hostMatchesChildPattern(host, pattern: $0) }) {
-            return ParentChildDecision(
-                kind: .matchActiveChild,
-                host: host,
-                endpoint: endpoint,
-                activeParent: normalizedParent,
-                ageSeconds: activeContextAge,
-                childCount: activeChildren.count,
-                event: "ALLOW_CHILD host=\(host) parent=\(normalizedParent) age=\(formatAge(activeContextAge))",
-                observationDecision: "matchActiveChild",
-                shouldAllow: true
-            )
-        }
-
-        return ParentChildDecision(
-            kind: .noActiveMatch,
-            host: host,
-            endpoint: endpoint,
-            activeParent: normalizedParent,
-            ageSeconds: activeContextAge,
-            childCount: activeChildren.count,
-            event: "BLOCK_NO_MATCH host=\(host) activeParent=\(normalizedParent) childCount=\(activeChildren.count) age=\(formatAge(activeContextAge))",
-            observationDecision: "noActiveMatch",
-            shouldAllow: false
+    private static func kotlinCoreUnavailable(
+        file: StaticString = #fileID,
+        line: UInt = #line
+    ) -> Never {
+        preconditionFailure(
+            "GetBoredSharedCore is required for iOS business logic. Run `make kmp` before building app or extension targets.",
+            file: file,
+            line: line
         )
-    }
-
-    private static func hostMatchesChildPattern(_ host: String, pattern: String) -> Bool {
-        let normalizedPattern = normalizedHost(pattern)
-        guard !normalizedPattern.isEmpty else { return false }
-        if normalizedPattern.hasPrefix("*.") {
-            let suffix = String(normalizedPattern.dropFirst(2))
-            return host == suffix || host.hasSuffix(".\(suffix)")
-        }
-        return host == normalizedPattern || host.hasSuffix(".\(normalizedPattern)")
-    }
-
-    private static func normalizedHost(_ input: String) -> String {
-        var value = input.lowercased()
-        if let range = value.range(of: "://") {
-            value = String(value[range.upperBound...])
-        }
-        if let slash = value.firstIndex(of: "/") {
-            value = String(value[..<slash])
-        }
-        if let colon = value.firstIndex(of: ":") {
-            value = String(value[..<colon])
-        }
-        if let question = value.firstIndex(of: "?") {
-            value = String(value[..<question])
-        }
-        return value
-    }
-
-    private static func matchesIOSExceptionPrefix(_ url: String, exceptions: [String]) -> Bool {
-        let normalizedURL = normalizedURLPrefix(url)
-        return exceptions.contains { exception in
-            let pattern = normalizedURLPrefix(exception)
-            return !pattern.isEmpty && normalizedURL.hasPrefix(pattern)
-        }
-    }
-
-    private static func normalizedURLPrefix(_ input: String) -> String {
-        var value = input.lowercased()
-        if let range = value.range(of: "://") {
-            value = String(value[range.upperBound...])
-        }
-        if value.hasPrefix("www.") {
-            value = String(value.dropFirst(4))
-        }
-        return value
-    }
-
-    private static func formatAge(_ value: TimeInterval) -> String {
-        String(format: "%.1f", (value * 10).rounded() / 10)
     }
 }
