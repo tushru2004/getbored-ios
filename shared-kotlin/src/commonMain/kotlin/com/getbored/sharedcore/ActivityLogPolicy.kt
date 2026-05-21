@@ -1,11 +1,13 @@
 package com.getbored.sharedcore
 
 import kotlinx.serialization.KSerializer
-import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.descriptors.SerialDescriptor
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
+import kotlin.random.Random
+import kotlin.time.Clock
+import kotlin.time.ExperimentalTime
 
 /**
  * Kotlin mirror of GetBoredCore.ActivityLogEntry (Swift Codable).
@@ -74,17 +76,88 @@ object ActivityLogEntrySerializer : KSerializer<ActivityLogEntry> {
 
     override fun deserialize(decoder: Decoder): ActivityLogEntry {
         val s = decoder.decodeSerializableValue(ActivityLogEntrySurrogate.serializer())
+        val displayDomain = s.displayDomain ?: s.domain ?: "unknown-host"
         return ActivityLogEntry(
-            id = s.id ?: "",
-            displayDomain = s.displayDomain ?: s.domain ?: "unknown-host",
+            id = s.id ?: randomUppercaseUuid(),
+            displayDomain = displayDomain,
             blocked = s.blocked ?: true,
             reason = s.reason ?: "Blocked by filter",
             sourceApp = s.sourceApp,
             rawEndpoint = s.rawEndpoint,
             resolutionSource = s.resolutionSource ?: "legacy",
-            isResolvableHostname = s.isResolvableHostname ?: true,
-            timestamp = s.timestamp ?: 0.0,
+            isResolvableHostname = s.isResolvableHostname ?: !looksLikeIPAddress(displayDomain),
+            timestamp = s.timestamp ?: currentSwiftReferenceTimestamp(),
         )
+    }
+
+    private fun randomUppercaseUuid(): String {
+        val bytes = ByteArray(16) { Random.nextInt(0, 256).toByte() }
+        bytes[6] = ((bytes[6].toInt() and 0x0f) or 0x40).toByte()
+        bytes[8] = ((bytes[8].toInt() and 0x3f) or 0x80).toByte()
+        val hex = bytes.joinToString("") { byte ->
+            (byte.toInt() and 0xff).toString(16).padStart(2, '0').uppercase()
+        }
+        return listOf(
+            hex.substring(0, 8),
+            hex.substring(8, 12),
+            hex.substring(12, 16),
+            hex.substring(16, 20),
+            hex.substring(20, 32),
+        ).joinToString("-")
+    }
+
+    @OptIn(ExperimentalTime::class)
+    private fun currentSwiftReferenceTimestamp(): Double {
+        val swiftReferenceDateUnixSeconds = 978_307_200.0
+        return Clock.System.now().toEpochMilliseconds() / 1000.0 - swiftReferenceDateUnixSeconds
+    }
+
+    private fun looksLikeIPAddress(host: String): Boolean {
+        val normalized = host.trim { it == '[' || it == ']' || it == ' ' || it == '.' }.lowercase()
+        if (normalized.isEmpty()) return false
+        return isIPv4Address(normalized) || isIPv6Address(normalized)
+    }
+
+    private fun isIPv4Address(value: String): Boolean {
+        val parts = value.split(".")
+        return parts.size == 4 && parts.all { part ->
+            val number = part.toIntOrNull()
+            part.isNotEmpty() &&
+                part.all { it.isDigit() } &&
+                number != null &&
+                number in 0..255
+        }
+    }
+
+    private fun isIPv6Address(value: String): Boolean {
+        if (!value.contains(":")) return false
+        if (value.any { it !in '0'..'9' && it !in 'a'..'f' && it != ':' && it != '.' }) return false
+        if (value.countDoubleColon() > 1) return false
+
+        val sides = value.split("::")
+        val groups = sides.flatMap { side -> if (side.isEmpty()) emptyList() else side.split(":") }
+        if (groups.isEmpty()) return false
+
+        val lastGroup = groups.last()
+        val ipv4TailGroups = if (isIPv4Address(lastGroup)) 2 else 0
+        val hexGroups = if (ipv4TailGroups == 0) groups else groups.dropLast(1)
+        if (hexGroups.any { it.isEmpty() || it.length > 4 || it.any { ch -> ch !in '0'..'9' && ch !in 'a'..'f' } }) {
+            return false
+        }
+
+        val groupCount = hexGroups.size + ipv4TailGroups
+        return if (sides.size == 2) groupCount < 8 else groupCount == 8
+    }
+
+    private fun String.countDoubleColon(): Int {
+        var count = 0
+        var startIndex = 0
+        while (true) {
+            val index = indexOf("::", startIndex)
+            if (index < 0) return count
+            count += 1
+            startIndex = index + 2
+        }
     }
 }
 

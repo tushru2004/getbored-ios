@@ -1,11 +1,16 @@
 package com.getbored.sharedcore
 
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.json.Json
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 class ActivityLogPolicyTest {
     private val policy = ActivityLogPolicy()
+    private val json = Json { ignoreUnknownKeys = true }
 
     private fun entry(
         id: String = "00000000-0000-0000-0000-000000000001",
@@ -88,6 +93,56 @@ class ActivityLogPolicyTest {
     @Test
     fun stripTeamIDStripsDePrefix() {
         assertEquals("de.some.app", policy.stripTeamID("TEAMIDXX.de.some.app"))
+    }
+
+    // ── ActivityLogEntry Swift-compatible decode defaults ───────────────────
+
+    @Test
+    fun decodeLegacyBlobFallsBackToDomainAndGeneratesSwiftDefaults() {
+        val entry = json.decodeFromString<ActivityLogEntry>(
+            """
+            {
+              "domain": "157.240.1.35",
+              "blocked": true,
+              "reason": "Blocked by filter"
+            }
+            """.trimIndent(),
+        )
+
+        assertEquals("157.240.1.35", entry.displayDomain)
+        assertFalse(entry.isResolvableHostname)
+        assertTrue(entry.timestamp > 0.0)
+        assertTrue(uuidRegex.matches(entry.id))
+    }
+
+    @Test
+    fun decodeMissingResolvableHostnameComputesTrueForDomainName() {
+        val entry = json.decodeFromString<ActivityLogEntry>(
+            """
+            {
+              "displayDomain": "example.com",
+              "blocked": false,
+              "reason": "Allowed"
+            }
+            """.trimIndent(),
+        )
+
+        assertTrue(entry.isResolvableHostname)
+    }
+
+    @Test
+    fun decodeMissingResolvableHostnameComputesFalseForIPv6Address() {
+        val entry = json.decodeFromString<ActivityLogEntry>(
+            """
+            {
+              "displayDomain": "[2001:db8::1]",
+              "blocked": true,
+              "reason": "Blocked by filter"
+            }
+            """.trimIndent(),
+        )
+
+        assertFalse(entry.isResolvableHostname)
     }
 
     // ── mergeAndTrimEntries ──────────────────────────────────────────────────
@@ -190,5 +245,11 @@ class ActivityLogPolicyTest {
         val appB = (1..40).map { i -> entry(id = "B-$i", timestamp = i.toDouble(), sourceApp = "app.b") }
         val result = policy.mergeAndTrimEntries(emptyList(), appA + appB, maxTotal = 70, maxPerApp = 50)
         assertEquals(70, result.size)
+    }
+
+    companion object {
+        private val uuidRegex = Regex(
+            "[0-9A-F]{8}-[0-9A-F]{4}-4[0-9A-F]{3}-[89AB][0-9A-F]{3}-[0-9A-F]{12}",
+        )
     }
 }
