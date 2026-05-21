@@ -18,14 +18,7 @@ data class FilterStatusViewModel(
     val filterLabel: String,
     val icloudState: String,
     val icloudLabel: String,
-) {
-    fun toDictionary(): Map<String, String> = mapOf(
-        "filterState" to filterState,
-        "filterLabel" to filterLabel,
-        "icloudState" to icloudState,
-        "icloudLabel" to icloudLabel,
-    )
-}
+)
 
 class FilterStatusCore {
     fun viewModel(

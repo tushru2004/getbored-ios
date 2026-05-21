@@ -16,6 +16,26 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup Java (Kotlin/Gradle)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Install JS dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Build GetBoredSharedCore XCFramework (KMP)
+        run: ./gradlew :shared-kotlin:assembleGetBoredSharedCoreXCFramework
+
+      - name: Install CocoaPods
+        run: pod install --repo-update
+
       - name: Build GetBored iOS
         run: |
           xcodebuild \
