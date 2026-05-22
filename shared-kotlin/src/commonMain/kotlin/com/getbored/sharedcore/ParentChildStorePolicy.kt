@@ -128,9 +128,10 @@ class ParentChildStorePolicy {
     }
 
     /**
-     * Port of Swift `freshChildAllowMatch(for:maxAge:now:)` (lines 209-227).
+     * Returns a [ChildAllowMatch] when `requestHost` was recently allowed as a
+     * child of the currently-active Safari parent page, within `maxAgeSeconds`.
      *
-     * Returns a [ChildAllowMatch] when:
+     * Match requires all of:
      *  - The flow observation's decision is exactly "matchActiveChild"
      *  - `requestHost` matches the observation's `requestHost` per
      *    [DecisionCore.hostMatchesDomain]
@@ -143,7 +144,7 @@ class ParentChildStorePolicy {
      * same Swift-reference-date frame (Double seconds since 2001-01-01). The
      * Swift caller passes `Date().timeIntervalSinceReferenceDate` (or equivalent).
      */
-    fun freshChildAllowMatch(
+    fun childDomainRecentlyAllowedByActiveParent(
         flowObservationJson: String?,
         activeContextJson: String?,
         parentChildMapJson: String?,

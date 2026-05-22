@@ -207,9 +207,9 @@ struct SafariParentChildContextStore {
         }
     }
 
-    func freshChildAllowMatch(for requestHost: String, maxAge: TimeInterval, now: Date = Date()) -> ChildAllowMatch? {
+    func childDomainRecentlyAllowedByActiveParent(for requestHost: String, maxAge: TimeInterval, now: Date = Date()) -> ChildAllowMatch? {
         guard let host = Self.normalizedHost(requestHost) else { return nil }
-        guard let match = KMPDecisionCoreAdapter.freshChildAllowMatch(
+        guard let match = KMPDecisionCoreAdapter.childDomainRecentlyAllowedByActiveParent(
             flowObservationJson: loadFlowObservationJson(),
             activeContextJson: loadActiveContextJSONForKotlin(),
             parentChildMapJson: loadParentChildMapJson(),

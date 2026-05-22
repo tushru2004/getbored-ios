@@ -348,10 +348,11 @@ public enum KMPDecisionCoreAdapter {
         #endif
     }
 
-    /// Fresh child allow match. Returns nil when observation is stale, mismatched,
-    /// or no active context covers the request host.
-    /// Mirrors Swift `freshChildAllowMatch(for:maxAge:now:)`.
-    public static func freshChildAllowMatch(
+    /// Returns evidence that `requestHost` was recently allowed as a child of the
+    /// currently-active Safari parent page, within `maxAgeSeconds`. Nil when the
+    /// observation is stale, mismatched, or no active context covers the host.
+    /// Mirrors Swift `childDomainRecentlyAllowedByActiveParent(for:maxAge:now:)`.
+    public static func childDomainRecentlyAllowedByActiveParent(
         flowObservationJson: String?,
         activeContextJson: String?,
         parentChildMapJson: String?,
@@ -361,7 +362,7 @@ public enum KMPDecisionCoreAdapter {
         nowEpochSeconds: Double
     ) -> ChildAllowMatch? {
         #if canImport(GetBoredSharedCore)
-        guard let match = GetBoredSharedCore.ParentChildStorePolicy().freshChildAllowMatch(
+        guard let match = GetBoredSharedCore.ParentChildStorePolicy().childDomainRecentlyAllowedByActiveParent(
             flowObservationJson: flowObservationJson,
             activeContextJson: activeContextJson,
             parentChildMapJson: parentChildMapJson,

@@ -143,10 +143,10 @@ class ParentChildStorePolicyTest {
         assertEquals(setOf("dynamic-child.com"), result)
     }
 
-    // ── freshChildAllowMatch ─────────────────────────────────────────────────
+    // ── childDomainRecentlyAllowedByActiveParent ─────────────────────────────────────────────────
 
     @Test
-    fun freshChildAllowMatchReturnsFreshMatch() {
+    fun childDomainRecentlyAllowedByActiveParentReturnsFreshMatch() {
         // observedAt=100.0, now=105.0, maxAge=60 → age=5.0 → within window
         val obs = flowObservationJson(
             requestHost = "cdn.child.com",
@@ -156,7 +156,7 @@ class ParentChildStorePolicyTest {
         )
         val active = activeContextJson("parent.com", listOf("child.com"))
         val registry = registryJson(mapOf("parent.com" to listOf("child.com")))
-        val result = policy.freshChildAllowMatch(
+        val result = policy.childDomainRecentlyAllowedByActiveParent(
             flowObservationJson = obs,
             activeContextJson = active,
             parentChildMapJson = null,
@@ -172,7 +172,7 @@ class ParentChildStorePolicyTest {
     }
 
     @Test
-    fun freshChildAllowMatchReturnsNullWhenStale() {
+    fun childDomainRecentlyAllowedByActiveParentReturnsNullWhenStale() {
         // observedAt=100.0, now=200.0, maxAge=60 → age=100 > 60 → stale
         val obs = flowObservationJson(
             requestHost = "cdn.child.com",
@@ -181,7 +181,7 @@ class ParentChildStorePolicyTest {
         )
         val active = activeContextJson("parent.com", listOf("child.com"))
         val registry = registryJson(mapOf("parent.com" to listOf("child.com")))
-        val result = policy.freshChildAllowMatch(
+        val result = policy.childDomainRecentlyAllowedByActiveParent(
             flowObservationJson = obs,
             activeContextJson = active,
             parentChildMapJson = null,
@@ -194,14 +194,14 @@ class ParentChildStorePolicyTest {
     }
 
     @Test
-    fun freshChildAllowMatchReturnsNullWhenHostDoesNotMatchObservation() {
+    fun childDomainRecentlyAllowedByActiveParentReturnsNullWhenHostDoesNotMatchObservation() {
         val obs = flowObservationJson(
             requestHost = "cdn.other.com",
             parentDomain = "parent.com",
             observedAt = 100.0,
         )
         val active = activeContextJson("parent.com", listOf("child.com"))
-        val result = policy.freshChildAllowMatch(
+        val result = policy.childDomainRecentlyAllowedByActiveParent(
             flowObservationJson = obs,
             activeContextJson = active,
             parentChildMapJson = null,
@@ -214,9 +214,9 @@ class ParentChildStorePolicyTest {
     }
 
     @Test
-    fun freshChildAllowMatchReturnsNullWhenFlowObservationJsonMissing() {
+    fun childDomainRecentlyAllowedByActiveParentReturnsNullWhenFlowObservationJsonMissing() {
         val active = activeContextJson("parent.com", listOf("child.com"))
-        val result = policy.freshChildAllowMatch(
+        val result = policy.childDomainRecentlyAllowedByActiveParent(
             flowObservationJson = null,
             activeContextJson = active,
             parentChildMapJson = null,
@@ -229,8 +229,8 @@ class ParentChildStorePolicyTest {
     }
 
     @Test
-    fun freshChildAllowMatchReturnsNullWhenFlowObservationJsonMalformed() {
-        val result = policy.freshChildAllowMatch(
+    fun childDomainRecentlyAllowedByActiveParentReturnsNullWhenFlowObservationJsonMalformed() {
+        val result = policy.childDomainRecentlyAllowedByActiveParent(
             flowObservationJson = "{not valid json{{",
             activeContextJson = activeContextJson("parent.com", listOf("child.com")),
             parentChildMapJson = null,
@@ -243,7 +243,7 @@ class ParentChildStorePolicyTest {
     }
 
     @Test
-    fun freshChildAllowMatchReturnsNullWhenDecisionIsNotMatchActiveChild() {
+    fun childDomainRecentlyAllowedByActiveParentReturnsNullWhenDecisionIsNotMatchActiveChild() {
         val obs = flowObservationJson(
             requestHost = "cdn.child.com",
             parentDomain = "parent.com",
@@ -251,7 +251,7 @@ class ParentChildStorePolicyTest {
             observedAt = 100.0,
         )
         val active = activeContextJson("parent.com", listOf("child.com"))
-        val result = policy.freshChildAllowMatch(
+        val result = policy.childDomainRecentlyAllowedByActiveParent(
             flowObservationJson = obs,
             activeContextJson = active,
             parentChildMapJson = null,
@@ -264,7 +264,7 @@ class ParentChildStorePolicyTest {
     }
 
     @Test
-    fun freshChildAllowMatchReturnsNullWhenAgeIsNegative() {
+    fun childDomainRecentlyAllowedByActiveParentReturnsNullWhenAgeIsNegative() {
         // now < observedAt → negative age
         val obs = flowObservationJson(
             requestHost = "cdn.child.com",
@@ -273,7 +273,7 @@ class ParentChildStorePolicyTest {
         )
         val active = activeContextJson("parent.com", listOf("child.com"))
         val registry = registryJson(mapOf("parent.com" to listOf("child.com")))
-        val result = policy.freshChildAllowMatch(
+        val result = policy.childDomainRecentlyAllowedByActiveParent(
             flowObservationJson = obs,
             activeContextJson = active,
             parentChildMapJson = null,
@@ -545,7 +545,7 @@ class ParentChildStorePolicyTest {
             }
         """.trimIndent()
 
-        val result = policy.freshChildAllowMatch(
+        val result = policy.childDomainRecentlyAllowedByActiveParent(
             flowObservationJson = wireJson,
             activeContextJson = activeContextJson("example.com", listOf("example.com")),
             parentChildMapJson = null,
