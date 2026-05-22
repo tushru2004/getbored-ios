@@ -161,30 +161,6 @@ struct SafariParentChildContextStore {
         return true
     }
 
-    func parentChildMapChildren(for parentDomain: String) -> Set<String>? {
-        guard let parent = Self.normalizedHost(parentDomain),
-              let map = loadParentChildMap() else {
-            return nil
-        }
-
-        var children = Set<String>()
-        for rule in map.rules {
-            guard Self.host(parent, matchesDomain: rule.p) else { continue }
-            children.formUnion(rule.c.compactMap(Self.normalizedChildPattern).filter { !$0.isEmpty })
-        }
-
-        for wildcard in map.wildcards ?? [] {
-            guard Self.host(parent, matchesDomain: wildcard.p),
-                  let child = Self.normalizedChildPattern(wildcard.c),
-                  !child.isEmpty else {
-                continue
-            }
-            children.insert(child)
-        }
-
-        return children
-    }
-
     func saveFlowObservation(requestHost: String, parentDomain: String, decision: String, endpoint: String, observedAt: Date) {
         guard let defaults,
               let host = Self.normalizedHost(requestHost),
@@ -236,19 +212,6 @@ struct SafariParentChildContextStore {
         KMPDecisionCoreAdapter.normalizeHost(value)
     }
 
-    static func host(_ host: String, matchesDomain domain: String) -> Bool {
-        KMPDecisionCoreAdapter.hostMatchesDomain(host, domain: domain)
-    }
-
-    static func host(_ requestHost: String, matchesChildPattern childPattern: String) -> Bool {
-        KMPDecisionCoreAdapter.hostMatchesChildPattern(requestHost, childPattern: childPattern)
-    }
-
-    private func loadFlowObservation() -> FlowObservation? {
-        guard let data = defaults?.data(forKey: Self.flowObservationDataKey) else { return nil }
-        return try? decoder.decode(FlowObservation.self, from: data)
-    }
-
     private func loadFlowObservationJson() -> String? {
         guard let data = defaults?.data(forKey: Self.flowObservationDataKey) else { return nil }
         return String(data: data, encoding: .utf8)
@@ -265,17 +228,6 @@ struct SafariParentChildContextStore {
             return nil
         }
         return String(data: data, encoding: .utf8)
-    }
-
-    private func loadParentChildMap() -> ParentChildMap? {
-        if let data = defaults?.data(forKey: Self.parentChildMapKey) {
-            return try? decoder.decode(ParentChildMap.self, from: data)
-        }
-        if let json = defaults?.string(forKey: Self.parentChildMapKey),
-           let data = json.data(using: .utf8) {
-            return try? decoder.decode(ParentChildMap.self, from: data)
-        }
-        return nil
     }
 
     private func loadParentChildMapJson() -> String? {
@@ -298,23 +250,6 @@ struct SafariParentChildContextStore {
         return String(data: data, encoding: .utf8)
     }
 
-    private func dynamicChildren(for parentDomain: String) -> Set<String> {
-        guard let parent = Self.normalizedHost(parentDomain) else { return [] }
-        return KMPDecisionCoreAdapter.parentChildDynamicChildren(
-            activeContextJson: loadActiveContextJSONForKotlin(),
-            registryJson: loadRegistryJson(),
-            parentDomain: parent
-        )
-    }
-
-    private func registryChildren(for parentDomain: String) -> Set<String> {
-        guard let parent = Self.normalizedHost(parentDomain) else { return [] }
-        return KMPDecisionCoreAdapter.parentChildRegistryChildren(
-            registryJson: loadRegistryJson(),
-            parentDomain: parent
-        )
-    }
-
     private func updateRegistry(parentDomain: String, childDomains: [String]) {
         guard let defaults else { return }
         var registry = defaults.dictionary(forKey: Self.legacyParentChildRegistryKey) as? [String: [String]] ?? [:]
@@ -331,12 +266,5 @@ struct SafariParentChildContextStore {
             url: context.url,
             receivedAtSwiftRefSeconds: context.receivedAt.timeIntervalSinceReferenceDate
         )
-    }
-
-    private static func normalizedChildPattern(_ value: String?) -> String? {
-        guard let pattern = KMPDecisionCoreAdapter.normalizeChildPattern(value), !pattern.isEmpty else {
-            return nil
-        }
-        return pattern
     }
 }

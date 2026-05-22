@@ -383,42 +383,6 @@ public enum KMPDecisionCoreAdapter {
         #endif
     }
 
-    /// Dynamic children: active-context children ∪ registry for the given parent.
-    /// Mirrors Swift private `dynamicChildren(for:)`.
-    public static func parentChildDynamicChildren(
-        activeContextJson: String?,
-        registryJson: String?,
-        parentDomain: String
-    ) -> Set<String> {
-        #if canImport(GetBoredSharedCore)
-        let result = GetBoredSharedCore.ParentChildStorePolicy().dynamicChildren(
-            activeContextJson: activeContextJson,
-            registryJson: registryJson,
-            parentDomain: parentDomain
-        )
-        return result
-        #else
-        kotlinCoreUnavailable()
-        #endif
-    }
-
-    /// Registry children for a parent domain from a JSON-encoded registry dict.
-    /// Mirrors Swift private `registryChildren(for:)`.
-    public static func parentChildRegistryChildren(
-        registryJson: String?,
-        parentDomain: String
-    ) -> Set<String> {
-        #if canImport(GetBoredSharedCore)
-        let result = GetBoredSharedCore.ParentChildStorePolicy().registryChildren(
-            registryJson: registryJson,
-            parentDomain: parentDomain
-        )
-        return result
-        #else
-        kotlinCoreUnavailable()
-        #endif
-    }
-
     /// Legacy payload dict for the "last message" UserDefaults key.
     /// Mirrors Swift private `legacyPayload(for:)`.
     public static func parentChildLegacyPayload(
