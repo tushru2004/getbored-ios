@@ -446,6 +446,14 @@ public enum KMPDecisionCoreAdapter {
         #endif
     }
 
+    public static func isValidParentChildMapJSON(_ json: String) -> Bool {
+        #if canImport(GetBoredSharedCore)
+        return GetBoredSharedCore.ParentChildStorePolicy().isValidParentChildMapJson(parentChildMapJson: json)
+        #else
+        kotlinCoreUnavailable()
+        #endif
+    }
+
     /// Returns evidence that `requestHost` was recently allowed as a child of the
     /// currently-active Safari parent page, within `maxAgeSeconds`. Nil when the
     /// observation is stale, mismatched, or no active context covers the host.

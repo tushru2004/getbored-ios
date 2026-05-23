@@ -23,24 +23,6 @@ struct SafariParentChildContextStore {
         let age: TimeInterval
     }
 
-    struct ParentChildMap: Codable, Equatable {
-        struct Rule: Codable, Equatable {
-            let p: String
-            let c: [String]
-        }
-
-        struct Wildcard: Codable, Equatable {
-            let p: String
-            let c: String
-        }
-
-        let schemaVersion: Int
-        let version: String?
-        let publishedAt: String?
-        let rules: [Rule]
-        let wildcards: [Wildcard]?
-    }
-
     static let appGroupIdentifier = GetBoredIdentifiers.AppGroup.ios
 
     static let legacyLastMessageKey = "safari_extension_spike_last_message"
@@ -152,8 +134,7 @@ struct SafariParentChildContextStore {
 
     func saveParentChildMapJSON(_ json: String) -> Bool {
         guard let defaults,
-              let data = json.data(using: .utf8),
-              (try? decoder.decode(ParentChildMap.self, from: data)) != nil else {
+              KMPDecisionCoreAdapter.isValidParentChildMapJSON(json) else {
             return false
         }
         defaults.set(json, forKey: Self.parentChildMapKey)

@@ -113,15 +113,12 @@ class IOSRuleStore {
     /// The AppProxy and Data Provider decode the typed schema when making decisions.
     @discardableResult
     func saveParentChildMapJSON(_ json: String) -> Bool {
-        guard let data = json.data(using: .utf8),
-              let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              object["schemaVersion"] as? Int == 1,
-              object["rules"] as? [[String: Any]] != nil else {
+        guard KMPDecisionCoreAdapter.isValidParentChildMapJSON(json) else {
             logger.error("saveParentChildMapJSON: invalid JSON")
             return false
         }
 
-        logger.info("saveParentChildMapJSON: saving \(data.count) bytes")
+        logger.info("saveParentChildMapJSON: saving \(json.utf8.count) bytes")
         let defaults = sharedDefaults
         defaults?.set(json, forKey: parentChildMapKey)
         defaults?.synchronize()

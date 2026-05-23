@@ -63,6 +63,10 @@ class ParentChildStorePolicy {
         isLenient = true
     }
 
+    fun isValidParentChildMapJson(parentChildMapJson: String?): Boolean {
+        return decodeParentChildMap(parentChildMapJson) != null
+    }
+
     fun mergedChildren(
         parentChildMapJson: String?,
         activeContextJson: String?,
@@ -171,7 +175,7 @@ class ParentChildStorePolicy {
         val parent = core.normalizeHost(parentDomain)
         if (parent.isEmpty()) return null
 
-        val map = decode(ParentChildMap.serializer(), parentChildMapJson) ?: return null
+        val map = decodeParentChildMap(parentChildMapJson) ?: return null
 
         val children = mutableSetOf<String>()
         for (rule in map.rules) {
@@ -187,6 +191,11 @@ class ParentChildStorePolicy {
             if (normalized.isNotEmpty()) children.add(normalized)
         }
         return children
+    }
+
+    private fun decodeParentChildMap(parentChildMapJson: String?): ParentChildMap? {
+        val map = decode(ParentChildMap.serializer(), parentChildMapJson) ?: return null
+        return if (map.schemaVersion == 1) map else null
     }
 
     private fun <T> decode(serializer: kotlinx.serialization.DeserializationStrategy<T>, raw: String?): T? {
