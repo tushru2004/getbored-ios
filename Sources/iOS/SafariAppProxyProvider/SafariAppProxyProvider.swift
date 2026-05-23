@@ -43,6 +43,7 @@ final class SafariAppProxyProvider: NEAppProxyProvider {
     /// Contexts older than 60s are treated as stale to prevent background tabs
     /// from reusing old whitelists while still allowing delayed CNBC resources.
     private let activeContextMaxAge: TimeInterval = 60
+    private let activeContextRefreshMinAge: TimeInterval = 3
 
     /// Apple/system infrastructure domains that must always be allowed. Loaded
     /// from GetBoredCore's bundled list with a legacy Safari App Proxy fallback
@@ -519,15 +520,20 @@ final class SafariAppProxyProvider: NEAppProxyProvider {
     /// for the stored active parent, move only that existing context's
     /// timestamp forward so its children can pass the normal policy check.
     private func refreshActiveContextIfDirectHostMatchesActiveParent(_ host: String) {
-        guard let active = contextStore.loadActiveContext(),
-              let parentRule = matchingListedDomain(for: active.parentDomain),
-              hostMatchesRule(host, parentRule) else {
+        guard let active = contextStore.loadActiveContext() else {
             return
         }
 
         let now = Date()
         let age = now.timeIntervalSince(active.receivedAt)
-        guard age > 3 else { return }
+        let decision = KMPDecisionCoreAdapter.safariActiveContextRefreshDecision(
+            host: host,
+            activeParentDomain: active.parentDomain,
+            siteRules: loadedFilterRules().siteRules.map(\.url),
+            activeContextAge: age,
+            refreshAgeThreshold: activeContextRefreshMinAge
+        )
+        guard decision.shouldRefresh else { return }
 
         contextStore.saveActiveContext(
             parentDomain: active.parentDomain,
@@ -537,11 +543,10 @@ final class SafariAppProxyProvider: NEAppProxyProvider {
         )
         appendEvent(
             String(
-                format: "APP_PROXY_REFRESH_ACTIVE_CONTEXT host=%@ parent=%@ rule=%@ age=%.1f",
+                format: "%@ host=%@ parent=%@",
+                decision.event,
                 host,
-                active.parentDomain,
-                parentRule,
-                age
+                active.parentDomain
             )
         )
     }
@@ -588,53 +593,13 @@ final class SafariAppProxyProvider: NEAppProxyProvider {
     /// append a hostname hint after a space).
     /// Returns nil if no `:` is present (= not a host:port endpoint).
     private func host(from endpoint: String) -> String? {
-        let hostPort = endpoint.split(separator: " ", maxSplits: 1).first.map(String.init) ?? endpoint
-        guard hostPort.contains(":") else { return nil }
-        let host = hostPort.split(separator: ":", maxSplits: 1).first.map(String.init)
-        return normalizedHost(host)
-    }
-
-    /// Lowercase + strip whitespace + strip leading/trailing dots.
-    /// Example: `" .CNBC.COM. "` → `"cnbc.com"`.
-    /// Used both for incoming flow hosts and for the `site_rules` rule URLs
-    /// so comparisons are apples-to-apples.
-    private func normalizedHost(_ value: String?) -> String? {
-        KMPDecisionCoreAdapter.normalizeHost(value)
+        KMPDecisionCoreAdapter.safariAppProxyHost(from: endpoint)
     }
 
     /// Load the Swift-owned policy snapshot from App Group storage, then pass
     /// it across the KMP adapter boundary for pure decision logic.
     private func loadedFilterRules() -> LoadedFilterRules {
         ruleStore.loadFilterRules()
-    }
-
-    /// Does `host` match any rule in App Group `site_rules`?
-    ///
-    /// Match = exact host equality OR proper subdomain (`host.hasSuffix("." + domain)`).
-    /// Example: rule `cnbc.com` matches `cnbc.com` and `news.cnbc.com` but not
-    /// `evilcnbc.com` (no leading dot).
-    /// Decode failures (no key, malformed JSON) → returns false (= host not listed).
-    private func matchingListedDomain(for host: String) -> String? {
-        loadedFilterRules().siteRules.compactMap { rule -> String? in
-            guard let domain = normalizedRuleHost(rule.url), !domain.isEmpty else {
-                return nil
-            }
-            return KMPDecisionCoreAdapter.hostMatchesDomain(host, domain: domain) ? domain : nil
-        }.first
-    }
-
-    private func hostMatchesRule(_ host: String, _ rule: String) -> Bool {
-        KMPDecisionCoreAdapter.hostMatchesDomain(host, domain: rule)
-    }
-
-    /// Best-effort domain extraction from a site_rule's `url` field.
-    ///
-    /// Tolerates user input variations:
-    /// - `https://www.cnbc.com/markets` → `www.cnbc.com`
-    /// - `cnbc.com`                     → `cnbc.com` (auto-prefixes `https://`)
-    /// - `cnbc.com/feeds`               → `cnbc.com` (path-only fallback)
-    private func normalizedRuleHost(_ value: String) -> String? {
-        normalizedHost(value)
     }
 
     /// Append a single line to the App Group spike event log.

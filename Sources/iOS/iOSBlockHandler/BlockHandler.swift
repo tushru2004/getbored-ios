@@ -155,17 +155,6 @@ class BlockHandler: NEFilterControlProvider {
         completionHandler(.drop(withUpdateRules: false))
     }
 
-    // MARK: - Hostname Resolution
-
-    /// Bundles the result of resolving a blocked flow's hostname.
-    /// Used by handle(report:) to figure out what domain was actually blocked.
-    private struct HostResolution {
-        let displayDomain: String       // What we show in the block log (e.g. "instagram.com")
-        let rawEndpoint: String?        // The raw IP or hostname from the socket (e.g. "157.240.1.35")
-        let resolutionSource: String    // How we found it: "url-host", "socket-endpoint", "source-app-fallback", "unresolved"
-        let isResolvableHostname: Bool  // true = real domain name, false = IP or app: fallback
-    }
-
     /// Tries to figure out what domain was blocked, using a cascade of strategies.
     ///
     /// Resolution cascade (stops at first success):
@@ -173,125 +162,16 @@ class BlockHandler: NEFilterControlProvider {
     ///   2. socket endpoint       → "api.tiktok.com" (non-browser TCP)
     ///   3. [disabled] reverse DNS of IP → too slow/unreliable for filter extension
     ///   4. fallback to sourceApp → "app:com.unknown.app" (last resort)
-    private func resolveBlockedHost(from flow: NEFilterFlow?, sourceApp: String?) -> HostResolution {
+    private func resolveBlockedHost(from flow: NEFilterFlow?, sourceApp: String?) -> KMPDecisionCoreAdapter.BlockedHostResolution {
         let rawURLHost = flow?.url?.host
         let rawEndpoint = (flow as? NEFilterSocketFlow)
             .flatMap { ($0.remoteEndpoint as? NWHostEndpoint)?.hostname }
-        let normalizedURLHost = normalizedBlockedHost(rawURLHost)
-        let normalizedEndpoint = normalizedBlockedHost(rawEndpoint)
-
-        // 1. Try URL host (browser flows like Safari give us this directly)
-        if let urlHost = normalizedURLHost, isResolvableHost(urlHost) {
-            return HostResolution(
-                displayDomain: urlHost,
-                rawEndpoint: normalizedEndpoint,
-                resolutionSource: "url-host",
-                isResolvableHostname: true
-            )
-        }
-
-        // 2. Try socket endpoint hostname (non-browser apps)
-        if let endpointHost = normalizedEndpoint, isResolvableHost(endpointHost) {
-            return HostResolution(
-                displayDomain: endpointHost,
-                rawEndpoint: endpointHost,
-                resolutionSource: "socket-endpoint",
-                isResolvableHostname: true
-            )
-        }
-
-        // 3. Reverse DNS — disabled for now.
-        //    In practice, reverse DNS is slow and returns unhelpful results
-        //    like "lax17s55-in-f14.1e100.net" instead of "google.com".
-        //    Uncomment if block log entries are too vague.
-        //
-        // if let endpointHost = normalizedEndpoint, isIPAddress(endpointHost),
-        //    let reverseResolved = reverseDNS(for: endpointHost) {
-        //     return HostResolution(
-        //         displayDomain: reverseResolved,
-        //         rawEndpoint: endpointHost,
-        //         resolutionSource: "reverse-dns",
-        //         isResolvableHostname: true
-        //     )
-        // }
-        //
-        // if let urlHost = normalizedURLHost, isIPAddress(urlHost),
-        //    let reverseResolved = reverseDNS(for: urlHost) {
-        //     return HostResolution(
-        //         displayDomain: reverseResolved,
-        //         rawEndpoint: urlHost,
-        //         resolutionSource: "reverse-dns-url",
-        //         isResolvableHostname: true
-        //     )
-        // }
-
-        // 4. Fallback — use source app bundle ID or whatever we have
-        let fallback = sourceAppLabel(sourceApp)
-            ?? normalizedURLHost
-            ?? normalizedEndpoint
-            ?? "unknown-blocked-flow"
-        let endpoint = normalizedEndpoint ?? normalizedURLHost
-        return HostResolution(
-            displayDomain: fallback,
-            rawEndpoint: endpoint,
-            resolutionSource: sourceApp != nil ? "source-app-fallback" : "unresolved",
-            isResolvableHostname: false
+        return KMPDecisionCoreAdapter.resolveBlockedHost(
+            rawURLHost: rawURLHost,
+            rawEndpoint: rawEndpoint,
+            sourceApp: sourceApp
         )
     }
-
-    // MARK: - Hostname Helpers
-
-    /// Normalize through Kotlin-owned host rules, then reject unhelpful placeholders.
-    private func normalizedBlockedHost(_ value: String?) -> String? {
-        guard let host = KMPDecisionCoreAdapter.normalizeHost(value) else { return nil }
-        guard !host.isEmpty, host != "unknown" else { return nil }
-        return host
-    }
-
-    /// A resolvable host is a real domain name — not an IP address, not an "app:" fallback
-    private func isResolvableHost(_ host: String) -> Bool {
-        !isIPAddress(host) && !host.hasPrefix("app:")
-    }
-
-    /// Format a bundle ID as a fallback label: "com.apple.mobilesafari" → "app:com.apple.mobilesafari"
-    private func sourceAppLabel(_ sourceApp: String?) -> String? {
-        guard let sourceApp, !sourceApp.isEmpty else { return nil }
-        return "app:\(sourceApp)"
-    }
-
-    /// Detect IPv4 or IPv6 addresses using C inet_pton
-    private func isIPAddress(_ host: String) -> Bool {
-        let normalized = host.trimmingCharacters(in: CharacterSet(charactersIn: "[] .")).lowercased()
-        var ipv4 = in_addr()
-        if normalized.withCString({ inet_pton(AF_INET, $0, &ipv4) }) == 1 { return true }
-        var ipv6 = in6_addr()
-        if normalized.withCString({ inet_pton(AF_INET6, $0, &ipv6) }) == 1 { return true }
-        return false
-    }
-
-    // Reverse DNS — commented out, available if needed later.
-    // Uses getaddrinfo/getnameinfo to resolve IP → hostname.
-    //
-    // private func reverseDNS(for ip: String) -> String? {
-    //     var hints = addrinfo(
-    //         ai_flags: AI_NUMERICHOST, ai_family: AF_UNSPEC,
-    //         ai_socktype: 0, ai_protocol: 0, ai_addrlen: 0,
-    //         ai_canonname: nil, ai_addr: nil, ai_next: nil
-    //     )
-    //     var result: UnsafeMutablePointer<addrinfo>?
-    //     guard getaddrinfo(ip, nil, &hints, &result) == 0, let addr = result else { return nil }
-    //     defer { freeaddrinfo(addr) }
-    //     var hostBuffer = [CChar](repeating: 0, count: Int(NI_MAXHOST))
-    //     guard getnameinfo(
-    //         addr.pointee.ai_addr, socklen_t(addr.pointee.ai_addrlen),
-    //         &hostBuffer, socklen_t(hostBuffer.count),
-    //         nil, 0, NI_NAMEREQD
-    //     ) == 0 else { return nil }
-    //     let resolved = String(cString: hostBuffer)
-    //         .trimmingCharacters(in: CharacterSet(charactersIn: ".")).lowercased()
-    //     guard !resolved.isEmpty, !isIPAddress(resolved) else { return nil }
-    //     return resolved
-    // }
 
     // MARK: - CloudKit Upload
 
