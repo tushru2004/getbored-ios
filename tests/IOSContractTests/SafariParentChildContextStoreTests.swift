@@ -50,47 +50,4 @@ final class SafariParentChildContextStoreTests: XCTestCase {
             "safari_app_proxy_spike_flows"
         )
     }
-
-    func testSafariParentChildMapSchemaDecodesCurrentContractShape() throws {
-        let json = """
-        {
-          "schemaVersion": 1,
-          "version": "fixture-v1",
-          "publishedAt": "2026-05-10T00:00:00Z",
-          "rules": [
-            {
-              "p": "www.docker.com",
-              "c": ["bam.nr-data.net", "js-agent.newrelic.com"]
-            }
-          ],
-          "wildcards": [
-            {
-              "p": "www.cnbc.com",
-              "c": "*.cnbcfm.com"
-            }
-          ]
-        }
-        """
-
-        let map = try JSONDecoder().decode(
-            SafariParentChildContextStore.ParentChildMap.self,
-            from: Data(json.utf8)
-        )
-
-        XCTAssertEqual(map.schemaVersion, 1)
-        XCTAssertEqual(map.version, "fixture-v1")
-        XCTAssertEqual(map.publishedAt, "2026-05-10T00:00:00Z")
-        XCTAssertEqual(map.rules, [
-            SafariParentChildContextStore.ParentChildMap.Rule(
-                p: "www.docker.com",
-                c: ["bam.nr-data.net", "js-agent.newrelic.com"]
-            ),
-        ])
-        XCTAssertEqual(map.wildcards, [
-            SafariParentChildContextStore.ParentChildMap.Wildcard(
-                p: "www.cnbc.com",
-                c: "*.cnbcfm.com"
-            ),
-        ])
-    }
 }

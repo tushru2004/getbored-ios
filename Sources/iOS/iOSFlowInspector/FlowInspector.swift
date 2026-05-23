@@ -95,38 +95,25 @@ class FlowInspector: NEFilterDataProvider {
     }
 
     private func allowedSafariParent(forChildHost host: String, using loadedFilterRules: LoadedFilterRules) -> String? {
-        guard let match = safariParentChildContextStore.childDomainRecentlyAllowedByActiveParent(
-            for: host,
+        guard let decision = safariParentChildContextStore.allowedSafariParentForChild(
+            host,
+            using: loadedFilterRules,
             maxAge: safariParentChildObservationMaxAge
         ) else {
             return nil
         }
 
-        guard KMPDecisionCoreAdapter.matchesSiteRule(match.parentDomain, using: loadedFilterRules) else {
+        safariParentChildContextStore.appendEvent(decision.event)
+
+        guard decision.shouldAllow else {
             os_log("allowedSafariParent: rejecting child=%{public}@ parent=%{public}@ because parent is not in allowlist",
-                   log: logger, type: .info, host, match.parentDomain)
-            safariParentChildContextStore.appendEvent(
-                String(
-                    format: "DATA_PROVIDER_REJECT_CHILD_PARENT_NOT_ALLOWLISTED host=%@ parent=%@ age=%.1f",
-                    host,
-                    match.parentDomain,
-                    match.age
-                )
-            )
+                   log: logger, type: .info, decision.requestHost, decision.parentDomain)
             return nil
         }
 
         os_log("allowedSafariParent: allowing child=%{public}@ parent=%{public}@ age=%.1f",
-               log: logger, type: .info, host, match.parentDomain, match.age)
-        safariParentChildContextStore.appendEvent(
-            String(
-                format: "DATA_PROVIDER_ALLOW_CHILD host=%@ parent=%@ age=%.1f",
-                host,
-                match.parentDomain,
-                match.age
-            )
-        )
-        return match.parentDomain
+               log: logger, type: .info, decision.requestHost, decision.parentDomain, decision.age)
+        return decision.parentDomain
     }
 
     // MARK: - Telemetry Helpers

@@ -17,12 +17,6 @@ struct SafariParentChildContextStore {
         let observedAt: Date
     }
 
-    struct ChildAllowMatch: Equatable {
-        let parentDomain: String
-        let requestHost: String
-        let age: TimeInterval
-    }
-
     static let appGroupIdentifier = GetBoredIdentifiers.AppGroup.ios
 
     static let legacyLastMessageKey = "safari_extension_spike_last_message"
@@ -47,17 +41,18 @@ struct SafariParentChildContextStore {
 
     func saveActiveContext(parentDomain: String, childDomains: [String], url: String, receivedAt: Date) {
         guard let defaults else { return }
-        let parent = Self.normalizedHost(parentDomain) ?? ""
-        guard !parent.isEmpty else { return }
-
-        let children = childDomains
-            .compactMap(Self.normalizedHost)
-            .filter { !$0.isEmpty && $0 != parent }
-        let uniqueChildren = Array(Set(children)).sorted()
-        let context = ActivePageContext(
-            parentDomain: parent,
-            childDomains: uniqueChildren,
+        guard let normalized = KMPDecisionCoreAdapter.normalizedActivePageContext(
+            parentDomain: parentDomain,
+            childDomains: childDomains,
             url: url,
+            receivedAtSwiftRefSeconds: receivedAt.timeIntervalSinceReferenceDate
+        ) else {
+            return
+        }
+        let context = ActivePageContext(
+            parentDomain: normalized.parentDomain,
+            childDomains: normalized.childDomains,
+            url: normalized.url,
             receivedAt: receivedAt
         )
 
@@ -75,17 +70,17 @@ struct SafariParentChildContextStore {
             defaults.set(receivedAt, forKey: Self.legacyActiveContextDateKey)
         }
 
-        updateRegistry(parentDomain: parent, childDomains: uniqueChildren)
+        updateRegistry(parentDomain: context.parentDomain, childDomains: context.childDomains)
         defaults.synchronize()
     }
 
     func clearActiveContext(clearingParent: String?) {
         guard let defaults else { return }
-        let normalizedClearingParent = Self.normalizedHost(clearingParent)
 
-        if let active = loadActiveContext(),
-           let normalizedClearingParent,
-           active.parentDomain != normalizedClearingParent {
+        if !KMPDecisionCoreAdapter.shouldClearActiveContext(
+            activeContextJson: loadActiveContextJSONForKotlin(),
+            clearingParent: clearingParent
+        ) {
             return
         }
 
@@ -102,33 +97,27 @@ struct SafariParentChildContextStore {
             return context
         }
 
-        guard let json = defaults?.string(forKey: Self.legacyActiveContextKey),
-              let data = json.data(using: .utf8),
-              let payload = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let parent = Self.normalizedHost(payload["parentDomain"] as? String),
-              !parent.isEmpty else {
+        guard let context = KMPDecisionCoreAdapter.activePageContextFromLegacyPayloadJSON(
+            defaults?.string(forKey: Self.legacyActiveContextKey),
+            receivedAtSwiftRefSeconds: (defaults?.object(forKey: Self.legacyActiveContextDateKey) as? Date ?? Date.distantPast).timeIntervalSinceReferenceDate
+        ) else {
             return nil
         }
 
-        let children = (payload["childDomains"] as? [String] ?? [])
-            .compactMap(Self.normalizedHost)
-            .filter { !$0.isEmpty && $0 != parent }
-        let receivedAt = defaults?.object(forKey: Self.legacyActiveContextDateKey) as? Date ?? Date.distantPast
         return ActivePageContext(
-            parentDomain: parent,
-            childDomains: Array(Set(children)).sorted(),
-            url: payload["url"] as? String ?? "",
-            receivedAt: receivedAt
+            parentDomain: context.parentDomain,
+            childDomains: context.childDomains,
+            url: context.url,
+            receivedAt: Date(timeIntervalSinceReferenceDate: context.receivedAt)
         )
     }
 
     func mergedChildren(for parentDomain: String) -> Set<String> {
-        guard let parent = Self.normalizedHost(parentDomain) else { return [] }
         return KMPDecisionCoreAdapter.parentChildMergedChildren(
             parentChildMapJson: loadParentChildMapJson(),
             activeContextJson: loadActiveContextJSONForKotlin(),
             registryJson: loadRegistryJson(),
-            parentDomain: parent
+            parentDomain: parentDomain
         )
     }
 
@@ -144,19 +133,22 @@ struct SafariParentChildContextStore {
 
     func saveFlowObservation(requestHost: String, parentDomain: String, decision: String, endpoint: String, observedAt: Date) {
         guard let defaults,
-              let host = Self.normalizedHost(requestHost),
-              let parent = Self.normalizedHost(parentDomain),
-              !host.isEmpty,
-              !parent.isEmpty else {
+              let normalized = KMPDecisionCoreAdapter.normalizedFlowObservation(
+                requestHost: requestHost,
+                parentDomain: parentDomain,
+                decision: decision,
+                endpoint: endpoint,
+                observedAtSwiftRefSeconds: observedAt.timeIntervalSinceReferenceDate
+              ) else {
             return
         }
 
         let observation = FlowObservation(
-            requestHost: host,
-            parentDomain: parent,
-            decision: decision,
-            endpoint: endpoint,
-            observedAt: observedAt
+            requestHost: normalized.requestHost,
+            parentDomain: normalized.parentDomain,
+            decision: normalized.decision,
+            endpoint: normalized.endpoint,
+            observedAt: Date(timeIntervalSinceReferenceDate: normalized.observedAt)
         )
         if let data = try? encoder.encode(observation) {
             defaults.set(data, forKey: Self.flowObservationDataKey)
@@ -164,33 +156,35 @@ struct SafariParentChildContextStore {
         }
     }
 
-    func childDomainRecentlyAllowedByActiveParent(for requestHost: String, maxAge: TimeInterval, now: Date = Date()) -> ChildAllowMatch? {
-        guard let host = Self.normalizedHost(requestHost) else { return nil }
-        guard let match = KMPDecisionCoreAdapter.childDomainRecentlyAllowedByActiveParent(
+    func allowedSafariParentForChild(
+        _ requestHost: String,
+        using loadedFilterRules: LoadedFilterRules,
+        maxAge: TimeInterval,
+        now: Date = Date()
+    ) -> KMPDecisionCoreAdapter.AllowedSafariParentDecision? {
+        KMPDecisionCoreAdapter.allowedSafariParentForChild(
             flowObservationJson: loadFlowObservationJson(),
             activeContextJson: loadActiveContextJSONForKotlin(),
             parentChildMapJson: loadParentChildMapJson(),
             registryJson: loadRegistryJson(),
-            requestHost: host,
+            requestHost: requestHost,
             maxAgeSeconds: maxAge,
-            nowEpochSeconds: now.timeIntervalSinceReferenceDate
-        ) else {
-            return nil
-        }
-        return ChildAllowMatch(parentDomain: match.parentDomain, requestHost: match.requestHost, age: match.age)
+            nowEpochSeconds: now.timeIntervalSinceReferenceDate,
+            using: loadedFilterRules
+        )
     }
 
     func appendEvent(_ event: String, maxEvents: Int = 300, now: Date = Date()) {
         guard let defaults else { return }
         let timestamp = ISO8601DateFormatter().string(from: now)
-        var events = defaults.stringArray(forKey: Self.legacyFlowLogKey) ?? []
-        events.append("\(timestamp) \(event)")
-        defaults.set(Array(events.suffix(maxEvents)), forKey: Self.legacyFlowLogKey)
+        let events = KMPDecisionCoreAdapter.parentChildAppendEvent(
+            existingEvents: defaults.stringArray(forKey: Self.legacyFlowLogKey) ?? [],
+            timestamp: timestamp,
+            event: event,
+            maxEvents: maxEvents
+        )
+        defaults.set(events, forKey: Self.legacyFlowLogKey)
         defaults.synchronize()
-    }
-
-    static func normalizedHost(_ value: String?) -> String? {
-        KMPDecisionCoreAdapter.normalizeHost(value)
     }
 
     private func loadFlowObservationJson() -> String? {
