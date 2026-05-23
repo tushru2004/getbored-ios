@@ -26,15 +26,13 @@
 	<dict>
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
-		<key>NSExceptionDomains</key>
-		<dict>
-			<key>192.168.0.137</key>
-			<dict>
-				<key>NSExceptionAllowsInsecureHTTPLoads</key>
-				<true/>
-			</dict>
-		</dict>
 	</dict>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>GetBored connects to the Metro packager on your Mac to load the JS bundle during development.</string>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_http._tcp</string>
+	</array>
 	<key>RCTNewArchEnabled</key>
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
