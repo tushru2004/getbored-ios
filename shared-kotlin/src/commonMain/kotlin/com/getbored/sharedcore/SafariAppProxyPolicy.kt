@@ -1,6 +1,6 @@
 package com.getbored.sharedcore
 
-data class SafariActiveContextRefreshDecision(
+private data class SafariActiveContextRefreshDecision(
     val shouldRefresh: Boolean,
     val matchingRule: String,
     val ageSeconds: Double,
@@ -23,6 +23,8 @@ data class SafariRelayDecision(
     val activeParent: String,
     val observationDecision: String,
     val shouldSaveFlowObservation: Boolean,
+    val shouldRefreshActiveContext: Boolean,
+    val refreshEvent: String,
 )
 
 class SafariAppProxyPolicy {
@@ -35,7 +37,7 @@ class SafariAppProxyPolicy {
         return decisionCore.normalizeHost(host).takeIf { normalized -> normalized.isNotEmpty() }
     }
 
-    fun activeContextRefreshDecision(
+    private fun activeContextRefreshDecision(
         host: String,
         activeParentDomain: String,
         siteRules: List<String>,
@@ -67,6 +69,7 @@ class SafariAppProxyPolicy {
         activeChildren: List<String>,
         activeContextAgeSeconds: Double,
         activeContextMaxAgeSeconds: Double,
+        activeContextRefreshMinAgeSeconds: Double,
     ): SafariRelayDecision {
         val host = hostFromEndpoint(endpoint)
         if (host == null) {
@@ -79,11 +82,24 @@ class SafariAppProxyPolicy {
                 activeParent = "",
                 observationDecision = "unsupportedEndpoint",
                 shouldSaveFlowObservation = false,
+                shouldRefreshActiveContext = false,
+                refreshEvent = "",
             )
         }
 
         val directDecision = decisionCore.directSafariProxyDecision(host, policy)
         if (directDecision.kind == PolicyDecisionKind.ALLOW) {
+            val refresh = activeParent
+                ?.takeIf { parent -> parent.isNotEmpty() }
+                ?.let { parent ->
+                    activeContextRefreshDecision(
+                        host = host,
+                        activeParentDomain = parent,
+                        siteRules = policy.siteRules,
+                        activeContextAgeSeconds = activeContextAgeSeconds,
+                        refreshAgeThresholdSeconds = activeContextRefreshMinAgeSeconds,
+                    )
+                }
             return SafariRelayDecision(
                 shouldRelay = true,
                 host = host,
@@ -93,6 +109,11 @@ class SafariAppProxyPolicy {
                 activeParent = activeParent ?: "",
                 observationDecision = "directAllow",
                 shouldSaveFlowObservation = false,
+                shouldRefreshActiveContext = refresh?.shouldRefresh == true,
+                refreshEvent = refresh
+                    ?.takeIf { decision -> decision.shouldRefresh }
+                    ?.let { decision -> "${decision.event} host=$host parent=$activeParent" }
+                    ?: "",
             )
         }
 
@@ -125,6 +146,8 @@ class SafariAppProxyPolicy {
             activeParent = parentChildDecision.activeParent,
             observationDecision = parentChildDecision.observationDecision,
             shouldSaveFlowObservation = parentChildDecision.kind == ParentChildDecisionKind.MATCH_ACTIVE_CHILD,
+            shouldRefreshActiveContext = false,
+            refreshEvent = "",
         )
     }
 }

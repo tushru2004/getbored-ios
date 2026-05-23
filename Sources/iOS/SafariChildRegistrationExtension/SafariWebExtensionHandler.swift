@@ -44,16 +44,16 @@ final class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
         }
 
         let now = Date()
-        let payload = normalizedPayload(from: message, receivedAt: now)
+        let dictionary = message as? [String: Any] ?? [:]
         contextStore.saveActiveContext(
-            parentDomain: payload["parentDomain"] as? String ?? "",
-            childDomains: payload["childDomains"] as? [String] ?? [],
-            url: payload["url"] as? String ?? "",
+            parentDomain: dictionary["parentDomain"] as? String ?? "",
+            childDomains: dictionary["childDomains"] as? [String] ?? [],
+            url: dictionary["url"] as? String ?? "",
             receivedAt: now
         )
 
-        let parent = payload["parentDomain"] as? String ?? "unknown"
-        let children = payload["childDomains"] as? [String] ?? []
+        let parent = dictionary["parentDomain"] as? String ?? "unknown"
+        let children = dictionary["childDomains"] as? [String] ?? []
         logger.info("Stored Safari extension active context parent=\(parent, privacy: .public) children=\(children.count, privacy: .public)")
         return true
     }
@@ -67,20 +67,5 @@ final class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
         let dictionary = message as? [String: Any] ?? [:]
         contextStore.clearActiveContext(clearingParent: dictionary["parentDomain"] as? String)
         logger.info("Cleared Safari extension active page context")
-    }
-
-    private func normalizedPayload(from message: Any?, receivedAt: Date) -> [String: Any] {
-        let dictionary = message as? [String: Any] ?? [:]
-        return [
-            "type": dictionary["type"] as? String ?? "unknown",
-            "url": dictionary["url"] as? String ?? "",
-            "parentDomain": dictionary["parentDomain"] as? String ?? "",
-            "childDomains": dictionary["childDomains"] as? [String] ?? [],
-            "capabilities": dictionary["capabilities"] as? [String: Bool] ?? [:],
-            "probeStage": dictionary["probeStage"] as? String ?? "",
-            "backgroundError": dictionary["backgroundError"] as? String ?? "",
-            "source": "safari-extension-spike",
-            "receivedAt": ISO8601DateFormatter().string(from: receivedAt)
-        ]
     }
 }

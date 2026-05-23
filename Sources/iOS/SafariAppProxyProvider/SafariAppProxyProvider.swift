@@ -457,11 +457,18 @@ final class SafariAppProxyProvider: NEAppProxyProvider {
             activeParent: active?.parentDomain,
             activeChildren: activeChildren,
             activeContextAge: active.map { Date().timeIntervalSince($0.receivedAt) } ?? 0,
-            activeContextMaxAge: activeContextMaxAge
+            activeContextMaxAge: activeContextMaxAge,
+            activeContextRefreshMinAge: activeContextRefreshMinAge
         )
 
-        if decision.observationDecision == "directAllow" {
-            refreshActiveContextIfDirectHostMatchesActiveParent(decision.host)
+        if decision.shouldRefreshActiveContext, let active {
+            contextStore.saveActiveContext(
+                parentDomain: active.parentDomain,
+                childDomains: activeChildren,
+                url: active.url,
+                receivedAt: Date()
+            )
+            appendEvent(decision.refreshEvent)
         }
 
         appendEvent(decision.primaryEvent)
@@ -481,42 +488,6 @@ final class SafariAppProxyProvider: NEAppProxyProvider {
         }
 
         return decision.shouldRelay
-    }
-
-    /// Fallback for Safari cases where the web extension does not refresh an
-    /// already-open tab. If Safari is still making allowed same-site requests
-    /// for the stored active parent, move only that existing context's
-    /// timestamp forward so its children can pass the normal policy check.
-    private func refreshActiveContextIfDirectHostMatchesActiveParent(_ host: String) {
-        guard let active = contextStore.loadActiveContext() else {
-            return
-        }
-
-        let now = Date()
-        let age = now.timeIntervalSince(active.receivedAt)
-        let decision = KMPDecisionCoreAdapter.safariActiveContextRefreshDecision(
-            host: host,
-            activeParentDomain: active.parentDomain,
-            siteRules: loadedFilterRules().siteRules.map(\.url),
-            activeContextAge: age,
-            refreshAgeThreshold: activeContextRefreshMinAge
-        )
-        guard decision.shouldRefresh else { return }
-
-        contextStore.saveActiveContext(
-            parentDomain: active.parentDomain,
-            childDomains: Array(contextStore.mergedChildren(for: active.parentDomain)).sorted(),
-            url: active.url,
-            receivedAt: now
-        )
-        appendEvent(
-            String(
-                format: "%@ host=%@ parent=%@",
-                decision.event,
-                host,
-                active.parentDomain
-            )
-        )
     }
 
     /// Load the Swift-owned policy snapshot from App Group storage, then pass

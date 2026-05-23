@@ -121,16 +121,6 @@ struct SafariParentChildContextStore {
         )
     }
 
-    func saveParentChildMapJSON(_ json: String) -> Bool {
-        guard let defaults,
-              KMPDecisionCoreAdapter.isValidParentChildMapJSON(json) else {
-            return false
-        }
-        defaults.set(json, forKey: Self.parentChildMapKey)
-        defaults.synchronize()
-        return true
-    }
-
     func saveFlowObservation(requestHost: String, parentDomain: String, decision: String, endpoint: String, observedAt: Date) {
         guard let defaults,
               let normalized = KMPDecisionCoreAdapter.normalizedFlowObservation(
@@ -213,6 +203,12 @@ struct SafariParentChildContextStore {
     }
 
     private func loadRegistryJson() -> String? {
+        if let json = defaults?.string(forKey: Self.legacyParentChildRegistryKey) {
+            return json
+        }
+        if let data = defaults?.data(forKey: Self.legacyParentChildRegistryKey) {
+            return String(data: data, encoding: .utf8)
+        }
         guard let rawRegistry = defaults?.dictionary(forKey: Self.legacyParentChildRegistryKey) else {
             return nil
         }
@@ -227,11 +223,12 @@ struct SafariParentChildContextStore {
 
     private func updateRegistry(parentDomain: String, childDomains: [String]) {
         guard let defaults else { return }
-        var registry = defaults.dictionary(forKey: Self.legacyParentChildRegistryKey) as? [String: [String]] ?? [:]
-        var existing = Set(registry[parentDomain] ?? [])
-        existing.formUnion(childDomains)
-        registry[parentDomain] = existing.sorted()
-        defaults.set(registry, forKey: Self.legacyParentChildRegistryKey)
+        let updated = KMPDecisionCoreAdapter.parentChildUpdatedRegistryJSON(
+            registryJson: loadRegistryJson(),
+            parentDomain: parentDomain,
+            childDomains: childDomains
+        )
+        defaults.set(updated, forKey: Self.legacyParentChildRegistryKey)
     }
 
     private func legacyPayload(for context: ActivePageContext) -> [String: Any] {

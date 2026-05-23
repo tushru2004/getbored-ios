@@ -70,13 +70,6 @@ public enum KMPDecisionCoreAdapter {
         public let isResolvableHostname: Bool
     }
 
-    public struct SafariActiveContextRefreshDecision {
-        public let shouldRefresh: Bool
-        public let matchingRule: String
-        public let ageSeconds: TimeInterval
-        public let event: String
-    }
-
     public struct ActivePageContext: Equatable {
         public let parentDomain: String
         public let childDomains: [String]
@@ -109,6 +102,8 @@ public enum KMPDecisionCoreAdapter {
         public let activeParent: String
         public let observationDecision: String
         public let shouldSaveFlowObservation: Bool
+        public let shouldRefreshActiveContext: Bool
+        public let refreshEvent: String
     }
 
     public static func filterStatusViewModel(
@@ -368,32 +363,6 @@ public enum KMPDecisionCoreAdapter {
         #endif
     }
 
-    public static func safariActiveContextRefreshDecision(
-        host: String,
-        activeParentDomain: String,
-        siteRules: [String],
-        activeContextAge: TimeInterval,
-        refreshAgeThreshold: TimeInterval
-    ) -> SafariActiveContextRefreshDecision {
-        #if canImport(GetBoredSharedCore)
-        let decision = GetBoredSharedCore.SafariAppProxyPolicy().activeContextRefreshDecision(
-            host: host,
-            activeParentDomain: activeParentDomain,
-            siteRules: siteRules,
-            activeContextAgeSeconds: activeContextAge,
-            refreshAgeThresholdSeconds: refreshAgeThreshold
-        )
-        return SafariActiveContextRefreshDecision(
-            shouldRefresh: decision.shouldRefresh,
-            matchingRule: decision.matchingRule,
-            ageSeconds: decision.ageSeconds,
-            event: decision.event
-        )
-        #else
-        kotlinCoreUnavailable()
-        #endif
-    }
-
     public static func safariRelayDecision(
         endpoint: String,
         using loadedFilterRules: LoadedFilterRules,
@@ -401,7 +370,8 @@ public enum KMPDecisionCoreAdapter {
         activeParent: String?,
         activeChildren: [String],
         activeContextAge: TimeInterval,
-        activeContextMaxAge: TimeInterval
+        activeContextMaxAge: TimeInterval,
+        activeContextRefreshMinAge: TimeInterval
     ) -> SafariRelayDecision {
         #if canImport(GetBoredSharedCore)
         let decision = GetBoredSharedCore.SafariAppProxyPolicy().relayDecision(
@@ -410,7 +380,8 @@ public enum KMPDecisionCoreAdapter {
             activeParent: activeParent,
             activeChildren: activeChildren,
             activeContextAgeSeconds: activeContextAge,
-            activeContextMaxAgeSeconds: activeContextMaxAge
+            activeContextMaxAgeSeconds: activeContextMaxAge,
+            activeContextRefreshMinAgeSeconds: activeContextRefreshMinAge
         )
         return SafariRelayDecision(
             shouldRelay: decision.shouldRelay,
@@ -420,7 +391,9 @@ public enum KMPDecisionCoreAdapter {
             parentChildKind: parentChildKind(from: decision.parentChildKind),
             activeParent: decision.activeParent,
             observationDecision: decision.observationDecision,
-            shouldSaveFlowObservation: decision.shouldSaveFlowObservation
+            shouldSaveFlowObservation: decision.shouldSaveFlowObservation,
+            shouldRefreshActiveContext: decision.shouldRefreshActiveContext,
+            refreshEvent: decision.refreshEvent
         )
         #else
         kotlinCoreUnavailable()
@@ -563,8 +536,6 @@ public enum KMPDecisionCoreAdapter {
         #endif
     }
 
-    /// Merged children: static parent-child map takes precedence; falls back to dynamic
-    /// (active-context children ∪ registry). Mirrors Swift `mergedChildren(for:)`.
     public static func parentChildMergedChildren(
         parentChildMapJson: String?,
         activeContextJson: String?,
@@ -584,6 +555,22 @@ public enum KMPDecisionCoreAdapter {
         #endif
     }
 
+    public static func parentChildUpdatedRegistryJSON(
+        registryJson: String?,
+        parentDomain: String,
+        childDomains: [String]
+    ) -> String? {
+        #if canImport(GetBoredSharedCore)
+        return GetBoredSharedCore.ParentChildStorePolicy().updatedRegistryJson(
+            registryJson: registryJson,
+            parentDomain: parentDomain,
+            childDomains: childDomains
+        )
+        #else
+        kotlinCoreUnavailable()
+        #endif
+    }
+
     public static func isValidParentChildMapJSON(_ json: String) -> Bool {
         #if canImport(GetBoredSharedCore)
         return GetBoredSharedCore.ParentChildStorePolicy().isValidParentChildMapJson(parentChildMapJson: json)
@@ -592,8 +579,6 @@ public enum KMPDecisionCoreAdapter {
         #endif
     }
 
-    /// Legacy payload dict for the "last message" UserDefaults key.
-    /// Mirrors Swift private `legacyPayload(for:)`.
     public static func parentChildLegacyPayload(
         parentDomain: String,
         childDomains: [String],

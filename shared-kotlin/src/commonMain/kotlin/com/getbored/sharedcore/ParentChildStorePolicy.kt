@@ -203,6 +203,21 @@ class ParentChildStorePolicy {
         return dynamicChildren(activeContextJson, registryJson, parent)
     }
 
+    fun updatedRegistryJson(registryJson: String?, parentDomain: String, childDomains: List<String>): String? {
+        val parent = core.normalizeHost(parentDomain)
+        if (parent.isEmpty()) return registryJson
+
+        val existing = decodeRegistry(registryJson).toMutableMap()
+        val children = existing[parent].orEmpty().toMutableSet()
+        childDomains
+            .map { child -> core.normalizeHost(child) }
+            .filter { child -> child.isNotEmpty() && child != parent }
+            .forEach { child -> children.add(child) }
+
+        existing[parent] = children.sorted()
+        return registryJson(existing)
+    }
+
     private fun childDomainRecentlyAllowedByActiveParent(
         flowObservationJson: String?,
         activeContextJson: String?,
@@ -258,26 +273,7 @@ class ParentChildStorePolicy {
     }
 
     private fun registryChildren(registryJson: String?, parentDomain: String): Set<String> {
-        if (registryJson.isNullOrEmpty()) return emptySet()
-
-        val root: JsonElement = try {
-            json.parseToJsonElement(registryJson)
-        } catch (_: Throwable) {
-            return emptySet()
-        }
-        val obj = (root as? JsonObject) ?: return emptySet()
-
-        val rawChildren = obj[parentDomain] ?: return emptySet()
-        val array = (rawChildren as? JsonArray) ?: return emptySet()
-
-        val out = mutableSetOf<String>()
-        for (element in array) {
-            val str = (element as? JsonPrimitive)?.contentOrNull ?: continue
-            val normalized = core.normalizeHost(str)
-            if (normalized.isEmpty() || normalized == parentDomain) continue
-            out.add(normalized)
-        }
-        return out
+        return decodeRegistry(registryJson)[parentDomain].orEmpty().toSet()
     }
 
     fun legacyPayload(context: ActivePageContext): LegacyChildRegistrationProbe {
@@ -316,6 +312,41 @@ class ParentChildStorePolicy {
     private fun decodeParentChildMap(parentChildMapJson: String?): ParentChildMap? {
         val map = decode(ParentChildMap.serializer(), parentChildMapJson) ?: return null
         return if (map.schemaVersion == 1) map else null
+    }
+
+    private fun decodeRegistry(registryJson: String?): Map<String, List<String>> {
+        if (registryJson.isNullOrEmpty()) return emptyMap()
+
+        val root: JsonElement = try {
+            json.parseToJsonElement(registryJson)
+        } catch (_: Throwable) {
+            return emptyMap()
+        }
+        val obj = (root as? JsonObject) ?: return emptyMap()
+
+        val out = mutableMapOf<String, List<String>>()
+        for ((rawParent, rawChildren) in obj) {
+            val parent = core.normalizeHost(rawParent)
+            if (parent.isEmpty()) continue
+
+            val array = (rawChildren as? JsonArray) ?: continue
+            val children = mutableSetOf<String>()
+            for (element in array) {
+                val str = (element as? JsonPrimitive)?.contentOrNull ?: continue
+                val normalized = core.normalizeHost(str)
+                if (normalized.isEmpty() || normalized == parent) continue
+                children.add(normalized)
+            }
+            out[parent] = children.sorted()
+        }
+        return out
+    }
+
+    private fun registryJson(registry: Map<String, List<String>>): String {
+        val entries = registry.keys.sorted().associateWith { parent ->
+            JsonArray(registry[parent].orEmpty().sorted().map { child -> JsonPrimitive(child) })
+        }
+        return JsonObject(entries).toString()
     }
 
     private fun formatOneDecimal(value: Double): String {
