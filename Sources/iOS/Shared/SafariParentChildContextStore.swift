@@ -142,11 +142,12 @@ struct SafariParentChildContextStore {
 
     func mergedChildren(for parentDomain: String) -> Set<String> {
         guard let parent = Self.normalizedHost(parentDomain) else { return [] }
-        if let staticChildren = parentChildMapChildren(for: parent), !staticChildren.isEmpty {
-            return staticChildren
-        }
-
-        return dynamicChildren(for: parent)
+        return KMPDecisionCoreAdapter.parentChildMergedChildren(
+            parentChildMapJson: loadParentChildMapJson(),
+            activeContextJson: loadActiveContextJSONForKotlin(),
+            registryJson: loadRegistryJson(),
+            parentDomain: parent
+        )
     }
 
     func saveParentChildMapJSON(_ json: String) -> Bool {
@@ -158,30 +159,6 @@ struct SafariParentChildContextStore {
         defaults.set(json, forKey: Self.parentChildMapKey)
         defaults.synchronize()
         return true
-    }
-
-    func parentChildMapChildren(for parentDomain: String) -> Set<String>? {
-        guard let parent = Self.normalizedHost(parentDomain),
-              let map = loadParentChildMap() else {
-            return nil
-        }
-
-        var children = Set<String>()
-        for rule in map.rules {
-            guard Self.host(parent, matchesDomain: rule.p) else { continue }
-            children.formUnion(rule.c.compactMap(Self.normalizedChildPattern).filter { !$0.isEmpty })
-        }
-
-        for wildcard in map.wildcards ?? [] {
-            guard Self.host(parent, matchesDomain: wildcard.p),
-                  let child = Self.normalizedChildPattern(wildcard.c),
-                  !child.isEmpty else {
-                continue
-            }
-            children.insert(child)
-        }
-
-        return children
     }
 
     func saveFlowObservation(requestHost: String, parentDomain: String, decision: String, endpoint: String, observedAt: Date) {
@@ -206,24 +183,20 @@ struct SafariParentChildContextStore {
         }
     }
 
-    func freshChildAllowMatch(for requestHost: String, maxAge: TimeInterval, now: Date = Date()) -> ChildAllowMatch? {
-        guard let host = Self.normalizedHost(requestHost),
-              let observation = loadFlowObservation(),
-              observation.decision == "matchActiveChild",
-              Self.host(host, matchesDomain: observation.requestHost) else {
+    func childDomainRecentlyAllowedByActiveParent(for requestHost: String, maxAge: TimeInterval, now: Date = Date()) -> ChildAllowMatch? {
+        guard let host = Self.normalizedHost(requestHost) else { return nil }
+        guard let match = KMPDecisionCoreAdapter.childDomainRecentlyAllowedByActiveParent(
+            flowObservationJson: loadFlowObservationJson(),
+            activeContextJson: loadActiveContextJSONForKotlin(),
+            parentChildMapJson: loadParentChildMapJson(),
+            registryJson: loadRegistryJson(),
+            requestHost: host,
+            maxAgeSeconds: maxAge,
+            nowEpochSeconds: now.timeIntervalSinceReferenceDate
+        ) else {
             return nil
         }
-
-        let age = now.timeIntervalSince(observation.observedAt)
-        guard age >= 0, age <= maxAge else { return nil }
-
-        guard let active = loadActiveContext(),
-              active.parentDomain == observation.parentDomain,
-              mergedChildren(for: active.parentDomain).contains(where: { Self.host(host, matchesChildPattern: $0) }) else {
-            return nil
-        }
-
-        return ChildAllowMatch(parentDomain: observation.parentDomain, requestHost: host, age: age)
+        return ChildAllowMatch(parentDomain: match.parentDomain, requestHost: match.requestHost, age: match.age)
     }
 
     func appendEvent(_ event: String, maxEvents: Int = 300, now: Date = Date()) {
@@ -239,56 +212,42 @@ struct SafariParentChildContextStore {
         KMPDecisionCoreAdapter.normalizeHost(value)
     }
 
-    static func host(_ host: String, matchesDomain domain: String) -> Bool {
-        KMPDecisionCoreAdapter.hostMatchesDomain(host, domain: domain)
-    }
-
-    static func host(_ requestHost: String, matchesChildPattern childPattern: String) -> Bool {
-        KMPDecisionCoreAdapter.hostMatchesChildPattern(requestHost, childPattern: childPattern)
-    }
-
-    private func loadFlowObservation() -> FlowObservation? {
+    private func loadFlowObservationJson() -> String? {
         guard let data = defaults?.data(forKey: Self.flowObservationDataKey) else { return nil }
-        return try? decoder.decode(FlowObservation.self, from: data)
+        return String(data: data, encoding: .utf8)
     }
 
-    private func loadParentChildMap() -> ParentChildMap? {
+    private func loadActiveContextJSONForKotlin() -> String? {
+        if let data = defaults?.data(forKey: Self.activeContextDataKey) {
+            return String(data: data, encoding: .utf8)
+        }
+
+        // Legacy storage uses the debug payload shape; Kotlin expects ActivePageContext Codable JSON.
+        guard let context = loadActiveContext(),
+              let data = try? encoder.encode(context) else {
+            return nil
+        }
+        return String(data: data, encoding: .utf8)
+    }
+
+    private func loadParentChildMapJson() -> String? {
         if let data = defaults?.data(forKey: Self.parentChildMapKey) {
-            return try? decoder.decode(ParentChildMap.self, from: data)
+            return String(data: data, encoding: .utf8)
         }
-        if let json = defaults?.string(forKey: Self.parentChildMapKey),
-           let data = json.data(using: .utf8) {
-            return try? decoder.decode(ParentChildMap.self, from: data)
-        }
-        return nil
+        return defaults?.string(forKey: Self.parentChildMapKey)
     }
 
-    private func dynamicChildren(for parentDomain: String) -> Set<String> {
-        guard let parent = Self.normalizedHost(parentDomain) else { return [] }
-        let active = loadActiveContext()
-        var children = Set(active?.parentDomain == parent ? active?.childDomains ?? [] : [])
-        children.formUnion(registryChildren(for: parent))
-        return children
-    }
-
-    private func registryChildren(for parentDomain: String) -> Set<String> {
-        guard let rawRegistry = defaults?.dictionary(forKey: Self.legacyParentChildRegistryKey),
-              let rawChildren = rawRegistry[parentDomain] else {
-            return []
+    private func loadRegistryJson() -> String? {
+        guard let rawRegistry = defaults?.dictionary(forKey: Self.legacyParentChildRegistryKey) else {
+            return nil
         }
-
-        let children: [String]
-        if let typedChildren = rawChildren as? [String] {
-            children = typedChildren
-        } else if let arrayChildren = rawChildren as? NSArray {
-            children = arrayChildren.compactMap { $0 as? String }
-        } else {
-            children = []
+        let typed = rawRegistry.compactMapValues { value -> [String]? in
+            if let arr = value as? [String] { return arr }
+            if let arr = value as? NSArray { return arr.compactMap { $0 as? String } }
+            return nil
         }
-
-        return Set(children
-            .compactMap(Self.normalizedHost)
-            .filter { !$0.isEmpty && $0 != parentDomain })
+        guard let data = try? JSONSerialization.data(withJSONObject: typed) else { return nil }
+        return String(data: data, encoding: .utf8)
     }
 
     private func updateRegistry(parentDomain: String, childDomains: [String]) {
@@ -301,20 +260,11 @@ struct SafariParentChildContextStore {
     }
 
     private func legacyPayload(for context: ActivePageContext) -> [String: Any] {
-        [
-            "type": "getbored.childRegistrationProbe",
-            "url": context.url,
-            "parentDomain": context.parentDomain,
-            "childDomains": context.childDomains,
-            "source": "safari-extension",
-            "receivedAt": ISO8601DateFormatter().string(from: context.receivedAt)
-        ]
-    }
-
-    private static func normalizedChildPattern(_ value: String?) -> String? {
-        guard let pattern = KMPDecisionCoreAdapter.normalizeChildPattern(value), !pattern.isEmpty else {
-            return nil
-        }
-        return pattern
+        KMPDecisionCoreAdapter.parentChildLegacyPayload(
+            parentDomain: context.parentDomain,
+            childDomains: context.childDomains,
+            url: context.url,
+            receivedAtSwiftRefSeconds: context.receivedAt.timeIntervalSinceReferenceDate
+        )
     }
 }

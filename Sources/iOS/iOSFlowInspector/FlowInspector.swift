@@ -95,7 +95,7 @@ class FlowInspector: NEFilterDataProvider {
     }
 
     private func allowedSafariParent(forChildHost host: String, using loadedFilterRules: LoadedFilterRules) -> String? {
-        guard let match = safariParentChildContextStore.freshChildAllowMatch(
+        guard let match = safariParentChildContextStore.childDomainRecentlyAllowedByActiveParent(
             for: host,
             maxAge: safariParentChildObservationMaxAge
         ) else {
