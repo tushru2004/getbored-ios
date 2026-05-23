@@ -320,7 +320,7 @@ class FlowInspector: NEFilterDataProvider {
                                      readBytesStartOffset offset: Int,
                                      readBytes: Data) -> NEFilterDataVerdict {
         // ── Try 1: TLS ClientHello → extract SNI hostname ───────────────
-        if let sni = extractSNI(from: readBytes) {
+        if let sni = KMPDecisionCoreAdapter.extractSNI(from: readBytes) {
             if isSystemAllowed(sni) { return .allow() }
             let result = classifyHost(sni)
             if result.blocked {
@@ -338,12 +338,12 @@ class FlowInspector: NEFilterDataProvider {
         }
 
         // ── Try 2: HTTP request → extract Host header ───────────────────
-        if let host = extractHTTPHost(from: readBytes) {
+        if let host = KMPDecisionCoreAdapter.extractHTTPHost(from: readBytes) {
             if isSystemAllowed(host) { return .allow() }
             let result = classifyHost(host)
             if result.blocked {
                 // Check URL path exceptions for HTTP
-                if let fullURL = extractHTTPFullURL(from: readBytes),
+                if let fullURL = KMPDecisionCoreAdapter.extractHTTPFullURL(from: readBytes),
                    KMPDecisionCoreAdapter.matchesException(fullURL, using: IOSRuleStore.shared.loadFilterRules()) {
                     return .allow()
                 }
@@ -364,129 +364,4 @@ class FlowInspector: NEFilterDataProvider {
         return .allow()
     }
 
-    // MARK: - TLS SNI Extraction
-
-    /// Parse a TLS ClientHello record to extract the Server Name Indication (SNI).
-    ///
-    /// When an app opens an HTTPS connection, the very first message it sends is a
-    /// "ClientHello" — an unencrypted handshake that includes the hostname the client
-    /// wants to connect to. This is how we identify which domain a non-browser app
-    /// is talking to (e.g. TikTok connecting to "tiktok.com").
-    ///
-    /// TLS record layout (we walk through this byte by byte):
-    /// ```
-    /// [0]     ContentType     = 0x16 (Handshake)
-    /// [1-2]   TLS Version
-    /// [3-4]   Record Length
-    /// [5]     HandshakeType   = 0x01 (ClientHello)
-    /// [6-8]   Handshake Length
-    /// [9-10]  Client Version
-    /// [11-42] Random (32 bytes)
-    /// [43]    Session ID Length → skip session ID
-    ///         Cipher Suites Length → skip cipher suites
-    ///         Compression Length → skip compression
-    ///         Extensions Length → walk extensions looking for type 0x0000 (SNI)
-    /// ```
-    private func extractSNI(from data: Data) -> String? {
-        guard data.count > 5 else { return nil }
-        let bytes = [UInt8](data)
-
-        // Must be a TLS Handshake record (0x16) with ClientHello (0x01)
-        guard bytes[0] == 0x16 else { return nil }
-        guard bytes.count > 5, bytes[5] == 0x01 else { return nil }
-
-        // Skip fixed fields: ContentType(1) + Version(2) + Length(2)
-        //   + HandshakeType(1) + Length(3) + Version(2) + Random(32) = 43
-        var pos = 43
-        guard pos < bytes.count else { return nil }
-
-        // Skip Session ID (variable length: 1 byte length + N bytes)
-        let sessionIDLen = Int(bytes[pos])
-        pos += 1 + sessionIDLen
-        guard pos + 2 <= bytes.count else { return nil }
-
-        // Skip Cipher Suites (variable length: 2 byte length + N bytes)
-        let cipherSuitesLen = Int(bytes[pos]) << 8 | Int(bytes[pos + 1])
-        pos += 2 + cipherSuitesLen
-        guard pos + 1 <= bytes.count else { return nil }
-
-        // Skip Compression Methods (variable length: 1 byte length + N bytes)
-        let compressionLen = Int(bytes[pos])
-        pos += 1 + compressionLen
-        guard pos + 2 <= bytes.count else { return nil }
-
-        // Extensions block
-        let extensionsLen = Int(bytes[pos]) << 8 | Int(bytes[pos + 1])
-        pos += 2
-        let extensionsEnd = min(pos + extensionsLen, bytes.count)
-
-        // Walk through extensions looking for SNI (type 0x0000)
-        while pos + 4 <= extensionsEnd {
-            let extType = Int(bytes[pos]) << 8 | Int(bytes[pos + 1])
-            let extLen = Int(bytes[pos + 2]) << 8 | Int(bytes[pos + 3])
-            pos += 4
-
-            if extType == 0x0000 {
-                // SNI extension: list_length(2) + type(1) + name_length(2) + name
-                guard pos + 5 <= extensionsEnd else { return nil }
-                let nameLen = Int(bytes[pos + 3]) << 8 | Int(bytes[pos + 4])
-                let nameStart = pos + 5
-                guard nameStart + nameLen <= extensionsEnd else { return nil }
-                return String(bytes: bytes[nameStart..<(nameStart + nameLen)], encoding: .ascii)
-            }
-
-            pos += extLen
-        }
-        return nil
-    }
-
-    // MARK: - HTTP Header Extraction
-
-    /// Extract the Host header from a raw HTTP request.
-    /// Only processes requests that start with a known HTTP method.
-    ///
-    /// Example input bytes: "GET /page HTTP/1.1\r\nHost: example.com\r\n..."
-    /// Returns: "example.com"
-    private func extractHTTPHost(from data: Data) -> String? {
-        guard let str = String(data: data.prefix(512), encoding: .ascii) else { return nil }
-        // Verify this looks like an HTTP request
-        guard str.hasPrefix("GET ") || str.hasPrefix("POST ") || str.hasPrefix("HEAD ") ||
-              str.hasPrefix("PUT ") || str.hasPrefix("DELETE ") || str.hasPrefix("CONNECT ") else {
-            return nil
-        }
-        // Find "Host:" header line
-        for line in str.components(separatedBy: "\r\n") {
-            if line.lowercased().hasPrefix("host:") {
-                let host = line.dropFirst(5).trimmingCharacters(in: .whitespaces)
-                return host.components(separatedBy: ":").first  // Strip port if present
-            }
-        }
-        return nil
-    }
-
-    /// Combine the HTTP Host header and request path into a full URL.
-    /// Used for exception matching (e.g. "instagram.com/school-account").
-    ///
-    /// Example: "GET /school-account HTTP/1.1\r\nHost: instagram.com"
-    /// Returns: "instagram.com/school-account"
-    private func extractHTTPFullURL(from data: Data) -> String? {
-        guard let str = String(data: data.prefix(512), encoding: .ascii) else { return nil }
-        let lines = str.components(separatedBy: "\r\n")
-        guard let requestLine = lines.first else { return nil }
-
-        // Extract path from "GET /path HTTP/1.1"
-        let parts = requestLine.split(separator: " ")
-        guard parts.count >= 2 else { return nil }
-        let path = String(parts[1])
-
-        // Find Host header and combine
-        for line in lines {
-            if line.lowercased().hasPrefix("host:") {
-                let host = line.dropFirst(5).trimmingCharacters(in: .whitespaces)
-                    .components(separatedBy: ":").first ?? ""
-                return host + path
-            }
-        }
-        return nil
-    }
 }

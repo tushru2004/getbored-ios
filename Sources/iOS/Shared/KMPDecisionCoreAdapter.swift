@@ -63,6 +63,20 @@ public enum KMPDecisionCoreAdapter {
         }
     }
 
+    public struct BlockedHostResolution {
+        public let displayDomain: String
+        public let rawEndpoint: String?
+        public let resolutionSource: String
+        public let isResolvableHostname: Bool
+    }
+
+    public struct SafariActiveContextRefreshDecision {
+        public let shouldRefresh: Bool
+        public let matchingRule: String
+        public let ageSeconds: TimeInterval
+        public let event: String
+    }
+
     public static func filterStatusViewModel(
         filterEnabled: Bool?,
         filterErrorMessage: String?,
@@ -264,6 +278,90 @@ public enum KMPDecisionCoreAdapter {
         return GetBoredSharedCore.DecisionCore().isSystemAllowed(
             host: host,
             systemAllowedSuffixes: systemAllowedSuffixes
+        )
+        #else
+        kotlinCoreUnavailable()
+        #endif
+    }
+
+    public static func extractSNI(from data: Data) -> String? {
+        #if canImport(GetBoredSharedCore)
+        return GetBoredSharedCore.NetworkPayloadPolicy().extractSni(
+            byteValues: kotlinIntList(from: data)
+        )
+        #else
+        kotlinCoreUnavailable()
+        #endif
+    }
+
+    public static func extractHTTPHost(from data: Data) -> String? {
+        guard let ascii = String(data: data.prefix(512), encoding: .ascii) else { return nil }
+        #if canImport(GetBoredSharedCore)
+        return GetBoredSharedCore.NetworkPayloadPolicy().extractHttpHost(rawAscii: ascii)
+        #else
+        kotlinCoreUnavailable()
+        #endif
+    }
+
+    public static func extractHTTPFullURL(from data: Data) -> String? {
+        guard let ascii = String(data: data.prefix(512), encoding: .ascii) else { return nil }
+        #if canImport(GetBoredSharedCore)
+        return GetBoredSharedCore.NetworkPayloadPolicy().extractHttpFullUrl(rawAscii: ascii)
+        #else
+        kotlinCoreUnavailable()
+        #endif
+    }
+
+    public static func resolveBlockedHost(
+        rawURLHost: String?,
+        rawEndpoint: String?,
+        sourceApp: String?
+    ) -> BlockedHostResolution {
+        #if canImport(GetBoredSharedCore)
+        let resolution = GetBoredSharedCore.BlockedHostResolutionPolicy().resolve(
+            rawUrlHost: rawURLHost,
+            rawEndpoint: rawEndpoint,
+            sourceApp: sourceApp
+        )
+        return BlockedHostResolution(
+            displayDomain: resolution.displayDomain,
+            rawEndpoint: resolution.rawEndpoint,
+            resolutionSource: resolution.resolutionSource,
+            isResolvableHostname: resolution.isResolvableHostname
+        )
+        #else
+        kotlinCoreUnavailable()
+        #endif
+    }
+
+    public static func safariAppProxyHost(from endpoint: String) -> String? {
+        #if canImport(GetBoredSharedCore)
+        GetBoredSharedCore.SafariAppProxyPolicy().hostFromEndpoint(endpoint: endpoint)
+        #else
+        kotlinCoreUnavailable()
+        #endif
+    }
+
+    public static func safariActiveContextRefreshDecision(
+        host: String,
+        activeParentDomain: String,
+        siteRules: [String],
+        activeContextAge: TimeInterval,
+        refreshAgeThreshold: TimeInterval
+    ) -> SafariActiveContextRefreshDecision {
+        #if canImport(GetBoredSharedCore)
+        let decision = GetBoredSharedCore.SafariAppProxyPolicy().activeContextRefreshDecision(
+            host: host,
+            activeParentDomain: activeParentDomain,
+            siteRules: siteRules,
+            activeContextAgeSeconds: activeContextAge,
+            refreshAgeThresholdSeconds: refreshAgeThreshold
+        )
+        return SafariActiveContextRefreshDecision(
+            shouldRefresh: decision.shouldRefresh,
+            matchingRule: decision.matchingRule,
+            ageSeconds: decision.ageSeconds,
+            event: decision.event
         )
         #else
         kotlinCoreUnavailable()
@@ -523,6 +621,10 @@ public enum KMPDecisionCoreAdapter {
         default:
             return .noActiveMatch
         }
+    }
+
+    private static func kotlinIntList(from data: Data) -> [KotlinInt] {
+        data.prefix(512).map { byte in KotlinInt(int: Int32(byte)) }
     }
     #endif
 
