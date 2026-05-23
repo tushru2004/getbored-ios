@@ -8,12 +8,8 @@ import os.log
 ///
 /// **Role in the parent-child architecture:**
 /// This is layer 1 of 3 in the Safari filter defense — it intercepts every
-/// outbound TCP flow from Safari and decides allow/block based on:
-/// 1. `KMPDecisionCoreAdapter.directSafariProxyDecision` — site_rules + system
-///    allowlist (apple.com, icloud.com, …).
-/// 2. `KMPDecisionCoreAdapter.parentChildDecision` — does this host match the active Safari
-///    parent context (last URL bar nav within 5s) or one of its registered
-///    children (subresource hosts that the Safari Web Extension probe captured)?
+/// outbound TCP flow from Safari and asks Kotlin for the relay decision using
+/// the rule snapshot plus the active Safari parent-child context.
 ///
 /// **Lifecycle:**
 /// - iOS calls `startProxy(...)` once when the per-app VPN comes up.
@@ -448,71 +444,43 @@ final class SafariAppProxyProvider: NEAppProxyProvider {
 
     /// Top-level allow/block decision for an outbound flow.
     ///
-    /// Order of checks (first match wins):
-    /// 1. **Endpoint parse** — junk endpoint → block.
-    /// 2. **`KMPDecisionCoreAdapter.directSafariProxyDecision(...)`** —
-    ///    site_rules + system allowlist (apple.com etc.) → allow without
-    ///    consulting parent-child policy.
-    /// 3. **`KMPDecisionCoreAdapter.parentChildDecision(...)`** — match
-    ///    against the active Safari page context.
-    ///    - `Decision.matchActiveParent` (host == active parent) → allow.
-    ///    - `Decision.matchActiveChild`  (host registered as child of active parent
-    ///      and within the 5s window) → allow + persist a flow observation
-    ///      for the spike inspector UI.
-    ///    - `Decision.noActiveContext` / `Decision.staleActiveContext` /
-    ///      `Decision.noActiveMatch` → block.
-    ///
-    /// All branches log a structured event into the App Group event log so
-    /// the host app's spike inspector can render the decision history.
+    /// Swift owns the side effects around the Kotlin decision: reading stored
+    /// context, refreshing context timestamps, saving flow observations, and
+    /// appending structured events for the host app's spike inspector.
     private func shouldRelayFlow(endpoint: String) -> Bool {
-        guard let host = host(from: endpoint) else {
-            appendEvent("BLOCK_UNSUPPORTED_ENDPOINT endpoint=\(endpoint)")
-            return false
+        let active = contextStore.loadActiveContext()
+        let activeChildren = active.map { Array(contextStore.mergedChildren(for: $0.parentDomain)).sorted() } ?? []
+        let decision = KMPDecisionCoreAdapter.safariRelayDecision(
+            endpoint: endpoint,
+            using: loadedFilterRules(),
+            systemAllowedSuffixes: systemAllowedSuffixes,
+            activeParent: active?.parentDomain,
+            activeChildren: activeChildren,
+            activeContextAge: active.map { Date().timeIntervalSince($0.receivedAt) } ?? 0,
+            activeContextMaxAge: activeContextMaxAge
+        )
+
+        if decision.observationDecision == "directAllow" {
+            refreshActiveContextIfDirectHostMatchesActiveParent(decision.host)
         }
 
-        let filterRules = loadedFilterRules()
-        let directDecision = KMPDecisionCoreAdapter.directSafariProxyDecision(
-            host: host,
-            using: filterRules,
-            systemAllowedSuffixes: systemAllowedSuffixes
-        )
-        if !directDecision.blocked {
-            refreshActiveContextIfDirectHostMatchesActiveParent(host)
-            appendEvent("APP_PROXY_ALLOW_DIRECT host=\(host) endpoint=\(endpoint)")
-            return true
-        }
+        appendEvent(decision.primaryEvent)
 
-        let decision = parentChildDecision(
-            host: host,
-            endpoint: endpoint
-        )
-        if decision.kind == .matchActiveChild {
+        if decision.shouldSaveFlowObservation {
             contextStore.saveFlowObservation(
-                requestHost: host,
+                requestHost: decision.host,
                 parentDomain: decision.activeParent,
                 decision: decision.observationDecision,
                 endpoint: endpoint,
                 observedAt: Date()
             )
         }
-        appendEvent(decision.event)
 
-        switch decision.kind {
-        case .matchActiveParent:
-            appendEvent("APP_PROXY_ALLOW_ACTIVE_PARENT host=\(host) endpoint=\(endpoint)")
-            return true
-        case .matchActiveChild:
-            appendEvent("APP_PROXY_ALLOW_ACTIVE_CHILD host=\(host) parent=\(decision.activeParent) endpoint=\(endpoint)")
-            return true
-        case .noActiveContext,
-             .staleActiveContext,
-             .noActiveMatch:
-            // Spike: fail-open so Safari works while we observe which flows
-            // WOULD have been blocked. Flip back to `return false` once
-            // parent-child registration is reliable.
-            appendEvent("APP_PROXY_ALLOW_UNCLASSIFIED host=\(host) decision=\(decision.observationDecision) endpoint=\(endpoint)")
-            return true
+        if !decision.outcomeEvent.isEmpty {
+            appendEvent(decision.outcomeEvent)
         }
+
+        return decision.shouldRelay
     }
 
     /// Fallback for Safari cases where the web extension does not refresh an
@@ -549,51 +517,6 @@ final class SafariAppProxyProvider: NEAppProxyProvider {
                 active.parentDomain
             )
         )
-    }
-
-    /// Hydrate the current Safari page context (parent + merged children) for
-    /// the KMP policy decider.
-    ///
-    /// The Safari Web Extension's `content.js` writes `parentDomain` on every
-    /// nav and the static + dynamic child sets are merged via
-    /// `mergedChildren(for:)` so the policy sees one unified child list.
-    ///
-    /// When no page is active (e.g. Safari just launched and no page has been
-    /// visited yet), the adapter falls into `noActiveContext`.
-    private func parentChildDecision(
-        host: String,
-        endpoint: String,
-        now: Date = Date()
-    ) -> KMPDecisionCoreAdapter.ParentChildDecision {
-        guard let active = contextStore.loadActiveContext() else {
-            return KMPDecisionCoreAdapter.parentChildDecision(
-                host: host,
-                endpoint: endpoint,
-                activeParent: nil,
-                activeChildren: [],
-                activeContextAge: 0,
-                activeContextMaxAge: activeContextMaxAge
-            )
-        }
-
-        return KMPDecisionCoreAdapter.parentChildDecision(
-            host: host,
-            endpoint: endpoint,
-            activeParent: active.parentDomain,
-            activeChildren: Array(contextStore.mergedChildren(for: active.parentDomain)).sorted(),
-            activeContextAge: now.timeIntervalSince(active.receivedAt),
-            activeContextMaxAge: activeContextMaxAge
-        )
-    }
-
-    /// Pull the host portion out of a flow endpoint string.
-    ///
-    /// Example: `"cnbc.com:443"` → `"cnbc.com"`.
-    /// Example: `"cnbc.com:443 hostname"` → `"cnbc.com"` (some iOS versions
-    /// append a hostname hint after a space).
-    /// Returns nil if no `:` is present (= not a host:port endpoint).
-    private func host(from endpoint: String) -> String? {
-        KMPDecisionCoreAdapter.safariAppProxyHost(from: endpoint)
     }
 
     /// Load the Swift-owned policy snapshot from App Group storage, then pass

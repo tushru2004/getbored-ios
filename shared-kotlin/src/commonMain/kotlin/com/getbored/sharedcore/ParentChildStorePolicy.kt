@@ -17,7 +17,7 @@ data class ActivePageContext(
 )
 
 @Serializable
-private data class FlowObservation(
+data class FlowObservation(
     val requestHost: String,
     val parentDomain: String,
     val decision: String,
@@ -25,10 +25,18 @@ private data class FlowObservation(
     val observedAt: Double,
 )
 
-data class ChildAllowMatch(
+private data class ChildAllowMatch(
     val parentDomain: String,
     val requestHost: String,
     val age: Double,
+)
+
+data class AllowedSafariParentDecision(
+    val shouldAllow: Boolean,
+    val parentDomain: String,
+    val requestHost: String,
+    val age: Double,
+    val event: String,
 )
 
 @Serializable
@@ -67,6 +75,118 @@ class ParentChildStorePolicy {
         return decodeParentChildMap(parentChildMapJson) != null
     }
 
+    fun normalizedActivePageContext(
+        parentDomain: String?,
+        childDomains: List<String>,
+        url: String,
+        receivedAt: Double,
+    ): ActivePageContext? {
+        val parent = core.normalizeHost(parentDomain ?: "")
+        if (parent.isEmpty()) return null
+
+        val children = childDomains
+            .map { child -> core.normalizeHost(child) }
+            .filter { child -> child.isNotEmpty() && child != parent }
+            .toSet()
+            .sorted()
+
+        return ActivePageContext(
+            parentDomain = parent,
+            childDomains = children,
+            url = url,
+            receivedAt = receivedAt,
+        )
+    }
+
+    fun activePageContextFromLegacyPayloadJson(rawJson: String?, receivedAt: Double): ActivePageContext? {
+        if (rawJson.isNullOrEmpty()) return null
+        val root = try {
+            json.parseToJsonElement(rawJson) as? JsonObject
+        } catch (_: Throwable) {
+            null
+        } ?: return null
+
+        val parent = (root["parentDomain"] as? JsonPrimitive)?.contentOrNull ?: return null
+        val url = (root["url"] as? JsonPrimitive)?.contentOrNull ?: ""
+        val children = (root["childDomains"] as? JsonArray)
+            ?.mapNotNull { element -> (element as? JsonPrimitive)?.contentOrNull }
+            .orEmpty()
+
+        return normalizedActivePageContext(
+            parentDomain = parent,
+            childDomains = children,
+            url = url,
+            receivedAt = receivedAt,
+        )
+    }
+
+    fun normalizedFlowObservation(
+        requestHost: String?,
+        parentDomain: String?,
+        decision: String,
+        endpoint: String,
+        observedAt: Double,
+    ): FlowObservation? {
+        val host = core.normalizeHost(requestHost ?: "")
+        val parent = core.normalizeHost(parentDomain ?: "")
+        if (host.isEmpty() || parent.isEmpty()) return null
+
+        return FlowObservation(
+            requestHost = host,
+            parentDomain = parent,
+            decision = decision,
+            endpoint = endpoint,
+            observedAt = observedAt,
+        )
+    }
+
+    fun shouldClearActiveContext(activeContextJson: String?, clearingParent: String?): Boolean {
+        val active = decode(ActivePageContext.serializer(), activeContextJson) ?: return true
+        val normalizedClearingParent = core.normalizeHost(clearingParent ?: "")
+        return normalizedClearingParent.isEmpty() || active.parentDomain == normalizedClearingParent
+    }
+
+    fun allowedSafariParentForChild(
+        flowObservationJson: String?,
+        activeContextJson: String?,
+        parentChildMapJson: String?,
+        registryJson: String?,
+        requestHost: String,
+        maxAgeSeconds: Double,
+        nowEpochSeconds: Double,
+        siteRules: List<String>,
+    ): AllowedSafariParentDecision? {
+        val match = childDomainRecentlyAllowedByActiveParent(
+            flowObservationJson = flowObservationJson,
+            activeContextJson = activeContextJson,
+            parentChildMapJson = parentChildMapJson,
+            registryJson = registryJson,
+            requestHost = requestHost,
+            maxAgeSeconds = maxAgeSeconds,
+            nowEpochSeconds = nowEpochSeconds,
+        ) ?: return null
+
+        val parentIsAllowed = core.matchesSiteRule(match.parentDomain, siteRules)
+        val event = if (parentIsAllowed) {
+            "DATA_PROVIDER_ALLOW_CHILD host=${match.requestHost} parent=${match.parentDomain} age=${formatOneDecimal(match.age)}"
+        } else {
+            "DATA_PROVIDER_REJECT_CHILD_PARENT_NOT_ALLOWLISTED host=${match.requestHost} parent=${match.parentDomain} age=${formatOneDecimal(match.age)}"
+        }
+
+        return AllowedSafariParentDecision(
+            shouldAllow = parentIsAllowed,
+            parentDomain = match.parentDomain,
+            requestHost = match.requestHost,
+            age = match.age,
+            event = event,
+        )
+    }
+
+    fun appendEvent(existingEvents: List<String>, timestamp: String, event: String, maxEvents: Int): List<String> {
+        val safeMax = if (maxEvents < 0) 0 else maxEvents
+        return (existingEvents + "$timestamp $event").takeLast(safeMax)
+    }
+
     fun mergedChildren(
         parentChildMapJson: String?,
         activeContextJson: String?,
@@ -83,7 +203,7 @@ class ParentChildStorePolicy {
         return dynamicChildren(activeContextJson, registryJson, parent)
     }
 
-    fun childDomainRecentlyAllowedByActiveParent(
+    private fun childDomainRecentlyAllowedByActiveParent(
         flowObservationJson: String?,
         activeContextJson: String?,
         parentChildMapJson: String?,
@@ -196,6 +316,11 @@ class ParentChildStorePolicy {
     private fun decodeParentChildMap(parentChildMapJson: String?): ParentChildMap? {
         val map = decode(ParentChildMap.serializer(), parentChildMapJson) ?: return null
         return if (map.schemaVersion == 1) map else null
+    }
+
+    private fun formatOneDecimal(value: Double): String {
+        val rounded = kotlin.math.round(value * 10.0) / 10.0
+        return rounded.toString()
     }
 
     private fun <T> decode(serializer: kotlinx.serialization.DeserializationStrategy<T>, raw: String?): T? {

@@ -77,6 +77,40 @@ public enum KMPDecisionCoreAdapter {
         public let event: String
     }
 
+    public struct ActivePageContext: Equatable {
+        public let parentDomain: String
+        public let childDomains: [String]
+        public let url: String
+        public let receivedAt: TimeInterval
+    }
+
+    public struct FlowObservation: Equatable {
+        public let requestHost: String
+        public let parentDomain: String
+        public let decision: String
+        public let endpoint: String
+        public let observedAt: TimeInterval
+    }
+
+    public struct AllowedSafariParentDecision: Equatable {
+        public let shouldAllow: Bool
+        public let parentDomain: String
+        public let requestHost: String
+        public let age: TimeInterval
+        public let event: String
+    }
+
+    public struct SafariRelayDecision {
+        public let shouldRelay: Bool
+        public let host: String
+        public let primaryEvent: String
+        public let outcomeEvent: String
+        public let parentChildKind: ParentChildDecisionKind
+        public let activeParent: String
+        public let observationDecision: String
+        public let shouldSaveFlowObservation: Bool
+    }
+
     public static func filterStatusViewModel(
         filterEnabled: Bool?,
         filterErrorMessage: String?,
@@ -334,14 +368,6 @@ public enum KMPDecisionCoreAdapter {
         #endif
     }
 
-    public static func safariAppProxyHost(from endpoint: String) -> String? {
-        #if canImport(GetBoredSharedCore)
-        GetBoredSharedCore.SafariAppProxyPolicy().hostFromEndpoint(endpoint: endpoint)
-        #else
-        kotlinCoreUnavailable()
-        #endif
-    }
-
     public static func safariActiveContextRefreshDecision(
         host: String,
         activeParentDomain: String,
@@ -368,49 +394,33 @@ public enum KMPDecisionCoreAdapter {
         #endif
     }
 
-    public static func directSafariProxyDecision(
-        host: String,
-        using loadedFilterRules: LoadedFilterRules,
-        systemAllowedSuffixes: [String]
-    ) -> PolicyDecision {
-        #if canImport(GetBoredSharedCore)
-        let decision = GetBoredSharedCore.DecisionCore().directSafariProxyDecision(
-            host: host,
-            policy: kotlinPolicySnapshot(from: loadedFilterRules, systemAllowedSuffixes: systemAllowedSuffixes)
-        )
-        return policyDecision(from: decision)
-        #else
-        kotlinCoreUnavailable()
-        #endif
-    }
-
-    public static func parentChildDecision(
-        host: String,
+    public static func safariRelayDecision(
         endpoint: String,
+        using loadedFilterRules: LoadedFilterRules,
+        systemAllowedSuffixes: [String],
         activeParent: String?,
         activeChildren: [String],
         activeContextAge: TimeInterval,
         activeContextMaxAge: TimeInterval
-    ) -> ParentChildDecision {
+    ) -> SafariRelayDecision {
         #if canImport(GetBoredSharedCore)
-        let decision = GetBoredSharedCore.DecisionCore().parentChildDecision(
-            host: host,
+        let decision = GetBoredSharedCore.SafariAppProxyPolicy().relayDecision(
             endpoint: endpoint,
+            policy: kotlinPolicySnapshot(from: loadedFilterRules, systemAllowedSuffixes: systemAllowedSuffixes),
             activeParent: activeParent,
             activeChildren: activeChildren,
             activeContextAgeSeconds: activeContextAge,
             activeContextMaxAgeSeconds: activeContextMaxAge
         )
-        return ParentChildDecision(
-            kind: parentChildKind(from: decision.kind),
+        return SafariRelayDecision(
+            shouldRelay: decision.shouldRelay,
             host: decision.host,
-            endpoint: decision.endpoint,
+            primaryEvent: decision.primaryEvent,
+            outcomeEvent: decision.outcomeEvent,
+            parentChildKind: parentChildKind(from: decision.parentChildKind),
             activeParent: decision.activeParent,
-            ageSeconds: decision.ageSeconds,
-            childCount: Int(decision.childCount),
-            event: decision.event,
             observationDecision: decision.observationDecision,
-            shouldAllow: decision.shouldAllow
+            shouldSaveFlowObservation: decision.shouldSaveFlowObservation
         )
         #else
         kotlinCoreUnavailable()
@@ -419,10 +429,138 @@ public enum KMPDecisionCoreAdapter {
 
     // MARK: - Parent-Child Store Policy
 
-    public struct ChildAllowMatch: Equatable {
-        public let parentDomain: String
-        public let requestHost: String
-        public let age: TimeInterval
+    public static func normalizedActivePageContext(
+        parentDomain: String?,
+        childDomains: [String],
+        url: String,
+        receivedAtSwiftRefSeconds: Double
+    ) -> ActivePageContext? {
+        #if canImport(GetBoredSharedCore)
+        guard let context = GetBoredSharedCore.ParentChildStorePolicy().normalizedActivePageContext(
+            parentDomain: parentDomain,
+            childDomains: childDomains,
+            url: url,
+            receivedAt: receivedAtSwiftRefSeconds
+        ) else {
+            return nil
+        }
+        return activePageContext(from: context)
+        #else
+        kotlinCoreUnavailable()
+        #endif
+    }
+
+    public static func activePageContextFromLegacyPayloadJSON(
+        _ json: String?,
+        receivedAtSwiftRefSeconds: Double
+    ) -> ActivePageContext? {
+        #if canImport(GetBoredSharedCore)
+        guard let context = GetBoredSharedCore.ParentChildStorePolicy().activePageContextFromLegacyPayloadJson(
+            rawJson: json,
+            receivedAt: receivedAtSwiftRefSeconds
+        ) else {
+            return nil
+        }
+        return activePageContext(from: context)
+        #else
+        kotlinCoreUnavailable()
+        #endif
+    }
+
+    public static func normalizedFlowObservation(
+        requestHost: String?,
+        parentDomain: String?,
+        decision: String,
+        endpoint: String,
+        observedAtSwiftRefSeconds: Double
+    ) -> FlowObservation? {
+        #if canImport(GetBoredSharedCore)
+        guard let observation = GetBoredSharedCore.ParentChildStorePolicy().normalizedFlowObservation(
+            requestHost: requestHost,
+            parentDomain: parentDomain,
+            decision: decision,
+            endpoint: endpoint,
+            observedAt: observedAtSwiftRefSeconds
+        ) else {
+            return nil
+        }
+        return FlowObservation(
+            requestHost: observation.requestHost,
+            parentDomain: observation.parentDomain,
+            decision: observation.decision,
+            endpoint: observation.endpoint,
+            observedAt: observation.observedAt
+        )
+        #else
+        kotlinCoreUnavailable()
+        #endif
+    }
+
+    public static func shouldClearActiveContext(
+        activeContextJson: String?,
+        clearingParent: String?
+    ) -> Bool {
+        #if canImport(GetBoredSharedCore)
+        return GetBoredSharedCore.ParentChildStorePolicy().shouldClearActiveContext(
+            activeContextJson: activeContextJson,
+            clearingParent: clearingParent
+        )
+        #else
+        kotlinCoreUnavailable()
+        #endif
+    }
+
+    public static func allowedSafariParentForChild(
+        flowObservationJson: String?,
+        activeContextJson: String?,
+        parentChildMapJson: String?,
+        registryJson: String?,
+        requestHost: String,
+        maxAgeSeconds: Double,
+        nowEpochSeconds: Double,
+        using loadedFilterRules: LoadedFilterRules
+    ) -> AllowedSafariParentDecision? {
+        #if canImport(GetBoredSharedCore)
+        guard let decision = GetBoredSharedCore.ParentChildStorePolicy().allowedSafariParentForChild(
+            flowObservationJson: flowObservationJson,
+            activeContextJson: activeContextJson,
+            parentChildMapJson: parentChildMapJson,
+            registryJson: registryJson,
+            requestHost: requestHost,
+            maxAgeSeconds: maxAgeSeconds,
+            nowEpochSeconds: nowEpochSeconds,
+            siteRules: loadedFilterRules.siteRules.map(\.url)
+        ) else {
+            return nil
+        }
+        return AllowedSafariParentDecision(
+            shouldAllow: decision.shouldAllow,
+            parentDomain: decision.parentDomain,
+            requestHost: decision.requestHost,
+            age: decision.age,
+            event: decision.event
+        )
+        #else
+        kotlinCoreUnavailable()
+        #endif
+    }
+
+    public static func parentChildAppendEvent(
+        existingEvents: [String],
+        timestamp: String,
+        event: String,
+        maxEvents: Int
+    ) -> [String] {
+        #if canImport(GetBoredSharedCore)
+        return GetBoredSharedCore.ParentChildStorePolicy().appendEvent(
+            existingEvents: existingEvents,
+            timestamp: timestamp,
+            event: event,
+            maxEvents: Int32(maxEvents)
+        )
+        #else
+        kotlinCoreUnavailable()
+        #endif
     }
 
     /// Merged children: static parent-child map takes precedence; falls back to dynamic
@@ -449,41 +587,6 @@ public enum KMPDecisionCoreAdapter {
     public static func isValidParentChildMapJSON(_ json: String) -> Bool {
         #if canImport(GetBoredSharedCore)
         return GetBoredSharedCore.ParentChildStorePolicy().isValidParentChildMapJson(parentChildMapJson: json)
-        #else
-        kotlinCoreUnavailable()
-        #endif
-    }
-
-    /// Returns evidence that `requestHost` was recently allowed as a child of the
-    /// currently-active Safari parent page, within `maxAgeSeconds`. Nil when the
-    /// observation is stale, mismatched, or no active context covers the host.
-    /// Mirrors Swift `childDomainRecentlyAllowedByActiveParent(for:maxAge:now:)`.
-    public static func childDomainRecentlyAllowedByActiveParent(
-        flowObservationJson: String?,
-        activeContextJson: String?,
-        parentChildMapJson: String?,
-        registryJson: String?,
-        requestHost: String,
-        maxAgeSeconds: Double,
-        nowEpochSeconds: Double
-    ) -> ChildAllowMatch? {
-        #if canImport(GetBoredSharedCore)
-        guard let match = GetBoredSharedCore.ParentChildStorePolicy().childDomainRecentlyAllowedByActiveParent(
-            flowObservationJson: flowObservationJson,
-            activeContextJson: activeContextJson,
-            parentChildMapJson: parentChildMapJson,
-            registryJson: registryJson,
-            requestHost: requestHost,
-            maxAgeSeconds: maxAgeSeconds,
-            nowEpochSeconds: nowEpochSeconds
-        ) else {
-            return nil
-        }
-        return ChildAllowMatch(
-            parentDomain: match.parentDomain,
-            requestHost: match.requestHost,
-            age: match.age
-        )
         #else
         kotlinCoreUnavailable()
         #endif
@@ -554,6 +657,15 @@ public enum KMPDecisionCoreAdapter {
 
     #if canImport(GetBoredSharedCore)
     // MARK: - ActivityLogEntry DTO conversion helpers
+
+    private static func activePageContext(from context: GetBoredSharedCore.ActivePageContext) -> ActivePageContext {
+        ActivePageContext(
+            parentDomain: context.parentDomain,
+            childDomains: context.childDomains,
+            url: context.url,
+            receivedAt: context.receivedAt
+        )
+    }
 
     private static func kotlinActivityLogEntry(from entry: GetBoredCore.ActivityLogEntry) -> GetBoredSharedCore.ActivityLogEntry {
         GetBoredSharedCore.ActivityLogEntry(
