@@ -158,9 +158,9 @@ class DecisionCoreTest {
     }
 
     @Test
-    fun classifyHostBlockSpecificLocksDownEmptyRulesAndBlocksListedHosts() {
+    fun classifyHostBlockSpecificAllowsEmptyRulesAndBlocksListedHosts() {
         assertEquals(
-            PolicyDecision(PolicyDecisionKind.BLOCK, "No entries (lockdown)"),
+            PolicyDecision(PolicyDecisionKind.ALLOW, "Empty blocklist"),
             core.classifyHost("apple.com", policy(), allowedSafariParent = null),
         )
 

@@ -114,7 +114,7 @@ class DecisionCore {
         }
 
         if (!policy.hasAnyEntries) {
-            return PolicyDecision(PolicyDecisionKind.BLOCK, "No entries (lockdown)")
+            return PolicyDecision(PolicyDecisionKind.ALLOW, "Empty blocklist")
         }
         if (matchesSiteRule(normalizedHost, policy.siteRules)) {
             return PolicyDecision(PolicyDecisionKind.BLOCK, "In blocklist")
