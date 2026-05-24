@@ -13,3 +13,18 @@ export type StatusViewModel = {
   filter: FilterStatus;
   icloud: ICloudStatus;
 };
+
+export type AppGroupDefaultsKey = {
+  key: string;
+  type: string;
+  preview: string;
+};
+
+export type AppGroupDefaultsSnapshot = {
+  groupIdentifier: string;
+  flowLogKey: string;
+  flowLogLimit: number;
+  flowLogCount: number;
+  flowLog: string[];
+  keys: AppGroupDefaultsKey[];
+};
