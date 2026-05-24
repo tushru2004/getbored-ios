@@ -54,6 +54,8 @@ struct SafariParentChildContextStore {
     static let activeContextDataKey = "safari_parent_child_active_context_v1"
     static let flowObservationDataKey = "safari_parent_child_flow_observation_v1"
     static let parentChildMapKey = GetBoredIdentifiers.SafariParentChild.parentChildMapKey
+    private static let eventDateFormatter = ISO8601DateFormatter()
+    private static let maxEventLength = 512
 
     private let defaults: UserDefaults?
     private let encoder = JSONEncoder()
@@ -199,13 +201,16 @@ struct SafariParentChildContextStore {
         return ChildAllowMatch(parentDomain: match.parentDomain, requestHost: match.requestHost, age: match.age)
     }
 
-    func appendEvent(_ event: String, maxEvents: Int = 300, now: Date = Date()) {
+    func appendEvent(_ event: String, maxEvents: Int = 50, now: Date = Date()) {
         guard let defaults else { return }
-        let timestamp = ISO8601DateFormatter().string(from: now)
+        let timestamp = Self.eventDateFormatter.string(from: now)
+        let boundedEvent = String(event.prefix(Self.maxEventLength))
         var events = defaults.stringArray(forKey: Self.legacyFlowLogKey) ?? []
-        events.append("\(timestamp) \(event)")
-        defaults.set(Array(events.suffix(maxEvents)), forKey: Self.legacyFlowLogKey)
-        defaults.synchronize()
+        events.append("\(timestamp) \(boundedEvent)")
+        if events.count > maxEvents {
+            events.removeFirst(events.count - maxEvents)
+        }
+        defaults.set(events, forKey: Self.legacyFlowLogKey)
     }
 
     static func normalizedHost(_ value: String?) -> String? {
