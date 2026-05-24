@@ -14,7 +14,7 @@ PROD_DEVICE_UDID ?= 00008110-0016786001D2401E
 JAVA_HOME       ?= /opt/homebrew/opt/openjdk
 export JAVA_HOME
 
-.PHONY: all build build-release build-device install install-only swift-test clean kmp kmp-clean
+.PHONY: all build build-release build-device install install-only preflight swift-test clean kmp kmp-clean
 
 all: build
 
@@ -51,14 +51,18 @@ build-release:
 		-allowProvisioningUpdates \
 		clean build
 
+# Preflight guard: refuse to install a build with missing required dynamic frameworks.
+preflight:
+	./scripts/preflight-check.sh $(APP_PATH)
+
 # Build + install on XR (mirrors monorepo build-ios-on-air)
-install: build-device
+install: build-device preflight
 	-xcrun devicectl device uninstall app --device $(DEVICE_UDID) $(BUNDLE_ID) 2>/dev/null
 	xcrun devicectl device install app --device $(DEVICE_UDID) $(APP_PATH)
 	@echo "GetBored installed on XR ($(DEVICE_UDID))"
 
 # Install without rebuild
-install-only:
+install-only: preflight
 	-xcrun devicectl device uninstall app --device $(DEVICE_UDID) $(BUNDLE_ID) 2>/dev/null
 	xcrun devicectl device install app --device $(DEVICE_UDID) $(APP_PATH)
 
