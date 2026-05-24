@@ -187,6 +187,11 @@ final class SafariAppProxyProvider: NEAppProxyProvider {
     /// `didClose` makes `close()` idempotent — both sides may EOF independently
     /// and we only want one teardown.
     private final class TCPRelay {
+        /// Per-chunk write events are useful during relay debugging, but they
+        /// write to shared UserDefaults on a hot path and can exceed Network
+        /// Extension memory limits on real Safari pages.
+        private static let verboseChunkEventsEnabled = false
+
         /// Safari-side flow. Provides `readData`, `write`, `closeRead/Write`.
         private let flow: NEAppProxyTCPFlow
         /// Serial queue inherited from the provider. All callbacks fire here.
@@ -360,7 +365,9 @@ final class SafariAppProxyProvider: NEAppProxyProvider {
                     if self.remoteBytesRead == data.count {
                         self.eventSink("REMOTE_READ_FIRST endpoint=\(self.flow.remoteEndpoint) bytes=\(data.count)")
                     }
-                    self.eventSink("FLOW_WRITE_START endpoint=\(self.flow.remoteEndpoint) chunk=\(self.remoteChunksRead) bytes=\(data.count)")
+                    if Self.verboseChunkEventsEnabled {
+                        self.eventSink("FLOW_WRITE_START endpoint=\(self.flow.remoteEndpoint) chunk=\(self.remoteChunksRead) bytes=\(data.count)")
+                    }
                     self.flow.write(data) { [weak self] error in
                         guard let self else { return }
                         if let error {
@@ -368,7 +375,9 @@ final class SafariAppProxyProvider: NEAppProxyProvider {
                             self.close()
                             return
                         }
-                        self.eventSink("FLOW_WRITE_DONE endpoint=\(self.flow.remoteEndpoint) chunk=\(self.remoteChunksRead) bytes=\(data.count)")
+                        if Self.verboseChunkEventsEnabled {
+                            self.eventSink("FLOW_WRITE_DONE endpoint=\(self.flow.remoteEndpoint) chunk=\(self.remoteChunksRead) bytes=\(data.count)")
+                        }
                         if isComplete {
                             self.flow.closeWriteWithError(nil)
                             self.close()

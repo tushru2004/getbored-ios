@@ -30,6 +30,8 @@ struct SafariParentChildContextStore {
     static let activeContextDataKey = "safari_parent_child_active_context_v1"
     static let flowObservationDataKey = "safari_parent_child_flow_observation_v1"
     static let parentChildMapKey = GetBoredIdentifiers.SafariParentChild.parentChildMapKey
+    private static let eventDateFormatter = ISO8601DateFormatter()
+    private static let maxEventLength = 512
 
     private let defaults: UserDefaults?
     private let encoder = JSONEncoder()
@@ -164,17 +166,16 @@ struct SafariParentChildContextStore {
         )
     }
 
-    func appendEvent(_ event: String, maxEvents: Int = 300, now: Date = Date()) {
+    func appendEvent(_ event: String, maxEvents: Int = 50, now: Date = Date()) {
         guard let defaults else { return }
-        let timestamp = ISO8601DateFormatter().string(from: now)
+        let timestamp = Self.eventDateFormatter.string(from: now)
         let events = KMPDecisionCoreAdapter.parentChildAppendEvent(
             existingEvents: defaults.stringArray(forKey: Self.legacyFlowLogKey) ?? [],
             timestamp: timestamp,
-            event: event,
+            event: String(event.prefix(Self.maxEventLength)),
             maxEvents: maxEvents
         )
         defaults.set(events, forKey: Self.legacyFlowLogKey)
-        defaults.synchronize()
     }
 
     private func loadFlowObservationJson() -> String? {
