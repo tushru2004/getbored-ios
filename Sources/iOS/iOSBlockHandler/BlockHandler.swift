@@ -2,16 +2,14 @@
 //  BlockHandler.swift
 //  GetBored
 //
-//  Handles escalated flows from the Data Provider, activity logging,
-//  and CloudKit upload.
+//  Handles escalated flows from the Data Provider and local activity logging.
 //
 //  The CP exists because the DP (Data Provider) runs in a restricted sandbox
 //  and CANNOT write to UserDefaults. When DP blocks a flow, it returns
 //  .needRules() which routes the flow here. The CP can write, so it logs
-//  the block via IOSActivityLogger and uploads to CloudKit.
+//  the block via IOSActivityLogger. Block logs stay local to the iOS app.
 //
 
-import CloudKit
 import GetBoredCore
 import NetworkExtension
 import os.log
@@ -19,20 +17,6 @@ import os.log
 class BlockHandler: NEFilterControlProvider {
 
     private let logger = OSLog(subsystem: GetBoredIdentifiers.Logging.iOS, category: "BlockHandler")
-
-    // MARK: - CloudKit Config
-
-    private let cloudContainerID = GetBoredIdentifiers.CloudKit.containerIdentifier
-
-    /// Debug builds write to a separate CloudKit record so testing doesn't corrupt production data
-    #if DEBUG
-    private let cloudRecordID = CKRecord.ID(recordName: GetBoredIdentifiers.CloudKit.RecordName.sharedFilterConfigDebug)
-    #else
-    private let cloudRecordID = CKRecord.ID(recordName: GetBoredIdentifiers.CloudKit.RecordName.sharedFilterConfigProduction)
-    #endif
-
-    /// Debounce timer for CloudKit uploads — waits 2s after last log before uploading
-    private var pendingUploadWorkItem: DispatchWorkItem?
 
     // MARK: - Start / Stop Filter
 
@@ -55,8 +39,7 @@ class BlockHandler: NEFilterControlProvider {
     ///   report.action == .drop?
     ///     NO  → ignore (we only care about blocks)
     ///     YES → resolve hostname from flow metadata
-    ///           → log via IOSActivityLogger
-    ///           → schedule CloudKit upload (debounced 2s)
+    ///           → log locally via IOSActivityLogger
     ///
     /// Hostname resolution cascade (in resolveBlockedHost):
     ///   1. flow.url.host         → e.g. "instagram.com" (browser flows)
@@ -93,7 +76,6 @@ class BlockHandler: NEFilterControlProvider {
             resolutionSource: resolution.resolutionSource,
             isResolvableHostname: resolution.isResolvableHostname
         )
-        scheduleActivityUpload()
     }
 
     // MARK: - Handle New Flow (CP Version — Escalated from DP)
@@ -115,8 +97,7 @@ class BlockHandler: NEFilterControlProvider {
     ///       → Is the app now in the allowed list? (race condition safety)
     ///         YES → allow the flow (parent added app between DP and CP)
     ///         NO  → extract hostname from flow
-    ///              → log via IOSActivityLogger
-    ///              → schedule CloudKit upload
+    ///              → log locally via IOSActivityLogger
     ///              → drop the flow
     override func handleNewFlow(_ flow: NEFilterFlow, completionHandler: @escaping (NEFilterControlVerdict) -> Void) {
 
@@ -149,7 +130,6 @@ class BlockHandler: NEFilterControlProvider {
             reason: "Blocked by filter",
             sourceApp: sourceApp
         )
-        scheduleActivityUpload()
 
         // Drop the flow — the connection is blocked
         completionHandler(.drop(withUpdateRules: false))
@@ -171,86 +151,5 @@ class BlockHandler: NEFilterControlProvider {
             rawEndpoint: rawEndpoint,
             sourceApp: sourceApp
         )
-    }
-
-    // MARK: - CloudKit Upload
-
-    /// Debounced upload — waits 2 seconds after the last log before uploading.
-    ///
-    /// Why debounce?
-    ///   When a user opens an app like TikTok, it makes 10-20 network requests
-    ///   in the first second. Without debouncing, we'd upload to CloudKit 10-20
-    ///   times. Instead, we cancel the previous timer and start a new 2s timer
-    ///   each time. The upload only fires once, after the burst settles.
-    ///
-    /// Timeline example:
-    ///   0.0s  block tiktok.com     → schedule upload at 2.0s
-    ///   0.1s  block api.tiktok.com → cancel, reschedule at 2.1s
-    ///   0.3s  block cdn.tiktok.com → cancel, reschedule at 2.3s
-    ///   (no more blocks)
-    ///   2.3s  upload fires — all 3 entries go up in one batch
-    private func scheduleActivityUpload() {
-        pendingUploadWorkItem?.cancel()
-        let work = DispatchWorkItem { [weak self] in
-            self?.uploadActivityLogToCloudKit()
-        }
-        pendingUploadWorkItem = work
-        DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + 2, execute: work)
-    }
-
-    /// Reads all activity log entries from UserDefaults and uploads to CloudKit.
-    ///
-    /// Flow:
-    ///   1. Flush any pending in-memory entries to UserDefaults
-    ///   2. Read all entries from UserDefaults
-    ///   3. JSON-encode them
-    ///   4. Fetch the existing CloudKit record
-    ///   5. Update the "activityLogJSON" field
-    ///   6. Save back to CloudKit
-    ///
-    /// The macOS companion app reads this field to show the Block Log.
-    private func uploadActivityLogToCloudKit() {
-        // Flush pending in-memory entries to disk before reading
-        IOSActivityLogger.shared.flushSync()
-
-        let entries = IOSActivityLogger.shared.loadEntries()
-        os_log("uploadActivityLog: loaded %{public}d entries from UserDefaults",
-               log: logger, type: .info, entries.count)
-
-        guard !entries.isEmpty,
-              let data = try? JSONEncoder().encode(entries),
-              let json = String(data: data, encoding: .utf8) else {
-            return
-        }
-
-        let db = CKContainer(identifier: cloudContainerID).privateCloudDatabase
-
-        // Fetch existing record, update the activity log field, save it back
-        db.fetch(withRecordID: cloudRecordID) { [weak self] record, error in
-            guard let self else { return }
-
-            if let error {
-                os_log("uploadActivityLog: fetch failed: %{public}@",
-                       log: self.logger, type: .error, error.localizedDescription)
-                return
-            }
-            guard let record else {
-                os_log("uploadActivityLog: missing CloudKit record",
-                       log: self.logger, type: .error)
-                return
-            }
-
-            record[GetBoredIdentifiers.CloudKit.Field.activityLogJSON] = json as NSString
-
-            db.save(record) { _, saveError in
-                if let saveError {
-                    os_log("uploadActivityLog: save failed: %{public}@",
-                           log: self.logger, type: .error, saveError.localizedDescription)
-                } else {
-                    os_log("uploadActivityLog: uploaded %{public}d entries",
-                           log: self.logger, type: .info, entries.count)
-                }
-            }
-        }
     }
 }

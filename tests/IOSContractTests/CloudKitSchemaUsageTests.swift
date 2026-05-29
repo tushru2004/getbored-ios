@@ -4,6 +4,7 @@ import XCTest
 final class CloudKitSchemaUsageTests: XCTestCase {
     func testCloudKitCodeUsesSharedSchemaConstants() throws {
         let paths = [
+            "Sources/iOS/App/FilterStatusModule.swift",
             "Sources/iOS/iOSBlockHandler/BlockHandler.swift",
         ]
 

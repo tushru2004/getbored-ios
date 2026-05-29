@@ -3,6 +3,7 @@ import {SafeAreaView, ScrollView, StyleSheet, Text, View} from 'react-native';
 
 import {ErrorBoundary} from '../components/ErrorBoundary';
 import {AppGroupDefaultsCard} from '../components/cards/AppGroupDefaultsCard';
+import {DeviceRegistrationCard} from '../components/cards/DeviceRegistrationCard';
 import {StatusCard} from '../components/cards/StatusCard';
 import {StatusCardSkeleton} from '../components/cards/StatusCardSkeleton';
 import {useFilterStatus} from '../hooks/useFilterStatus';
@@ -35,6 +36,7 @@ export const HomeScreen: React.FC = () => (
       <Text style={styles.header}>GetBored</Text>
       <ErrorBoundary>
         <StatusSection />
+        <DeviceRegistrationCard />
         <AppGroupDefaultsCard />
       </ErrorBoundary>
     </ScrollView>

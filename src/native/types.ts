@@ -14,6 +14,16 @@ export type StatusViewModel = {
   icloud: ICloudStatus;
 };
 
+export type DeviceRegistration = {
+  id: string;
+  deviceName: string;
+  deviceModel: string;
+  systemVersion: string;
+  appVersion: string;
+  lastSeenAt: string;
+  registeredDeviceCount: number;
+};
+
 export type AppGroupDefaultsKey = {
   key: string;
   type: string;
