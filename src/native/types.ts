@@ -21,6 +21,13 @@ export type DeviceRegistration = {
   systemVersion: string;
   appVersion: string;
   lastSeenAt: string;
+  buildConfiguration: string;
+  registeredDeviceCount: number;
+};
+
+export type DeviceRegistrationSnapshot = {
+  isRegistered: boolean;
+  registration: DeviceRegistration | null;
   registeredDeviceCount: number;
 };
 

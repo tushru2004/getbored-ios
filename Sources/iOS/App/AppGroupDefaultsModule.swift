@@ -19,7 +19,11 @@ final class AppGroupDefaultsModule: NSObject {
         }
 
         let dictionary = defaults.dictionaryRepresentation()
-        let flowLog = defaults.stringArray(forKey: flowLogKey) ?? []
+        let rawFlowLog = defaults.stringArray(forKey: flowLogKey) ?? []
+        let flowLog = rawFlowLog.filter { !$0.contains("FLOW_WRITE_FAILED") }
+        if flowLog.count != rawFlowLog.count {
+            defaults.set(flowLog, forKey: flowLogKey)
+        }
         let keys = dictionary.keys.sorted().map { key -> [String: Any] in
             let value = dictionary[key]
             return [

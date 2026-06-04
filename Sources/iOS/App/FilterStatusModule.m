@@ -8,4 +8,7 @@ RCT_EXTERN_METHOD(current:(RCTPromiseResolveBlock)resolve
 RCT_EXTERN_METHOD(registerDevice:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject)
 
+RCT_EXTERN_METHOD(currentDeviceRegistration:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject)
+
 @end

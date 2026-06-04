@@ -2,6 +2,7 @@ import {NativeModules} from 'react-native';
 
 import {
   DeviceRegistration,
+  DeviceRegistrationSnapshot,
   FilterStatus,
   ICloudStatus,
   StatusViewModel,
@@ -17,6 +18,7 @@ type RawStatus = {
 type NativeFilterStatus = {
   current: () => Promise<RawStatus>;
   registerDevice: () => Promise<DeviceRegistration>;
+  currentDeviceRegistration: () => Promise<DeviceRegistrationSnapshot>;
 };
 
 const native = (NativeModules as {FilterStatus?: NativeFilterStatus})
@@ -67,5 +69,10 @@ export const FilterStatusBridge = {
   async registerDevice(): Promise<DeviceRegistration> {
     if (!native) throw new NativeModuleUnavailableError();
     return native.registerDevice();
+  },
+
+  async currentDeviceRegistration(): Promise<DeviceRegistrationSnapshot> {
+    if (!native) throw new NativeModuleUnavailableError();
+    return native.currentDeviceRegistration();
   },
 };

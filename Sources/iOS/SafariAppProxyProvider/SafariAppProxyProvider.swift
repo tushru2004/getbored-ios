@@ -371,7 +371,6 @@ final class SafariAppProxyProvider: NEAppProxyProvider {
                     self.flow.write(data) { [weak self] error in
                         guard let self else { return }
                         if let error {
-                            self.eventSink("FLOW_WRITE_FAILED endpoint=\(self.flow.remoteEndpoint) error=\(error)")
                             self.close()
                             return
                         }

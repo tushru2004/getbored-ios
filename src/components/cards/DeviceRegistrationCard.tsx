@@ -19,8 +19,10 @@ const RegistrationDetails: React.FC<{registration: DeviceRegistration}> = ({
 
 export const DeviceRegistrationCard: React.FC = () => {
   const {state, register} = useDeviceRegistration();
+  const isChecking = state.kind === 'checking';
   const isSaving = state.kind === 'saving';
   const isRegistered = state.kind === 'registered';
+  const isBusy = isChecking || isSaving;
 
   return (
     <View style={styles.card}>
@@ -41,7 +43,11 @@ export const DeviceRegistrationCard: React.FC = () => {
               styles.statusText,
               isRegistered ? styles.registeredText : styles.pendingText,
             ]}>
-            {isRegistered ? 'Registered' : 'Not registered'}
+            {isChecking
+              ? 'Checking'
+              : isRegistered
+                ? 'Registered'
+                : 'Not registered'}
           </Text>
         </View>
       </View>
@@ -54,14 +60,16 @@ export const DeviceRegistrationCard: React.FC = () => {
       )}
 
       <Pressable
-        disabled={isSaving}
+        disabled={isBusy}
         onPress={register}
         style={({pressed}) => [
           styles.button,
-          (pressed || isSaving) && styles.buttonPressed,
+          (pressed || isBusy) && styles.buttonPressed,
         ]}>
         <Text style={styles.buttonText}>
-          {isSaving
+          {isChecking
+            ? 'Checking...'
+            : isSaving
             ? 'Registering...'
             : isRegistered
               ? 'Refresh Registration'
