@@ -34,7 +34,8 @@ final class FilterStatusModule: NSObject {
                     icloudAvailable: icloudAvailable,
                     icloudErrorMessage: icloudErrorMsg
                 )
-                resolve(vm.toDictionary())
+                let payload = vm.toDictionary()
+                resolve(payload)
             }
         }
     }
@@ -52,7 +53,8 @@ final class FilterStatusModule: NSObject {
                                          rejecter reject: @escaping RCTPromiseRejectBlock) {
         guard let deviceID = loadExistingDeviceID() else {
             // No locally saved device ID means this app has not registered this install yet.
-            resolve(registrationSnapshotDictionary(for: nil, registeredDeviceCount: 0))
+            let unregisteredSnapshot = registrationSnapshotDictionary(for: nil, registeredDeviceCount: 0)
+            resolve(unregisteredSnapshot)
             return
         }
 
@@ -62,7 +64,8 @@ final class FilterStatusModule: NSObject {
             self.cloudContainer.privateCloudDatabase.fetch(withRecordID: recordID) { record, fetchError in
                 if let fetchError {
                     if Self.isUnknownItemError(fetchError) {
-                        resolve(self.registrationSnapshotDictionary(for: nil, registeredDeviceCount: 0))
+                        let unregisteredSnapshot = self.registrationSnapshotDictionary(for: nil, registeredDeviceCount: 0)
+                        resolve(unregisteredSnapshot)
                     } else {
                         reject("device_registration_fetch_failed", Self.cloudKitErrorMessage(fetchError), fetchError)
                     }
@@ -70,7 +73,8 @@ final class FilterStatusModule: NSObject {
                 }
 
                 guard let record else {
-                    resolve(self.registrationSnapshotDictionary(for: nil, registeredDeviceCount: 0))
+                    let unregisteredSnapshot = self.registrationSnapshotDictionary(for: nil, registeredDeviceCount: 0)
+                    resolve(unregisteredSnapshot)
                     return
                 }
 
@@ -78,7 +82,8 @@ final class FilterStatusModule: NSObject {
                     reject("device_registration_decode_failed", "CloudKit device registration record is missing required fields", nil)
                     return
                 }
-                resolve(self.registrationSnapshotDictionary(for: registration, registeredDeviceCount: 1))
+                let registeredSnapshot = self.registrationSnapshotDictionary(for: registration, registeredDeviceCount: 1)
+                resolve(registeredSnapshot)
             }
         }
     }
@@ -141,7 +146,8 @@ final class FilterStatusModule: NSObject {
                     reject("device_registration_save_failed", Self.cloudKitErrorMessage(saveError), saveError)
                     return
                 }
-                resolve(self.registrationDictionary(for: registration, registeredDeviceCount: 1))
+                let registeredPayload = self.registrationDictionary(for: registration, registeredDeviceCount: 1)
+                resolve(registeredPayload)
             }
         }
     }
