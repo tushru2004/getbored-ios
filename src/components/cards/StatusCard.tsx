@@ -90,21 +90,25 @@ const Row: React.FC<RowProps> = ({title, subtitle, visual}) => (
   </View>
 );
 
-export const StatusCard: React.FC<Props> = ({status}) => (
-  <View style={styles.card}>
-    <Row
-      title="Content Filter"
-      subtitle={status.filter.label}
-      visual={filterVisual(status.filter)}
-    />
-    <View style={styles.divider} />
-    <Row
-      title="iCloud Sync"
-      subtitle={status.icloud.label}
-      visual={icloudVisual(status.icloud)}
-    />
-  </View>
-);
+export const StatusCard: React.FC<Props> = ({status}) => {
+  const filterRowVisual = filterVisual(status.filter);
+  const icloudRowVisual = icloudVisual(status.icloud);
+  return (
+    <View style={styles.card}>
+      <Row
+        title="Content Filter"
+        subtitle={status.filter.label}
+        visual={filterRowVisual}
+      />
+      <View style={styles.divider} />
+      <Row
+        title="iCloud Sync"
+        subtitle={status.icloud.label}
+        visual={icloudRowVisual}
+      />
+    </View>
+  );
+};
 
 const styles = StyleSheet.create({
   card: {

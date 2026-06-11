@@ -104,10 +104,10 @@ class BlockHandler: NEFilterControlProvider {
         let sourceApp = flow.sourceAppIdentifier
 
         // Try to get hostname: first from URL (browser), then from socket endpoint (non-browser)
-        let host = flow.url?.host?.lowercased()
-            ?? (flow as? NEFilterSocketFlow)
-                .flatMap { ($0.remoteEndpoint as? NWHostEndpoint)?.hostname.lowercased() }
-            ?? "unknown"
+        let urlHost = flow.url?.host?.lowercased()
+        let socketHost = (flow as? NEFilterSocketFlow)
+            .flatMap { ($0.remoteEndpoint as? NWHostEndpoint)?.hostname.lowercased() }
+        let host = urlHost ?? socketHost ?? "unknown"
 
         // Safety check: the parent might have added this app to the allowed list
         // between when DP made its decision and when CP received the flow.

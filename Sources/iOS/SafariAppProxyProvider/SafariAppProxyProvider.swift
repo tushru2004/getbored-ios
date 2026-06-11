@@ -457,7 +457,11 @@ final class SafariAppProxyProvider: NEAppProxyProvider {
     /// appending structured events for the host app's spike inspector.
     private func shouldRelayFlow(endpoint: String) -> Bool {
         let active = contextStore.loadActiveContext()
-        let activeChildren = active.map { Array(contextStore.mergedChildren(for: $0.parentDomain)).sorted() } ?? []
+        var activeChildren: [String] = []
+        if let active {
+            let mergedChildren = contextStore.mergedChildren(for: active.parentDomain)
+            activeChildren = Array(mergedChildren).sorted()
+        }
         let decision = KMPDecisionCoreAdapter.safariRelayDecision(
             endpoint: endpoint,
             using: loadedFilterRules(),

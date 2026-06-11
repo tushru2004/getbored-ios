@@ -63,7 +63,9 @@ export const FilterStatusBridge = {
   async current(): Promise<StatusViewModel> {
     if (!native) throw new NativeModuleUnavailableError();
     const raw = await native.current();
-    return {filter: parseFilter(raw), icloud: parseICloud(raw)};
+    const filter = parseFilter(raw);
+    const icloud = parseICloud(raw);
+    return {filter, icloud};
   },
 
   async registerDevice(): Promise<DeviceRegistration> {

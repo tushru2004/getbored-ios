@@ -330,9 +330,12 @@ class FlowInspector: NEFilterDataProvider {
             let result = classifyHost(host)
             if result.blocked {
                 // Check URL path exceptions for HTTP
-                if let fullURL = KMPDecisionCoreAdapter.extractHTTPFullURL(from: readBytes),
-                   KMPDecisionCoreAdapter.matchesException(fullURL, using: IOSRuleStore.shared.loadFilterRules()) {
-                    return .allow()
+                if let fullURL = KMPDecisionCoreAdapter.extractHTTPFullURL(from: readBytes) {
+                    let exceptionRules = IOSRuleStore.shared.loadFilterRules()
+                    let isException = KMPDecisionCoreAdapter.matchesException(fullURL, using: exceptionRules)
+                    if isException {
+                        return .allow()
+                    }
                 }
                 os_log("handleOutboundData: BLOCKED HTTP %{public}@ (%{public}@)",
                        log: logger, type: .info, host, result.reason)
