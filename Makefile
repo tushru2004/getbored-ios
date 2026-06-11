@@ -14,7 +14,10 @@ PROD_DEVICE_UDID ?= 00008110-0016786001D2401E
 JAVA_HOME       ?= /opt/homebrew/opt/openjdk
 export JAVA_HOME
 
-.PHONY: all build build-release build-device install install-only preflight swift-test clean kmp kmp-clean
+# Port for kill-port (defaults to Metro)
+PORT            ?= 8081
+
+.PHONY: all build build-release build-device install install-only preflight swift-test clean kmp kmp-clean kill-port
 
 all: build
 
@@ -65,6 +68,16 @@ install: build-device preflight
 install-only: preflight
 	-xcrun devicectl device uninstall app --device $(DEVICE_UDID) $(BUNDLE_ID) 2>/dev/null
 	xcrun devicectl device install app --device $(DEVICE_UDID) $(APP_PATH)
+
+# Kill whatever is listening on PORT (e.g. a stale Metro): make kill-port PORT=8081
+kill-port:
+	@pids=$$(lsof -ti tcp:$(PORT) -s tcp:LISTEN); \
+	if [ -z "$$pids" ]; then \
+		echo "nothing listening on port $(PORT)"; \
+	else \
+		for pid in $$pids; do ps -p $$pid -o pid=,command=; done; \
+		kill $$pids && echo "killed listener(s) on port $(PORT)"; \
+	fi
 
 swift-test:
 	swift test --filter IOSContractTests
