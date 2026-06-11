@@ -370,7 +370,7 @@ final class SafariAppProxyProvider: NEAppProxyProvider {
                     }
                     self.flow.write(data) { [weak self] error in
                         guard let self else { return }
-                        if let error {
+                        if error != nil {
                             self.close()
                             return
                         }
