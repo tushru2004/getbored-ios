@@ -16,6 +16,14 @@ final class FilterStatusModule: NSObject {
     private let deviceRegistrationEnvironment = "production"
     #endif
 
+    /// Custom zone for GetBored records. Unlike `_defaultZone`, custom zones
+    /// support CKShare, atomic batches, and change tokens — required for
+    /// future parent-child sharing of registrations and blocklists.
+    private static let syncZoneID = CKRecordZone.ID(
+        zoneName: "GetBoredSync",
+        ownerName: CKCurrentUserDefaultName
+    )
+
     @objc static func requiresMainQueueSetup() -> Bool { false }
 
     @objc func current(_ resolve: @escaping RCTPromiseResolveBlock,
@@ -60,10 +68,13 @@ final class FilterStatusModule: NSObject {
 
         // A saved local device ID is only useful if we can read the matching CloudKit record.
         requireAvailableICloudAccount(rejecter: reject) {
-            let recordID = CKRecord.ID(recordName: self.deviceRegistrationRecordName(for: deviceID))
+            let recordID = CKRecord.ID(
+                recordName: self.deviceRegistrationRecordName(for: deviceID),
+                zoneID: Self.syncZoneID
+            )
             self.cloudContainer.privateCloudDatabase.fetch(withRecordID: recordID) { record, fetchError in
                 if let fetchError {
-                    if Self.isUnknownItemError(fetchError) {
+                    if Self.isRecordNotFoundError(fetchError) {
                         let unregisteredSnapshot = self.registrationSnapshotDictionary(for: nil, registeredDeviceCount: 0)
                         resolve(unregisteredSnapshot)
                     } else {
@@ -126,35 +137,50 @@ final class FilterStatusModule: NSObject {
             buildConfiguration: deviceRegistrationEnvironment
         )
 
-        let recordID = CKRecord.ID(recordName: deviceRegistrationRecordName(for: deviceID))
+        let recordID = CKRecord.ID(
+            recordName: deviceRegistrationRecordName(for: deviceID),
+            zoneID: Self.syncZoneID
+        )
         let db = cloudContainer.privateCloudDatabase
 
-        db.fetch(withRecordID: recordID) { record, fetchError in
-            if let fetchError, !Self.isUnknownItemError(fetchError) {
-                reject("device_registration_fetch_failed", Self.cloudKitErrorMessage(fetchError), fetchError)
+        // Saving a CKRecordZone is an idempotent "ensure it exists": it
+        // succeeds whether the zone is new or already present.
+        let zone = CKRecordZone(zoneID: Self.syncZoneID)
+        db.save(zone) { _, zoneError in
+            if let zoneError {
+                reject("device_registration_zone_failed", Self.cloudKitErrorMessage(zoneError), zoneError)
                 return
             }
 
-            let registrationRecord = record ?? CKRecord(
-                recordType: GetBoredIdentifiers.CloudKit.RecordType.deviceRegistration,
-                recordID: recordID
-            )
-
-            registration.write(to: registrationRecord)
-            db.save(registrationRecord) { _, saveError in
-                if let saveError {
-                    reject("device_registration_save_failed", Self.cloudKitErrorMessage(saveError), saveError)
+            db.fetch(withRecordID: recordID) { record, fetchError in
+                if let fetchError, !Self.isRecordNotFoundError(fetchError) {
+                    reject("device_registration_fetch_failed", Self.cloudKitErrorMessage(fetchError), fetchError)
                     return
                 }
-                let registeredPayload = self.registrationDictionary(for: registration, registeredDeviceCount: 1)
-                resolve(registeredPayload)
+
+                let registrationRecord = record ?? CKRecord(
+                    recordType: GetBoredIdentifiers.CloudKit.RecordType.deviceRegistration,
+                    recordID: recordID
+                )
+
+                registration.write(to: registrationRecord)
+                db.save(registrationRecord) { _, saveError in
+                    if let saveError {
+                        reject("device_registration_save_failed", Self.cloudKitErrorMessage(saveError), saveError)
+                        return
+                    }
+                    let registeredPayload = self.registrationDictionary(for: registration, registeredDeviceCount: 1)
+                    resolve(registeredPayload)
+                }
             }
         }
     }
 
-    private static func isUnknownItemError(_ error: Error) -> Bool {
+    /// True when a fetch failed only because the record — or the custom zone
+    /// holding it — does not exist yet, i.e. this device has never registered.
+    private static func isRecordNotFoundError(_ error: Error) -> Bool {
         guard let ckError = error as? CKError else { return false }
-        return ckError.code == .unknownItem
+        return ckError.code == .unknownItem || ckError.code == .zoneNotFound
     }
 
     private static func cloudKitErrorMessage(_ error: Error) -> String {
