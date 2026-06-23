@@ -72,6 +72,7 @@ class WhitelistManager {
         KMPDecisionCoreAdapter.matchesSiteRule(url, siteRules: loadWhitelist().map(\.url))
     }
 
+    @available(*, deprecated, renamed: "isListed(url:)")
     func isWhitelisted(url: String) -> Bool {
         isListed(url: url)
     }
@@ -103,7 +104,7 @@ class WhitelistManager {
     }
 
     func getMode() -> String {
-        let mode = sharedDefaults?.string(forKey: modeKey) ?? "blockSpecific"
+        let mode = sharedDefaults?.string(forKey: modeKey) ?? FilterMode.blockSpecific.rawValue
         logger.debug("getMode: \(mode)")
         return mode
     }

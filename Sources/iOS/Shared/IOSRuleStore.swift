@@ -146,7 +146,7 @@ class IOSRuleStore {
 
     /// Get the current filter mode (defaults to "blockSpecific")
     func getMode() -> String {
-        let mode = sharedDefaults?.string(forKey: modeKey) ?? "blockSpecific"
+        let mode = sharedDefaults?.string(forKey: modeKey) ?? FilterMode.blockSpecific.rawValue
         logger.debug("getMode: \(mode)")
         return mode
     }

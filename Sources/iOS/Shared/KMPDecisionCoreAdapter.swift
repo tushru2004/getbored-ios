@@ -634,7 +634,7 @@ public enum KMPDecisionCoreAdapter {
             maxTotal: Int32(maxTotal),
             maxPerApp: Int32(maxPerApp)
         )
-        return result.map { swiftActivityLogEntry(from: $0) }
+        return result.compactMap { swiftActivityLogEntry(from: $0) }
         #else
         kotlinCoreUnavailable()
         #endif
@@ -666,7 +666,7 @@ public enum KMPDecisionCoreAdapter {
         )
     }
 
-    private static func swiftActivityLogEntry(from entry: GetBoredSharedCore.ActivityLogEntry) -> GetBoredCore.ActivityLogEntry {
+    private static func swiftActivityLogEntry(from entry: GetBoredSharedCore.ActivityLogEntry) -> GetBoredCore.ActivityLogEntry? {
         // Route through JSON so GetBoredCore.ActivityLogEntry.init(from:) preserves
         // the Kotlin-supplied id. Its public memberwise inits always generate a
         // fresh UUID, which would break identity tracking on every round-trip.
@@ -682,8 +682,12 @@ public enum KMPDecisionCoreAdapter {
         ]
         if let rawEndpoint = entry.rawEndpoint { dict["rawEndpoint"] = rawEndpoint }
         if let sourceApp = entry.sourceApp { dict["sourceApp"] = sourceApp }
-        let data = try! JSONSerialization.data(withJSONObject: dict)
-        return try! JSONDecoder().decode(GetBoredCore.ActivityLogEntry.self, from: data)
+        guard let data = try? JSONSerialization.data(withJSONObject: dict),
+              let decoded = try? JSONDecoder().decode(GetBoredCore.ActivityLogEntry.self, from: data) else {
+            // Kotlin supplied an entry we cannot round-trip. Skip rather than crash.
+            return nil
+        }
+        return decoded
     }
     #endif
 

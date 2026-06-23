@@ -136,43 +136,79 @@ final class FilterStatusModule: NSObject {
             lastSeenAt: Date(),
             buildConfiguration: deviceRegistrationEnvironment
         )
-
         let recordID = CKRecord.ID(
             recordName: deviceRegistrationRecordName(for: deviceID),
             zoneID: Self.syncZoneID
         )
         let db = cloudContainer.privateCloudDatabase
 
-        // Saving a CKRecordZone is an idempotent "ensure it exists": it
-        // succeeds whether the zone is new or already present.
+        ensureSyncZoneExists(db: db, rejecter: reject) {
+            self.fetchOrCreateRecord(recordID: recordID, db: db, rejecter: reject) { registrationRecord in
+                registration.write(to: registrationRecord)
+                self.saveRegistrationRecord(
+                    registrationRecord,
+                    registration: registration,
+                    db: db,
+                    resolve: resolve,
+                    rejecter: reject
+                )
+            }
+        }
+    }
+
+    /// Saves the GetBoredSync custom zone, succeeding whether the zone is new or already present.
+    private func ensureSyncZoneExists(
+        db: CKDatabase,
+        rejecter reject: @escaping RCTPromiseRejectBlock,
+        then next: @escaping () -> Void
+    ) {
+        // Saving a CKRecordZone is idempotent: it succeeds whether the zone is
+        // new or already present.
         let zone = CKRecordZone(zoneID: Self.syncZoneID)
         db.save(zone) { _, zoneError in
             if let zoneError {
                 reject("device_registration_zone_failed", Self.cloudKitErrorMessage(zoneError), zoneError)
                 return
             }
+            next()
+        }
+    }
 
-            db.fetch(withRecordID: recordID) { record, fetchError in
-                if let fetchError, !Self.isRecordNotFoundError(fetchError) {
-                    reject("device_registration_fetch_failed", Self.cloudKitErrorMessage(fetchError), fetchError)
-                    return
-                }
-
-                let registrationRecord = record ?? CKRecord(
-                    recordType: GetBoredIdentifiers.CloudKit.RecordType.deviceRegistration,
-                    recordID: recordID
-                )
-
-                registration.write(to: registrationRecord)
-                db.save(registrationRecord) { _, saveError in
-                    if let saveError {
-                        reject("device_registration_save_failed", Self.cloudKitErrorMessage(saveError), saveError)
-                        return
-                    }
-                    let registeredPayload = self.registrationDictionary(for: registration, registeredDeviceCount: 1)
-                    resolve(registeredPayload)
-                }
+    /// Fetches the existing registration record, or creates a fresh one if not found yet.
+    private func fetchOrCreateRecord(
+        recordID: CKRecord.ID,
+        db: CKDatabase,
+        rejecter reject: @escaping RCTPromiseRejectBlock,
+        then next: @escaping (CKRecord) -> Void
+    ) {
+        db.fetch(withRecordID: recordID) { record, fetchError in
+            if let fetchError, !Self.isRecordNotFoundError(fetchError) {
+                reject("device_registration_fetch_failed", Self.cloudKitErrorMessage(fetchError), fetchError)
+                return
             }
+            let registrationRecord = record ?? CKRecord(
+                recordType: GetBoredIdentifiers.CloudKit.RecordType.deviceRegistration,
+                recordID: recordID
+            )
+            next(registrationRecord)
+        }
+    }
+
+    /// Saves a fully-populated registration record and resolves the React Native promise on success.
+    private func saveRegistrationRecord(
+        _ record: CKRecord,
+        registration: DeviceRegistration,
+        db: CKDatabase,
+        resolve: @escaping RCTPromiseResolveBlock,
+        rejecter reject: @escaping RCTPromiseRejectBlock
+    ) {
+        db.save(record) { _, saveError in
+            if let saveError {
+                reject("device_registration_save_failed", Self.cloudKitErrorMessage(saveError), saveError)
+                return
+            }
+            let registeredPayload = self.registrationDictionary(for: registration, registeredDeviceCount: 1)
+            resolve(registeredPayload)
         }
     }
 
