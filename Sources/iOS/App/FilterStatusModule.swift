@@ -233,7 +233,7 @@ final class FilterStatusModule: NSObject {
         registeredDeviceCount: Int
     ) -> [String: Any] {
         [
-            "id": entry.id,
+            "id": deviceRegistrationRecordName(for: entry.id),
             "deviceName": entry.deviceName,
             "deviceModel": entry.deviceModel,
             "systemVersion": entry.systemVersion,
