@@ -17,7 +17,7 @@ export JAVA_HOME
 # Port for kill-port (defaults to Metro)
 PORT            ?= 8081
 
-.PHONY: all build build-release build-device install install-only preflight swift-test clean kmp kmp-clean kill-port
+.PHONY: all build build-release build-device install install-only preflight swift-test clean kmp kmp-clean kill-port agents-api-wake agents-wake-api agents-api-wake-kill agents-wake-api-kill
 
 all: build
 
@@ -94,11 +94,11 @@ clean:
 
 
 agents-api-wake: ## Start isolated API-wake cmux agent workspace
-	~/Agents-api-wake/configs/getbored/cmux-api-wake-up
+	REPO_ROOT=$(CURDIR) ~/Agents-api-wake/configs/getbored-ios/cmux-api-wake-up
 
 agents-wake-api: agents-api-wake ## Alias for agents-api-wake
 
 agents-api-wake-kill: ## Kill isolated API-wake cmux agent workspace
-	~/Agents-api-wake/configs/getbored/cmux-api-wake-up --kill
+	REPO_ROOT=$(CURDIR) ~/Agents-api-wake/configs/getbored-ios/cmux-api-wake-up --kill
 
 agents-wake-api-kill: agents-api-wake-kill ## Alias for agents-api-wake-kill
