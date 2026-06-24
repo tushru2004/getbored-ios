@@ -1,0 +1,72 @@
+DEFINE SCHEMA
+
+    RECORD TYPE DeviceRegistration (
+        "___createTime"    TIMESTAMP,
+        "___createdBy"     REFERENCE,
+        "___etag"          STRING,
+        "___modTime"       TIMESTAMP,
+        "___modifiedBy"    REFERENCE,
+        "___recordID"      REFERENCE QUERYABLE,
+        appVersion         STRING QUERYABLE SEARCHABLE SORTABLE,
+        buildConfiguration STRING QUERYABLE SEARCHABLE SORTABLE,
+        deviceId           STRING QUERYABLE SEARCHABLE SORTABLE,
+        deviceModel        STRING QUERYABLE SEARCHABLE SORTABLE,
+        deviceName         STRING QUERYABLE SEARCHABLE SORTABLE,
+        lastSeenAt         TIMESTAMP QUERYABLE SORTABLE,
+        systemVersion      STRING QUERYABLE SEARCHABLE SORTABLE,
+        updatedAt          TIMESTAMP QUERYABLE SORTABLE,
+        GRANT WRITE TO "_creator",
+        GRANT CREATE TO "_icloud",
+        GRANT READ TO "_world"
+    );
+
+    RECORD TYPE FilterConfig (
+        "___createTime" TIMESTAMP,
+        "___createdBy"  REFERENCE,
+        "___etag"       STRING,
+        "___modTime"    TIMESTAMP,
+        "___modifiedBy" REFERENCE,
+        "___recordID"   REFERENCE,
+        activityLogJSON STRING QUERYABLE SEARCHABLE SORTABLE,
+        allowedApps     LIST<STRING> QUERYABLE SEARCHABLE,
+        filterListsJSON STRING QUERYABLE SEARCHABLE SORTABLE,
+        mode            STRING QUERYABLE SEARCHABLE SORTABLE,
+        updatedAt       TIMESTAMP QUERYABLE SORTABLE,
+        urls            STRING QUERYABLE SEARCHABLE SORTABLE,
+        GRANT WRITE TO "_creator",
+        GRANT CREATE TO "_icloud",
+        GRANT READ TO "_world"
+    );
+
+    RECORD TYPE FilterList (
+        "___createTime"   TIMESTAMP,
+        "___createdBy"    REFERENCE,
+        "___etag"         STRING,
+        "___modTime"      TIMESTAMP,
+        "___modifiedBy"   REFERENCE,
+        "___recordID"     REFERENCE QUERYABLE,
+        allowedApps       LIST<STRING>,
+        assignedDeviceIds LIST<STRING>,
+        createdAt         STRING,
+        description       STRING,
+        entries           LIST<STRING>,
+        exceptions        LIST<STRING>,
+        isActive          INT64        QUERYABLE SORTABLE,
+        mode              STRING       QUERYABLE SEARCHABLE SORTABLE,
+        name              STRING       QUERYABLE SEARCHABLE SORTABLE,
+        GRANT WRITE TO "_creator",
+        GRANT CREATE TO "_icloud",
+        GRANT READ TO "_world"
+    );
+
+    RECORD TYPE Users (
+        "___createTime" TIMESTAMP,
+        "___createdBy"  REFERENCE,
+        "___etag"       STRING,
+        "___modTime"    TIMESTAMP,
+        "___modifiedBy" REFERENCE,
+        "___recordID"   REFERENCE,
+        roles           LIST<INT64>,
+        GRANT WRITE TO "_creator",
+        GRANT READ TO "_world"
+    );
