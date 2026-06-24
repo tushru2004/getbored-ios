@@ -147,6 +147,94 @@ final class FilterStatusModule: NSObject {
         cloudContainer.privateCloudDatabase.add(operation)
     }
 
+    /// Decodes raw CKRecords, filters to this device's assigned+active lists, then applies them.
+    ///
+    /// Call flow:
+    ///
+    ///   fetchAllFilterListRecords → queryResultBlock(.success)
+    ///           │
+    ///           ▼
+    ///   decodeAndApplyFilterLists(from: fetchedRecords)
+    ///           │
+    ///           ├── compactMap CloudFilterList(record:)  ← skips records with non-UUID names
+    ///           │
+    ///           ├── loadExistingDeviceID() == nil
+    ///           │       └── no local device ID yet → applyDecodedFilterLists([]) (empty snapshot)
+    ///           │
+    ///           └── deviceID present → recordName = "DeviceRegistration-<id>-<env>"
+    ///                   │
+    ///                   └── filter: isActive AND assignedDeviceIds.contains(recordName)
+    ///                           │
+    ///                           ▼
+    ///                       applyDecodedFilterLists(assignedActiveLists)
+    private func decodeAndApplyFilterLists(
+        from records: [CKRecord],
+        resolve: @escaping RCTPromiseResolveBlock,
+        rejecter reject: @escaping RCTPromiseRejectBlock
+    ) {
+        let allLists = records.compactMap { CloudFilterList(record: $0)?.filterList }
+
+        guard let deviceID = loadExistingDeviceID() else {
+            applyDecodedFilterLists([], resolve: resolve)
+            return
+        }
+
+        let recordName = deviceRegistrationRecordName(for: deviceID)
+        let assignedActiveLists = allLists.filter { list in
+            list.isActive && list.assignedDeviceIds.contains(recordName)
+        }
+
+        applyDecodedFilterLists(assignedActiveLists, resolve: resolve)
+    }
+
+    /// Merges the assigned FilterLists into a single policy snapshot and writes it to IOSRuleStore.
+    ///
+    /// Call flow:
+    ///
+    ///   decodeAndApplyFilterLists → applyDecodedFilterLists(assignedActiveLists)
+    ///           │
+    ///           ├── resolveEffectiveMode  ← whiteList wins if any list is whiteList
+    ///           ├── orderedUnique(flatMap \.entries)     → merged domain blocklist/allowlist
+    ///           ├── orderedUnique(flatMap \.exceptions)  → merged URL path exceptions
+    ///           └── orderedUnique(flatMap \.allowedApps) → merged per-app bypasses
+    ///                   │
+    ///                   ▼
+    ///               IOSRuleStore.shared.applyFilterListSnapshot(...)
+    ///                   │
+    ///                   └── resolve(nil)  ← JS promise settles
+    private func applyDecodedFilterLists(
+        _ lists: [FilterList],
+        resolve: @escaping RCTPromiseResolveBlock
+    ) {
+        let effectiveMode = resolveEffectiveMode(lists)
+        let entries = orderedUnique(lists.flatMap(\.entries))
+        let exceptions = orderedUnique(lists.flatMap(\.exceptions))
+        let allowedApps = orderedUnique(lists.flatMap(\.allowedApps))
+
+        IOSRuleStore.shared.applyFilterListSnapshot(
+            mode: effectiveMode,
+            entries: entries,
+            exceptions: exceptions,
+            allowedApps: allowedApps
+        )
+
+        resolve(nil)
+    }
+
+    /// Returns `.whiteList` if any assigned list uses whitelist mode; otherwise `.blockSpecific`.
+    /// whiteList wins because it is strictly more permissive — mixing modes would block the
+    /// entries the parent intended to allow.
+    private func resolveEffectiveMode(_ lists: [FilterList]) -> FilterListMode {
+        let hasWhiteList = lists.contains { $0.mode == .whiteList }
+        return hasWhiteList ? .whiteList : .blockSpecific
+    }
+
+    /// Returns the input array with duplicates removed, preserving original order.
+    private func orderedUnique(_ strings: [String]) -> [String] {
+        var seen = Set<String>()
+        return strings.filter { seen.insert($0).inserted }
+    }
+
     /// Runs work only when the iCloud account is usable; otherwise rejects the React Native promise.
     private func requireAvailableICloudAccount(
         rejecter reject: @escaping RCTPromiseRejectBlock,

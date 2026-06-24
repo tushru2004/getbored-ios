@@ -165,6 +165,50 @@ class IOSRuleStore {
         !loadFilterRules().siteRules.isEmpty
     }
 
+    // MARK: - Filter List Snapshot
+
+    /// Atomically overwrites the full filter policy with a merged snapshot from CloudKit.
+    ///
+    /// Call flow:
+    ///
+    ///   syncFilterLists resolves assigned+active FilterLists from CloudKit
+    ///           │
+    ///           ▼
+    ///   applyFilterListSnapshot(mode:entries:exceptions:allowedApps:)
+    ///           │
+    ///           ├── convert [String] entries → [SiteRule] (url = title = entry)
+    ///           ├── convert FilterListMode → FilterMode (same raw value)
+    ///           ├── write siteRulesKey, modeKey, exceptionsKey, allowedAppsKey in one defaults batch
+    ///           ├── defaults.synchronize()  ← flush cross-process so extension sees new values
+    ///           └── invalidateDefaultsCache()  ← force next read to re-create UserDefaults instance
+    ///
+    /// All four keys are written before synchronize() so the extension never sees a partial state.
+    func applyFilterListSnapshot(
+        mode: FilterListMode,
+        entries: [String],
+        exceptions: [String],
+        allowedApps: [String]
+    ) {
+        let filterMode = FilterMode(rawValue: mode.rawValue) ?? .blockSpecific
+        let siteRules = entries.map { SiteRule(url: $0, title: $0) }
+        let defaults = sharedDefaults
+
+        if let data = try? JSONEncoder().encode(siteRules) {
+            defaults?.set(data, forKey: siteRulesKey)
+        }
+        defaults?.set(filterMode.rawValue, forKey: modeKey)
+        defaults?.set(exceptions, forKey: exceptionsKey)
+        defaults?.set(allowedApps, forKey: allowedAppsKey)
+        defaults?.synchronize()
+
+        invalidateDefaultsCache()
+
+        logger.info(
+            "applyFilterListSnapshot: \(entries.count) entries, mode=\(filterMode.rawValue), " +
+            "\(exceptions.count) exceptions, \(allowedApps.count) allowedApps"
+        )
+    }
+
     // MARK: - Filter Mode
 
     /// Set the filter mode ("blockSpecific" or "whiteList")
