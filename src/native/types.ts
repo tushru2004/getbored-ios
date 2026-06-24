@@ -31,6 +31,13 @@ export type DeviceRegistrationSnapshot = {
   registeredDeviceCount: number;
 };
 
+export type ActiveRules = {
+  mode: 'blockSpecific' | 'whiteList';
+  entries: string[];
+  exceptions: string[];
+  allowedApps: string[];
+};
+
 export type AppGroupDefaultsKey = {
   key: string;
   type: string;

@@ -135,6 +135,20 @@ final class FilterStatusModule: NSObject {
         }
     }
 
+    /// Returns the currently active filter rules from the shared App-Group store.
+    /// Reads synchronously from UserDefaults — no CloudKit call required.
+    @objc func loadActiveRules(_ resolve: RCTPromiseResolveBlock,
+                               rejecter reject: RCTPromiseRejectBlock) {
+        let store = IOSRuleStore.shared
+        let entries = store.loadSiteRules().map { $0.url }
+        resolve([
+            "mode":        store.getMode(),
+            "entries":     entries,
+            "exceptions":  store.loadExceptions(),
+            "allowedApps": store.loadAllowedApps(),
+        ] as [String: Any])
+    }
+
     /// Builds and submits a CloudKit query for all `FilterList` records in the GetBoredSync zone.
     ///
     /// Call flow:

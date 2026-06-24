@@ -1,12 +1,14 @@
-import React from 'react';
+import React, {useState} from 'react';
 import {Pressable, StyleSheet, Text, View} from 'react-native';
 
 import {useFilterListSync} from '../../hooks/useFilterListSync';
+import {ActiveRulesScreen} from '../../screens/ActiveRulesScreen';
 import {colors, radius, spacing, typography, withAlpha} from '../../theme';
 
 export const FilterListSyncCard: React.FC = () => {
   const {state, sync} = useFilterListSync();
   const isSyncing = state.kind === 'syncing';
+  const [showRules, setShowRules] = useState(false);
 
   return (
     <View style={styles.card}>
@@ -39,6 +41,18 @@ export const FilterListSyncCard: React.FC = () => {
           {isSyncing ? 'Refreshing...' : 'Refresh Settings'}
         </Text>
       </Pressable>
+
+      <Pressable
+        onPress={() => setShowRules(true)}
+        style={({pressed}) => [styles.viewRulesRow, pressed && styles.buttonPressed]}>
+        <Text style={styles.viewRulesText}>View Active Rules</Text>
+        <Text style={styles.viewRulesChevron}>›</Text>
+      </Pressable>
+
+      <ActiveRulesScreen
+        visible={showRules}
+        onClose={() => setShowRules(false)}
+      />
     </View>
   );
 };
@@ -97,5 +111,22 @@ const styles = StyleSheet.create({
   buttonText: {
     ...typography.body,
     color: '#FFFFFF',
+  },
+  viewRulesRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: spacing.sm,
+    paddingVertical: spacing.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.separator,
+  },
+  viewRulesText: {
+    ...typography.subhead,
+    color: colors.info,
+  },
+  viewRulesChevron: {
+    ...typography.body,
+    color: colors.labelSecondary,
   },
 });
