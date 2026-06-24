@@ -135,6 +135,31 @@ final class SafariAppProxyProvider: NEAppProxyProvider {
     ///
     /// `ObjectIdentifier(tcpFlow)` is used as the dict key — pointer-identity,
     /// stable Hashable, unique per flow object.
+    ///
+    /// Call flow:
+    ///
+    ///   iOS NEAppProxyProvider → handleNewFlow(flow)
+    ///           │
+    ///           ├── shouldRelayFlow(endpoint:) → false
+    ///           │       └── return false  (iOS drops the connection)
+    ///           │
+    ///           ├── flow is not NEAppProxyTCPFlow (UDP/QUIC)
+    ///           │       └── return false
+    ///           │
+    ///           └── flow is NEAppProxyTCPFlow
+    ///                   │
+    ///                   ├── build TCPRelay(flow:queue:eventSink:completion:)
+    ///                   │
+    ///                   └── connectionQueue.async {
+    ///                           relays[id] = relay    ← stored BEFORE start()
+    ///                           relay.start()         ← opens NWConnection async
+    ///                       }
+    ///                           │
+    ///                           └── (NWConnection state callbacks fire on connectionQueue later)
+    ///                                   │
+    ///                                   └── on relay teardown: completion() → relays[id] = nil
+    ///
+    ///   handleNewFlow returns true immediately — the relay runs entirely on connectionQueue after return.
     override func handleNewFlow(_ flow: NEAppProxyFlow) -> Bool {
         let endpoint = describeRemoteEndpoint(for: flow)
         let source = flow.metaData.sourceAppSigningIdentifier
@@ -278,6 +303,22 @@ final class SafariAppProxyProvider: NEAppProxyProvider {
         /// iOS 18 added `open(withLocalFlowEndpoint:)` (typed). Pre-18 only
         /// has the deprecated `open(withLocalEndpoint:)` taking a String.
         /// Once open completes successfully, the two pumps start in parallel.
+        ///
+        /// Call flow:
+        ///
+        ///   openFlow()
+        ///           │
+        ///           ├── iOS 18+: flow.open(withLocalFlowEndpoint: nil, completionHandler:)
+        ///           └── pre-18:  flow.open(withLocalEndpoint: nil, completionHandler:)
+        ///                   │
+        ///                   └── (completion fires asynchronously on connectionQueue)
+        ///                           │
+        ///                           ├── error != nil → eventSink(FLOW_OPEN_FAILED) → close()
+        ///                           │
+        ///                           └── success:
+        ///                                   ├── readFromFlow()       ← pump Safari → server
+        ///                                   └── readFromConnection() ← pump server → Safari
+        ///                                           (both pumps run concurrently from here)
         private func openFlow() {
             let completion: (Error?) -> Void = { [weak self] error in
                 guard let self else { return }
@@ -309,6 +350,23 @@ final class SafariAppProxyProvider: NEAppProxyProvider {
         ///
         /// Example: TLS ClientHello arrives (~520 bytes) → log
         /// `FLOW_READ_FIRST` → `connection.send` it → re-arm `readFromFlow()`.
+        ///
+        /// Call flow (repeating loop):
+        ///
+        ///   readFromFlow()
+        ///           │
+        ///           └── flow.readData { data, error in ... }   ← one-shot, fires on connectionQueue
+        ///                   │
+        ///                   ├── error → eventSink(FLOW_READ_FAILED) → close()
+        ///                   │
+        ///                   ├── data nil or empty (EOF) → connection.send(nil)  ← TCP half-close
+        ///                   │                             (loop ends — no re-arm)
+        ///                   │
+        ///                   └── data present:
+        ///                           └── connection.send(data) { error in ... }
+        ///                                   │
+        ///                                   ├── error → eventSink(REMOTE_WRITE_FAILED) → close()
+        ///                                   └── success → readFromFlow()  ← re-arm for next chunk
         private func readFromFlow() {
             flow.readData { [weak self] data, error in
                 guard let self else { return }
@@ -351,6 +409,25 @@ final class SafariAppProxyProvider: NEAppProxyProvider {
         /// Example: TLS ServerHello + cert chain (~4KB) arrives → log
         /// `REMOTE_READ_FIRST` + `FLOW_WRITE_START` → `flow.write` → on success,
         /// re-arm `readFromConnection()` for the next ApplicationData record.
+        ///
+        /// Call flow (repeating loop):
+        ///
+        ///   readFromConnection()
+        ///           │
+        ///           └── connection.receive(min:1, max:64KB) { data, _, isComplete, error in }   ← one-shot
+        ///                   │
+        ///                   ├── error → eventSink(REMOTE_READ_FAILED) → close()
+        ///                   │
+        ///                   ├── data present:
+        ///                   │       └── flow.write(data) { error in ... }
+        ///                   │               │
+        ///                   │               ├── error → close()
+        ///                   │               ├── isComplete → flow.closeWriteWithError(nil) → close()
+        ///                   │               └── !isComplete → readFromConnection()  ← re-arm
+        ///                   │
+        ///                   ├── data nil/empty + isComplete → flow.closeWriteWithError(nil) → close()
+        ///                   │
+        ///                   └── data nil/empty + !isComplete → readFromConnection()  ← re-arm (keep-alive gap)
         private func readFromConnection() {
             connection?.receive(minimumIncompleteLength: 1, maximumLength: 64 * 1024) { [weak self] data, _, isComplete, error in
                 guard let self else { return }
@@ -404,6 +481,21 @@ final class SafariAppProxyProvider: NEAppProxyProvider {
         /// Returns nil for unsupported shapes (no port, IPv6 with embedded
         /// colons that the simple split mishandles, Bonjour names, etc.) —
         /// caller treats nil as drop.
+        ///
+        /// Call flow:
+        ///
+        ///   makeEndpoint()
+        ///           │
+        ///           ├── iOS 18+: switch flow.remoteFlowEndpoint
+        ///           │       ├── .hostPort(host, port) → return .hostPort(host:port:)  ← fast path
+        ///           │       └── other cases          → fall through to legacy parse
+        ///           │
+        ///           └── legacy: String(describing: flow.remoteEndpoint)  →  "host:port"
+        ///                   │
+        ///                   ├── split on ":", parts.count != 2  → return nil
+        ///                   ├── UInt16(parts[1]) fails          → return nil
+        ///                   ├── NWEndpoint.Port(rawValue:) fails → return nil
+        ///                   └── success → return .hostPort(host:port:)
         private func makeEndpoint() -> Network.NWEndpoint? {
             if #available(iOS 18.0, *) {
                 switch flow.remoteFlowEndpoint {
@@ -455,6 +547,33 @@ final class SafariAppProxyProvider: NEAppProxyProvider {
     /// Swift owns the side effects around the Kotlin decision: reading stored
     /// context, refreshing context timestamps, saving flow observations, and
     /// appending structured events for the host app's spike inspector.
+    ///
+    /// Call flow:
+    ///
+    ///   shouldRelayFlow(endpoint:)
+    ///           │
+    ///           ├── contextStore.loadActiveContext()       ← reads App Group UserDefaults
+    ///           ├── contextStore.mergedChildren(for:)      ← merges registered child domains
+    ///           │
+    ///           ├── KMPDecisionCoreAdapter.safariRelayDecision(...)
+    ///           │       └── returns Decision (shouldRelay, events, side-effect flags)
+    ///           │
+    ///           ├── decision.shouldRefreshActiveContext?
+    ///           │       ├── YES → contextStore.saveActiveContext(...)  ← bumps receivedAt timestamp
+    ///           │       │         appendEvent(decision.refreshEvent)
+    ///           │       └── NO  → (skip)
+    ///           │
+    ///           ├── appendEvent(decision.primaryEvent)     ← always logged
+    ///           │
+    ///           ├── decision.shouldSaveFlowObservation?
+    ///           │       ├── YES → contextStore.saveFlowObservation(...)
+    ///           │       └── NO  → (skip)
+    ///           │
+    ///           ├── decision.outcomeEvent non-empty?
+    ///           │       ├── YES → appendEvent(decision.outcomeEvent)
+    ///           │       └── NO  → (skip)
+    ///           │
+    ///           └── return decision.shouldRelay
     private func shouldRelayFlow(endpoint: String) -> Bool {
         let active = contextStore.loadActiveContext()
         var activeChildren: [String] = []

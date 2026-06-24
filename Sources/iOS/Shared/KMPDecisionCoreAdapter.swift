@@ -619,6 +619,24 @@ public enum KMPDecisionCoreAdapter {
 
     /// Prepend newEntries onto existing, then apply per-app fairness cap + total cap.
     /// Delegates to Kotlin ActivityLogPolicy.mergeAndTrimEntries.
+    ///
+    /// Call flow:
+    ///
+    ///   caller passes Swift ActivityLogEntry arrays
+    ///           │
+    ///           ▼
+    ///   map existing/newEntries → Kotlin DTOs via kotlinActivityLogEntry(from:)
+    ///           │
+    ///           ▼
+    ///   ActivityLogPolicy().mergeAndTrimEntries(...)  ← Kotlin owns ordering + caps
+    ///           │
+    ///           └── returns Kotlin DTOs
+    ///                   │
+    ///                   ▼
+    ///           result.compactMap { swiftActivityLogEntry(from: $0) }
+    ///                   │
+    ///                   ├── round-trips cleanly → keeps entry (id preserved)
+    ///                   └── round-trip fails    → entry dropped (nil), no crash
     public static func activityLogMergeAndTrim(
         existing: [GetBoredCore.ActivityLogEntry],
         newEntries: [GetBoredCore.ActivityLogEntry],
@@ -666,6 +684,22 @@ public enum KMPDecisionCoreAdapter {
         )
     }
 
+    /// Call flow:
+    ///
+    ///   activityLogMergeAndTrim() compactMaps each Kotlin entry through here
+    ///           │
+    ///           ▼
+    ///   build [String: Any] dict (id, displayDomain, blocked, reason, timestamp, …)
+    ///           │
+    ///           ├── rawEndpoint present → add to dict
+    ///           └── sourceApp present   → add to dict
+    ///           │
+    ///           ▼
+    ///   JSONSerialization.data(withJSONObject:) → JSONDecoder().decode(...)
+    ///           │
+    ///           ├── both succeed → return decoded entry (Decodable init keeps the
+    ///           │                  Kotlin id; memberwise init would mint a fresh UUID)
+    ///           └── either throws → return nil (caller's compactMap drops it)
     private static func swiftActivityLogEntry(from entry: GetBoredSharedCore.ActivityLogEntry) -> GetBoredCore.ActivityLogEntry? {
         // Route through JSON so GetBoredCore.ActivityLogEntry.init(from:) preserves
         // the Kotlin-supplied id. Its public memberwise inits always generate a
