@@ -113,6 +113,9 @@ final class FilterStatusModule: NSObject {
 
     private func fetchAllFilterListRecords(_ resolve: @escaping RCTPromiseResolveBlock,
                                            rejecter reject: @escaping RCTPromiseRejectBlock) {
+        // SCHEMA REQUIREMENT: The `FilterList` record type must have a queryable index
+        // deployed in CloudKit for NSPredicate(value: true) to succeed. Verify this in
+        // both the Development and Production CloudKit environments before shipping.
         let query = CKQuery(recordType: "FilterList", predicate: NSPredicate(value: true))
         let operation = CKQueryOperation(query: query)
         operation.zoneID = Self.syncZoneID
@@ -133,8 +136,9 @@ final class FilterStatusModule: NSObject {
             switch result {
             case .failure(let error):
                 if Self.isRecordNotFoundError(error) {
-                    // Zone or record type not found — no lists synced yet. Treat as empty.
-                    self.applyDecodedFilterLists([], resolve: resolve)
+                    // Zone or record type not found — admin has not configured any lists yet.
+                    // Preserve existing filter rules rather than wiping them on a schema gap.
+                    resolve(nil)
                 } else {
                     reject("filter_list_fetch_failed", Self.cloudKitErrorMessage(error), error)
                 }
@@ -159,11 +163,16 @@ final class FilterStatusModule: NSObject {
     ///           ├── compactMap CloudFilterList(record:)  ← skips records with non-UUID names
     ///           │
     ///           ├── loadExistingDeviceID() == nil
-    ///           │       └── no local device ID yet → applyDecodedFilterLists([]) (empty snapshot)
+    ///           │       └── device not yet registered → resolve(nil), preserve existing rules
     ///           │
     ///           └── deviceID present → recordName = "DeviceRegistration-<id>-<env>"
     ///                   │
-    ///                   └── filter: isActive AND assignedDeviceIds.contains(recordName)
+    ///                   ├── filter: isActive AND assignedDeviceIds.contains(recordName)
+    ///                   │
+    ///                   ├── assignedActiveLists is empty
+    ///                   │       └── no lists assigned to this device → resolve(nil), preserve rules
+    ///                   │
+    ///                   └── assignedActiveLists non-empty
     ///                           │
     ///                           ▼
     ///                       applyDecodedFilterLists(assignedActiveLists)
@@ -175,13 +184,22 @@ final class FilterStatusModule: NSObject {
         let allLists = records.compactMap { CloudFilterList(record: $0)?.filterList }
 
         guard let deviceID = loadExistingDeviceID() else {
-            applyDecodedFilterLists([], resolve: resolve)
+            // Device not yet registered — preserve existing filter rules.
+            resolve(nil)
             return
         }
 
         let recordName = deviceRegistrationRecordName(for: deviceID)
         let assignedActiveLists = allLists.filter { list in
             list.isActive && list.assignedDeviceIds.contains(recordName)
+        }
+
+        guard !assignedActiveLists.isEmpty else {
+            // No lists are assigned+active for this device — preserve existing rules rather
+            // than wiping them. The admin may not have configured this device yet, or all
+            // assigned lists are temporarily inactive.
+            resolve(nil)
+            return
         }
 
         applyDecodedFilterLists(assignedActiveLists, resolve: resolve)
@@ -192,6 +210,7 @@ final class FilterStatusModule: NSObject {
     /// Call flow:
     ///
     ///   decodeAndApplyFilterLists → applyDecodedFilterLists(assignedActiveLists)
+    ///           │  (still on CloudKit callback thread)
     ///           │
     ///           ├── resolveEffectiveMode  ← whiteList wins if any list is whiteList
     ///           ├── orderedUnique(flatMap \.entries)     → merged domain blocklist/allowlist
@@ -199,9 +218,15 @@ final class FilterStatusModule: NSObject {
     ///           └── orderedUnique(flatMap \.allowedApps) → merged per-app bypasses
     ///                   │
     ///                   ▼
-    ///               IOSRuleStore.shared.applyFilterListSnapshot(...)
+    ///               DispatchQueue.main.async  ← hop to main thread for UserDefaults write
     ///                   │
+    ///                   ├── IOSRuleStore.shared.applyFilterListSnapshot(...)
     ///                   └── resolve(nil)  ← JS promise settles
+    ///
+    /// The main-queue hop is required because IOSRuleStore's UserDefaults cache
+    /// (_cachedDefaults, _defaultsCacheTime) is mutated without synchronization.
+    /// CloudKit callbacks arrive on background threads; writing from there races
+    /// with any concurrent reader on the main thread.
     private func applyDecodedFilterLists(
         _ lists: [FilterList],
         resolve: @escaping RCTPromiseResolveBlock
@@ -211,14 +236,15 @@ final class FilterStatusModule: NSObject {
         let exceptions = orderedUnique(lists.flatMap(\.exceptions))
         let allowedApps = orderedUnique(lists.flatMap(\.allowedApps))
 
-        IOSRuleStore.shared.applyFilterListSnapshot(
-            mode: effectiveMode,
-            entries: entries,
-            exceptions: exceptions,
-            allowedApps: allowedApps
-        )
-
-        resolve(nil)
+        DispatchQueue.main.async {
+            IOSRuleStore.shared.applyFilterListSnapshot(
+                mode: effectiveMode,
+                entries: entries,
+                exceptions: exceptions,
+                allowedApps: allowedApps
+            )
+            resolve(nil)
+        }
     }
 
     /// Determines the effective filter mode when multiple lists are merged.
