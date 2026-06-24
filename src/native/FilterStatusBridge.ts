@@ -19,6 +19,7 @@ type NativeFilterStatus = {
   current: () => Promise<RawStatus>;
   registerDevice: () => Promise<DeviceRegistration>;
   currentDeviceRegistration: () => Promise<DeviceRegistrationSnapshot>;
+  syncFilterLists: () => Promise<void>;
 };
 
 const native = (NativeModules as {FilterStatus?: NativeFilterStatus})
@@ -76,5 +77,10 @@ export const FilterStatusBridge = {
   async currentDeviceRegistration(): Promise<DeviceRegistrationSnapshot> {
     if (!native) throw new NativeModuleUnavailableError();
     return native.currentDeviceRegistration();
+  },
+
+  async syncFilterLists(): Promise<void> {
+    if (!native) throw new NativeModuleUnavailableError();
+    return native.syncFilterLists();
   },
 };

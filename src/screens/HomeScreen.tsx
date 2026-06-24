@@ -4,6 +4,7 @@ import {SafeAreaView, ScrollView, StyleSheet, Text, View} from 'react-native';
 import {ErrorBoundary} from '../components/ErrorBoundary';
 import {AppGroupDefaultsCard} from '../components/cards/AppGroupDefaultsCard';
 import {DeviceRegistrationCard} from '../components/cards/DeviceRegistrationCard';
+import {FilterListSyncCard} from '../components/cards/FilterListSyncCard';
 import {StatusCard} from '../components/cards/StatusCard';
 import {StatusCardSkeleton} from '../components/cards/StatusCardSkeleton';
 import {useFilterStatus} from '../hooks/useFilterStatus';
@@ -37,6 +38,7 @@ export const HomeScreen: React.FC = () => (
       <ErrorBoundary>
         <StatusSection />
         <DeviceRegistrationCard />
+        <FilterListSyncCard />
         <AppGroupDefaultsCard />
       </ErrorBoundary>
     </ScrollView>
