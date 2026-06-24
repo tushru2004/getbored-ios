@@ -104,6 +104,30 @@ final class FilterStatusModule: NSObject {
     /// Fetches all `FilterList` records from CloudKit, applies the ones assigned
     /// to this device, and writes the merged rules to the shared App-Group store
     /// so the filter extension picks them up within its 5-second cache TTL.
+    ///
+    /// Call flow:
+    ///
+    ///   JS calls syncFilterLists()
+    ///           │
+    ///           ▼
+    ///   requireAvailableICloudAccount(rejecter: reject) { ... }
+    ///           │
+    ///           ├── iCloud status check fails → reject(icloud_status_failed)
+    ///           ├── account not available     → reject(icloud_unavailable)
+    ///           │
+    ///           └── IS available → calls the closure:
+    ///                   │
+    ///                   ▼
+    ///               fetchAllFilterListRecords(resolve, rejecter: reject)
+    ///                   │
+    ///                   └── (CloudKit streams records back asynchronously)
+    ///                           │
+    ///                           ├── recordMatchedBlock × N  ← one call per record
+    ///                           │
+    ///                           └── queryResultBlock
+    ///                                   ├── .failure(zoneNotFound/unknownItem) → resolve(nil)
+    ///                                   ├── .failure(other error)              → reject(...)
+    ///                                   └── .success → decodeAndApplyFilterLists(fetchedRecords)
     @objc func syncFilterLists(_ resolve: @escaping RCTPromiseResolveBlock,
                                rejecter reject: @escaping RCTPromiseRejectBlock) {
         requireAvailableICloudAccount(rejecter: reject) {
@@ -111,6 +135,32 @@ final class FilterStatusModule: NSObject {
         }
     }
 
+    /// Builds and submits a CloudKit query for all `FilterList` records in the GetBoredSync zone.
+    ///
+    /// Call flow:
+    ///
+    ///   syncFilterLists (after iCloud gate) calls fetchAllFilterListRecords()
+    ///           │
+    ///           ├── builds CKQuery(recordType: "FilterList", predicate: true)
+    ///           ├── sets operation.zoneID = syncZoneID (GetBoredSync zone)
+    ///           ├── configures recordMatchedBlock  ← accumulates records into fetchedRecords[]
+    ///           ├── configures queryResultBlock    ← fires once when streaming is complete
+    ///           └── db.add(operation)  ← submits to CloudKit, returns immediately
+    ///                   │
+    ///                   └── (CloudKit background thread calls back later)
+    ///                           │
+    ///                           ├── recordMatchedBlock(.success) → fetchedRecords.append(record)
+    ///                           ├── recordMatchedBlock(.failure) → skip record (non-fatal)
+    ///                           │
+    ///                           └── queryResultBlock
+    ///                                   ├── .failure(zoneNotFound/unknownItem)
+    ///                                   │       └── resolve(nil)  ← no lists configured yet
+    ///                                   ├── .failure(other) → reject(filter_list_fetch_failed)
+    ///                                   └── .success → decodeAndApplyFilterLists(fetchedRecords)
+    ///
+    /// SCHEMA REQUIREMENT: The `FilterList` record type must have a queryable index
+    /// deployed in CloudKit for NSPredicate(value: true) to succeed. Verify this in
+    /// both the Development and Production CloudKit environments before shipping.
     private func fetchAllFilterListRecords(_ resolve: @escaping RCTPromiseResolveBlock,
                                            rejecter reject: @escaping RCTPromiseRejectBlock) {
         // SCHEMA REQUIREMENT: The `FilterList` record type must have a queryable index
