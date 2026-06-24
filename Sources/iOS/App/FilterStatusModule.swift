@@ -408,3 +408,38 @@ private extension GetBoredIdentifiers.CloudKit.Field {
     static let lastSeenAt = "lastSeenAt"
     static let buildConfiguration = "buildConfiguration"
 }
+
+// MARK: - CloudFilterList
+
+/// Decodes a CloudKit `FilterList` record into the canonical `FilterList` model.
+/// Returns `nil` if the record's `recordName` is not a valid UUID — the caller
+/// should skip rather than fail the whole sync.
+private struct CloudFilterList {
+    let filterList: FilterList
+
+    init?(record: CKRecord) {
+        guard let id = UUID(uuidString: record.recordID.recordName) else { return nil }
+
+        let name        = record["name"]        as? String ?? ""
+        let description = record["description"] as? String ?? ""
+        let entries     = record["entries"]      as? [String] ?? []
+        let exceptions  = record["exceptions"]   as? [String] ?? []
+        let allowedApps = record["allowedApps"]  as? [String] ?? []
+        let assignedIds = Set(record["assignedDeviceIds"] as? [String] ?? [])
+        let isActive    = ((record["isActive"] as? Int64) ?? 0) == 1
+        let mode        = FilterListMode(rawValue: record["mode"] as? String ?? "") ?? .blockSpecific
+        let createdAt   = Self.parseCreatedAt(record["createdAt"] as? String)
+
+        self.filterList = FilterList(
+            id: id, name: name, description: description,
+            entries: entries, exceptions: exceptions, locations: [],
+            allowedApps: allowedApps, isActive: isActive,
+            createdAt: createdAt, mode: mode, assignedDeviceIds: assignedIds
+        )
+    }
+
+    private static func parseCreatedAt(_ raw: String?) -> Date {
+        guard let raw else { return Date() }
+        return FilterStatusModule.iso8601Formatter.date(from: raw) ?? Date()
+    }
+}
