@@ -11,6 +11,15 @@ final class AppGroupDefaultsModule: NSObject {
 
     @objc static func requiresMainQueueSetup() -> Bool { false }
 
+    /// Call flow:
+    ///
+    ///   snapshot()
+    ///       │
+    ///       ├── Load app group defaults
+    ///       │   └── Filter out FLOW_WRITE_FAILED entries from flowLog
+    ///       │
+    ///       └── Map each key through typeName() and preview()
+    ///           └── resolve({groupIdentifier, flowLogKey, flowLog, keys[]})
     @objc func snapshot(_ resolve: @escaping RCTPromiseResolveBlock,
                         rejecter reject: @escaping RCTPromiseRejectBlock) {
         guard let defaults = UserDefaults(suiteName: appGroupIdentifier) else {

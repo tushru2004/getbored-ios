@@ -94,6 +94,35 @@ class FlowInspector: NEFilterDataProvider {
         return (decision.blocked, decision.reason)
     }
 
+    /// Returns the allowed parent domain for a child hostname in whiteList mode, or nil if the child should be blocked.
+    ///
+    /// Only called from classifyHost() when mode == .whiteList. The purpose is to allow
+    /// subresource requests (e.g. cdn.instagram.com) that originate from a parent page
+    /// (e.g. instagram.com) that is itself on the allowlist.
+    ///
+    /// Call flow:
+    ///
+    ///   classifyHost(host)  [whiteList mode only]
+    ///           │
+    ///           └── allowedSafariParent(forChildHost: host, using: rules)
+    ///                   │
+    ///                   ├── safariParentChildContextStore.allowedSafariParentForChild(host, ...)
+    ///                   │       ├── returns nil  → no recent parent observation found → return nil (block child)
+    ///                   │       └── returns decision
+    ///                   │               │
+    ///                   │               ├── appendEvent(decision.event)  ← side-effect: records this lookup
+    ///                   │               │
+    ///                   │               ├── decision.shouldAllow == false
+    ///                   │               │       → log "parent not in allowlist" → return nil (block child)
+    ///                   │               │
+    ///                   │               └── decision.shouldAllow == true
+    ///                   │                       → log "allowing child via parent" → return decision.parentDomain
+    ///                   │
+    ///                   └── caller (classifyHost) passes parentDomain to KMPDecisionCoreAdapter
+    ///                           so the child host inherits the parent's allow status
+    ///
+    /// NOTE: appendEvent() is always called even when shouldAllow is false — it records
+    /// that the child was seen, so future lookups for the same child can be de-duplicated.
     private func allowedSafariParent(forChildHost host: String, using loadedFilterRules: LoadedFilterRules) -> String? {
         guard let decision = safariParentChildContextStore.allowedSafariParentForChild(
             host,

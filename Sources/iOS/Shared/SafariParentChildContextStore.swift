@@ -41,6 +41,30 @@ struct SafariParentChildContextStore {
         self.defaults = defaults
     }
 
+    /// Call flow:
+    ///
+    ///   Safari extension sends page context → saveActiveContext(...)
+    ///           │
+    ///           ▼
+    ///       KMPDecisionCoreAdapter.normalizedActivePageContext(...)
+    ///           │
+    ///           ├── returns nil → return (invalid/empty context, nothing written)
+    ///           │
+    ///           └── returns normalized context
+    ///                   │
+    ///                   ├── encode ActivePageContext → defaults[activeContextDataKey]  (v1, typed)
+    ///                   │
+    ///                   ├── build legacyPayload → defaults[legacyLastMessageKey]       (debug shape)
+    ///                   │                      → defaults[legacyActiveContextKey]      (compat read)
+    ///                   │                      → defaults[legacyLastMessageDateKey]
+    ///                   │                      → defaults[legacyActiveContextDateKey]
+    ///                   │
+    ///                   ├── updateRegistry(parentDomain:childDomains:)  ← appends to persistent map
+    ///                   │
+    ///                   └── defaults.synchronize()
+    ///
+    /// Dual-write (v1 key + legacy keys) keeps the AppProxy and older readers working
+    /// during the rollout period before all targets read from activeContextDataKey.
     func saveActiveContext(parentDomain: String, childDomains: [String], url: String, receivedAt: Date) {
         guard let defaults else { return }
         guard let normalized = KMPDecisionCoreAdapter.normalizedActivePageContext(
@@ -93,6 +117,25 @@ struct SafariParentChildContextStore {
         defaults.synchronize()
     }
 
+    /// Call flow:
+    ///
+    ///   caller calls loadActiveContext()
+    ///           │
+    ///           ├── v1 key present (activeContextDataKey) → decode → return ActivePageContext
+    ///           │
+    ///           └── v1 key absent → legacy fallback:
+    ///                   │
+    ///                   ▼
+    ///               KMPDecisionCoreAdapter.activePageContextFromLegacyPayloadJSON(
+    ///                   legacyActiveContextKey,       ← debug-shape JSON string
+    ///                   legacyActiveContextDateKey    ← stored Date object
+    ///               )
+    ///                   │
+    ///                   ├── Kotlin returns nil → return nil
+    ///                   └── Kotlin returns context → wrap in ActivePageContext, return
+    ///
+    /// The legacy path exists because older app installs wrote the context as a debug
+    /// payload dict; the v1 path is the typed Codable encoding introduced later.
     func loadActiveContext() -> ActivePageContext? {
         if let data = defaults?.data(forKey: Self.activeContextDataKey),
            let context = try? decoder.decode(ActivePageContext.self, from: data) {
@@ -148,6 +191,31 @@ struct SafariParentChildContextStore {
         }
     }
 
+    /// The central gating function for Safari child-domain allow decisions.
+    ///
+    /// Call flow:
+    ///
+    ///   AppProxy or FlowInspector calls allowedSafariParentForChild(requestHost:...)
+    ///           │
+    ///           ├── loadFlowObservationJson()     → last observed parent↔child flow
+    ///           ├── loadActiveContextJSONForKotlin() → current page context (v1 or legacy re-encoded)
+    ///           ├── loadParentChildMapJson()       → server-pushed static map
+    ///           └── loadRegistryJson()             → accumulated runtime registry
+    ///                   │
+    ///                   ▼
+    ///               KMPDecisionCoreAdapter.allowedSafariParentForChild(
+    ///                   ...,
+    ///                   requestHost: requestHost,
+    ///                   maxAgeSeconds: maxAge,      ← caller controls staleness window
+    ///                   nowEpochSeconds: now,
+    ///                   using: loadedFilterRules
+    ///               )
+    ///                   │
+    ///                   ├── nil  → no parent found / context too old → block or pass through
+    ///                   └── AllowedSafariParentDecision → caller allows the request
+    ///
+    /// `maxAge` is the staleness window: if the active context is older than maxAge seconds
+    /// the Kotlin layer returns nil, preventing stale context from allowing unrelated requests.
     func allowedSafariParentForChild(
         _ requestHost: String,
         using loadedFilterRules: LoadedFilterRules,
@@ -183,6 +251,21 @@ struct SafariParentChildContextStore {
         return String(data: data, encoding: .utf8)
     }
 
+    /// Returns the active context as JSON in the shape Kotlin's decoder expects.
+    ///
+    /// Call flow:
+    ///
+    ///   v1 key present → decode Data → UTF-8 string (already Codable JSON)
+    ///           │
+    ///           └── v1 key absent → legacy path:
+    ///                   │
+    ///                   ▼
+    ///               loadActiveContext()   ← triggers the v1→legacy fallback itself
+    ///               encoder.encode(context)  ← re-encodes into Codable shape
+    ///               return UTF-8 string
+    ///
+    /// The re-encode step is necessary because the legacy storage format (debug payload dict)
+    /// doesn't match the Codable schema Kotlin reads — this function normalizes it.
     private func loadActiveContextJSONForKotlin() -> String? {
         if let data = defaults?.data(forKey: Self.activeContextDataKey) {
             return String(data: data, encoding: .utf8)
@@ -203,6 +286,14 @@ struct SafariParentChildContextStore {
         return defaults?.string(forKey: Self.parentChildMapKey)
     }
 
+    /// Three-tier fallback that handles the registry's storage format evolution.
+    ///
+    ///   Tier 1: stored as String (current write path via updateRegistry)
+    ///   Tier 2: stored as Data  (earlier write path that encoded to JSON bytes)
+    ///   Tier 3: stored as NSDictionary (oldest path that used UserDefaults native dict)
+    ///           → compactMapValues to [String: [String]], then re-serialise to JSON
+    ///
+    /// All three tiers normalize to the same JSON string for Kotlin.
     private func loadRegistryJson() -> String? {
         if let json = defaults?.string(forKey: Self.legacyParentChildRegistryKey) {
             return json

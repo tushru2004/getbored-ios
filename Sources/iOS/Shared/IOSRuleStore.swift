@@ -55,6 +55,22 @@ class IOSRuleStore {
     private var _defaultsCacheTime: Date = .distantPast
     private let defaultsCacheInterval: TimeInterval = 5.0
 
+    /// Call flow:
+    ///
+    ///   caller accesses sharedDefaults
+    ///           │
+    ///           ├── cache is valid (age < 5 s) → return _cachedDefaults (no allocation)
+    ///           │
+    ///           └── cache is stale or nil
+    ///                   │
+    ///                   ▼
+    ///               UserDefaults(suiteName: appGroupIdentifier)   ← new instance
+    ///               _defaultsCacheTime = now
+    ///               return _cachedDefaults
+    ///
+    /// The 5-second TTL exists because UserDefaults(suiteName:) is expensive to
+    /// allocate on every call, yet the filter extension needs cross-process data
+    /// that another process may have written since the last read.
     private var sharedDefaults: UserDefaults? {
         let now = Date()
         if _cachedDefaults == nil || now.timeIntervalSince(_defaultsCacheTime) > defaultsCacheInterval {
@@ -86,6 +102,20 @@ class IOSRuleStore {
     }
 
     /// Load the full policy snapshot expected by the shared decision core.
+    ///
+    /// Call flow:
+    ///
+    ///   filter extension (hot path) calls loadFilterRules()
+    ///           │
+    ///           ├── sharedDefaults?.string(forKey: modeKey)   → FilterMode (fallback: .blockSpecific)
+    ///           ├── loadSiteRules()    → [SiteRule] from JSON in UserDefaults
+    ///           ├── loadExceptions()  → [String] from UserDefaults
+    ///           └── loadAllowedApps() → [String] from UserDefaults
+    ///                   │
+    ///                   ▼
+    ///               LoadedFilterRules (passed to KMPDecisionCoreAdapter for every decision)
+    ///
+    /// All four reads hit the same cached UserDefaults instance (5-second TTL).
     func loadFilterRules() -> LoadedFilterRules {
         let rawMode = sharedDefaults?.string(forKey: modeKey) ?? FilterMode.blockSpecific.rawValue
         let mode = FilterMode(rawValue: rawMode) ?? .blockSpecific
@@ -251,6 +281,30 @@ class IOSActivityLogger {
     // MARK: - Logging
 
     /// Log a filter decision. Batches writes for performance.
+    ///
+    /// Call flow:
+    ///
+    ///   filter extension calls log(domain:blocked:reason:...)
+    ///           │
+    ///           ▼
+    ///       build ActivityLogEntry (stripTeamID on sourceApp)
+    ///           │
+    ///           ▼
+    ///       queue.async { append to pendingEntries }
+    ///           │
+    ///           ├── pendingEntries.count >= 50 (batchSize)  ┐
+    ///           │                                            ├─→ _flushPending()
+    ///           └── time since lastFlush >= 2 s (flushInterval) ┘
+    ///                       │
+    ///                       ▼  (otherwise entries stay in memory)
+    ///                   writeEntries(toWrite)
+    ///                       │
+    ///                       ├── defaults.synchronize()  ← pull cross-process writes first
+    ///                       ├── decode existing [ActivityLogEntry]
+    ///                       ├── KMPDecisionCoreAdapter.activityLogMergeAndTrim (cap at 500)
+    ///                       └── encode + defaults.set + defaults.synchronize()
+    ///
+    /// All writes are serialized on `queue` (serial, .utility QoS) to avoid data races.
     func log(domain: String,
              blocked: Bool,
              reason: String,
@@ -301,6 +355,11 @@ class IOSActivityLogger {
         writeEntries(toWrite)
     }
 
+    /// Read-merge-trim-write cycle on the shared activity log.
+    ///
+    /// The leading `defaults.synchronize()` is intentional: another process (the iOS app
+    /// reading the log for upload) may have written a tombstone or trim since this process
+    /// last read. Without it we'd re-inflate entries that were already cleared.
     private func writeEntries(_ newEntries: [ActivityLogEntry]) {
         guard let defaults = sharedDefaults else {
             os_log("IOSActivityLogger.writeEntries: sharedDefaults is nil!", log: writeLogger, type: .error)

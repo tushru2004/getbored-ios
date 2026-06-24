@@ -104,6 +104,32 @@ final class FilterStatusModule: NSObject {
     /// Fetches all `FilterList` records from CloudKit, applies the ones assigned
     /// to this device, and writes the merged rules to the shared App-Group store
     /// so the filter extension picks them up within its 5-second cache TTL.
+    ///
+    /// Call flow:
+    ///
+    ///   JS calls syncFilterLists()
+    ///           │
+    ///           ▼
+    ///   requireAvailableICloudAccount(rejecter: reject) { ... }
+    ///           │
+    ///           ├── checks if iCloud account is available
+    ///           │
+    ///           ├── NOT available → calls reject(...) immediately, closure never runs
+    ///           │
+    ///           └── IS available → calls the closure:
+    ///                   │
+    ///                   ▼
+    ///               fetchAllFilterListRecords(resolve, rejecter: reject)
+    ///                   │
+    ///                   ├── builds CKQuery
+    ///                   ├── sets up recordMatchedBlock
+    ///                   ├── sets up queryResultBlock
+    ///                   └── db.add(operation)  ← fires and returns immediately
+    ///                           │
+    ///                           └── (CloudKit streams records back later)
+    ///                                   │
+    ///                                   ├── recordMatchedBlock × N
+    ///                                   └── queryResultBlock → resolve() or reject()
     @objc func syncFilterLists(_ resolve: @escaping RCTPromiseResolveBlock,
                                rejecter reject: @escaping RCTPromiseRejectBlock) {
         requireAvailableICloudAccount(rejecter: reject) {
