@@ -10,6 +10,27 @@ final class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
     )
     private let contextStore = SafariParentChildContextStore()
 
+    /// Call flow:
+    ///
+    ///   Safari extension
+    ///       │
+    ///       ▼
+    ///   beginRequest(context:)
+    ///       │
+    ///       ├─ extract message from NSExtensionItem
+    ///       │
+    ///       ▼
+    ///   storeProbe(message)
+    ///       │
+    ///       ├─ isClearMessage? → clearActiveContext() → return true
+    ///       │
+    ///       └─ normal message
+    ///           ├─ parse {parentDomain, childDomains, url}
+    ///           ├─ contextStore.saveActiveContext()
+    ///           └─ return true
+    ///       │
+    ///       ▼
+    ///   completeRequest() with ack={stored, storedKey}
     func beginRequest(with context: NSExtensionContext) {
         let request = context.inputItems.first as? NSExtensionItem
         let message = extensionMessage(from: request)

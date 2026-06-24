@@ -19,6 +19,19 @@ class WhitelistManager {
     private var _defaultsCacheTime: Date = .distantPast
     private let defaultsCacheInterval: TimeInterval = 5.0
 
+    /// Call flow:
+    ///
+    ///   caller
+    ///       │
+    ///       ▼
+    ///   sharedDefaults (computed property)
+    ///       │
+    ///       ├─ cache valid? (< 5 sec old) → return cached instance
+    ///       │
+    ///       └─ cache expired/missing
+    ///           ├─ create fresh UserDefaults(suiteName:)
+    ///           ├─ update cache timestamp
+    ///           └─ return new instance
     private var sharedDefaults: UserDefaults? {
         let now = Date()
         if _cachedDefaults == nil || now.timeIntervalSince(_defaultsCacheTime) > defaultsCacheInterval {
