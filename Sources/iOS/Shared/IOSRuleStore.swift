@@ -203,10 +203,7 @@ class IOSRuleStore {
 
         invalidateDefaultsCache()
 
-        logger.info(
-            "applyFilterListSnapshot: \(entries.count) entries, mode=\(filterMode.rawValue), " +
-            "\(exceptions.count) exceptions, \(allowedApps.count) allowedApps"
-        )
+        logger.info("applyFilterListSnapshot: \(entries.count) entries, mode=\(filterMode.rawValue), \(exceptions.count) exceptions, \(allowedApps.count) allowedApps")
     }
 
     // MARK: - Filter Mode
