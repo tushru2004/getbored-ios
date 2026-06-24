@@ -99,6 +99,54 @@ final class FilterStatusModule: NSObject {
         }
     }
 
+    // MARK: - Filter List Sync
+
+    /// Fetches all `FilterList` records from CloudKit, applies the ones assigned
+    /// to this device, and writes the merged rules to the shared App-Group store
+    /// so the filter extension picks them up within its 5-second cache TTL.
+    @objc func syncFilterLists(_ resolve: @escaping RCTPromiseResolveBlock,
+                               rejecter reject: @escaping RCTPromiseRejectBlock) {
+        requireAvailableICloudAccount(rejecter: reject) {
+            self.fetchAllFilterListRecords(resolve, rejecter: reject)
+        }
+    }
+
+    private func fetchAllFilterListRecords(_ resolve: @escaping RCTPromiseResolveBlock,
+                                           rejecter reject: @escaping RCTPromiseRejectBlock) {
+        let query = CKQuery(recordType: "FilterList", predicate: NSPredicate(value: true))
+        let operation = CKQueryOperation(query: query)
+        operation.zoneID = Self.syncZoneID
+
+        var fetchedRecords: [CKRecord] = []
+
+        operation.recordMatchedBlock = { _, result in
+            switch result {
+            case .success(let record):
+                fetchedRecords.append(record)
+            case .failure:
+                // A single record failing to load is non-fatal — skip it and continue.
+                break
+            }
+        }
+
+        operation.queryResultBlock = { result in
+            switch result {
+            case .failure(let error):
+                if Self.isRecordNotFoundError(error) {
+                    // Zone or record type not found — no lists synced yet. Treat as empty.
+                    self.applyDecodedFilterLists([], resolve: resolve)
+                } else {
+                    reject("filter_list_fetch_failed", Self.cloudKitErrorMessage(error), error)
+                }
+            case .success:
+                // TODO: handle queryCursor if list count ever exceeds 100
+                self.decodeAndApplyFilterLists(from: fetchedRecords, resolve: resolve, rejecter: reject)
+            }
+        }
+
+        cloudContainer.privateCloudDatabase.add(operation)
+    }
+
     /// Runs work only when the iCloud account is usable; otherwise rejects the React Native promise.
     private func requireAvailableICloudAccount(
         rejecter reject: @escaping RCTPromiseRejectBlock,
