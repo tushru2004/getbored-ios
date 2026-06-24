@@ -61,13 +61,23 @@ preflight:
 # Build + install on XR (mirrors monorepo build-ios-on-air)
 install: build-device preflight
 	-xcrun devicectl device uninstall app --device $(DEVICE_UDID) $(BUNDLE_ID) 2>/dev/null
-	xcrun devicectl device install app --device $(DEVICE_UDID) $(APP_PATH)
+	@attempt=1; until xcrun devicectl device install app --device $(DEVICE_UDID) $(APP_PATH); do \
+		attempt=$$((attempt + 1)); \
+		if [ $$attempt -gt 3 ]; then echo "install failed after 3 attempts"; exit 1; fi; \
+		echo "install attempt $$((attempt - 1)) failed, retrying in 3s..."; \
+		sleep 3; \
+	done
 	@echo "GetBored installed on XR ($(DEVICE_UDID))"
 
 # Install without rebuild
 install-only: preflight
 	-xcrun devicectl device uninstall app --device $(DEVICE_UDID) $(BUNDLE_ID) 2>/dev/null
-	xcrun devicectl device install app --device $(DEVICE_UDID) $(APP_PATH)
+	@attempt=1; until xcrun devicectl device install app --device $(DEVICE_UDID) $(APP_PATH); do \
+		attempt=$$((attempt + 1)); \
+		if [ $$attempt -gt 3 ]; then echo "install failed after 3 attempts"; exit 1; fi; \
+		echo "install attempt $$((attempt - 1)) failed, retrying in 3s..."; \
+		sleep 3; \
+	done
 
 # Kill whatever is listening on PORT (e.g. a stale Metro): make kill-port PORT=8081
 kill-port:
