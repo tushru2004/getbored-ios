@@ -221,15 +221,35 @@ final class FilterStatusModule: NSObject {
         resolve(nil)
     }
 
-    /// Returns `.whiteList` if any assigned list uses whitelist mode; otherwise `.blockSpecific`.
-    /// whiteList wins because it is strictly more permissive — mixing modes would block the
-    /// entries the parent intended to allow.
+    /// Determines the effective filter mode when multiple lists are merged.
+    ///
+    /// Call flow:
+    ///
+    ///   applyDecodedFilterLists calls resolveEffectiveMode(lists)
+    ///           │
+    ///           ├── any list has mode == .whiteList → return .whiteList
+    ///           └── all lists are .blockSpecific (or lists is empty) → return .blockSpecific
+    ///
+    /// whiteList wins because it is strictly more permissive — a mixed assignment means
+    /// the parent intended to allow everything except the listed entries, so blocking
+    /// on top of that would silently override their intent.
     private func resolveEffectiveMode(_ lists: [FilterList]) -> FilterListMode {
         let hasWhiteList = lists.contains { $0.mode == .whiteList }
         return hasWhiteList ? .whiteList : .blockSpecific
     }
 
-    /// Returns the input array with duplicates removed, preserving original order.
+    /// Returns the input array with duplicates removed, preserving the first occurrence order.
+    ///
+    /// Call flow:
+    ///
+    ///   applyDecodedFilterLists calls orderedUnique(lists.flatMap(\.entries))
+    ///           │
+    ///           └── iterate strings:
+    ///                   ├── seen.insert(string).inserted == true  → keep (first occurrence)
+    ///                   └── seen.insert(string).inserted == false → drop (duplicate)
+    ///
+    /// Set.insert returns (inserted: Bool, ...) — inserted is true only on the first insertion,
+    /// so filter keeps each string exactly once in its original order.
     private func orderedUnique(_ strings: [String]) -> [String] {
         var seen = Set<String>()
         return strings.filter { seen.insert($0).inserted }
