@@ -2,7 +2,6 @@ import React from 'react';
 import {SafeAreaView, ScrollView, StyleSheet, Text, View} from 'react-native';
 
 import {ErrorBoundary} from '../components/ErrorBoundary';
-import {AppGroupDefaultsCard} from '../components/cards/AppGroupDefaultsCard';
 import {DeviceRegistrationCard} from '../components/cards/DeviceRegistrationCard';
 import {FilterListSyncCard} from '../components/cards/FilterListSyncCard';
 import {StatusCard} from '../components/cards/StatusCard';
@@ -39,7 +38,6 @@ export const HomeScreen: React.FC = () => (
         <StatusSection />
         <DeviceRegistrationCard />
         <FilterListSyncCard />
-        <AppGroupDefaultsCard />
       </ErrorBoundary>
     </ScrollView>
   </SafeAreaView>
