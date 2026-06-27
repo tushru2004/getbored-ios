@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, {useEffect, useState} from 'react';
 import {
   ActivityIndicator,
   Modal,
@@ -167,6 +167,12 @@ type Props = {
 
 export const ActiveRulesScreen: React.FC<Props> = ({visible, onClose}) => {
   const {state, reload} = useActiveRules();
+
+  useEffect(() => {
+    if (visible) {
+      reload();
+    }
+  }, [visible, reload]);
 
   return (
     <Modal
