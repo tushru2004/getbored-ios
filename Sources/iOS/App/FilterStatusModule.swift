@@ -182,7 +182,7 @@ final class FilterStatusModule: NSObject {
         // both the Development and Production CloudKit environments before shipping.
         let query = CKQuery(recordType: "FilterList", predicate: NSPredicate(value: true))
         let operation = CKQueryOperation(query: query)
-        operation.zoneID = Self.syncZoneID
+        operation.zoneID = CKRecordZone.default().zoneID
 
         var fetchedRecords: [CKRecord] = []
 
