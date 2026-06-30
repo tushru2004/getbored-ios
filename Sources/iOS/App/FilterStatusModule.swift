@@ -499,22 +499,62 @@ final class FilterStatusModule: NSObject {
         }
     }
 
+    /// Returns the stable per-device ID, creating one if needed.
+    ///
+    /// Lookup order:
+    ///
+    ///   1. Keychain  — survives app reinstall; preferred source of truth.
+    ///   2. UserDefaults (legacy)  — devices registered before the Keychain
+    ///      migration still have an ID here. Migrate it on first read so the
+    ///      device keeps its existing CloudKit registration record.
+    ///   3. Mint a new UUID — first run after a clean install.
+    ///
+    /// Call flow:
+    ///
+    ///   KeychainDeviceID.read()
+    ///           │
+    ///           ├── non-empty String → return (Keychain hit)
+    ///           │
+    ///           └── nil (Keychain miss)
+    ///                   │
+    ///                   ├── UserDefaults has legacy ID
+    ///                   │       ├── KeychainDeviceID.write(legacy)  ← one-time migration
+    ///                   │       └── return legacy
+    ///                   │
+    ///                   └── no legacy ID
+    ///                           ├── UUID().uuidString
+    ///                           ├── KeychainDeviceID.write(created)
+    ///                           └── return created
     private func loadOrCreateDeviceID() -> String {
-        let defaults = UserDefaults.standard
-        if let existing = defaults.string(forKey: deviceIDDefaultsKey), !existing.isEmpty {
+        if let existing = KeychainDeviceID.read(), !existing.isEmpty {
             return existing
         }
+
+        // Migrate a pre-existing UserDefaults ID so already-registered devices
+        // don't churn their CloudKit registration record.
+        if let legacy = UserDefaults.standard.string(forKey: deviceIDDefaultsKey), !legacy.isEmpty {
+            KeychainDeviceID.write(legacy)
+            return legacy
+        }
+
         let created = UUID().uuidString
-        defaults.set(created, forKey: deviceIDDefaultsKey)
+        KeychainDeviceID.write(created)
         return created
     }
 
+    /// Returns the device ID if one has already been established, or `nil` if
+    /// this device has never completed registration.
+    ///
+    /// Checks the Keychain first (post-migration) and falls back to UserDefaults
+    /// for devices registered before the Keychain migration was deployed.
     private func loadExistingDeviceID() -> String? {
-        let defaults = UserDefaults.standard
-        guard let existing = defaults.string(forKey: deviceIDDefaultsKey), !existing.isEmpty else {
-            return nil
+        if let existing = KeychainDeviceID.read(), !existing.isEmpty {
+            return existing
         }
-        return existing
+
+        // Legacy fallback: a device registered before the Keychain migration.
+        let legacy = UserDefaults.standard.string(forKey: deviceIDDefaultsKey)
+        return legacy.flatMap { $0.isEmpty ? nil : $0 }
     }
 
     private func appVersionString() -> String {
