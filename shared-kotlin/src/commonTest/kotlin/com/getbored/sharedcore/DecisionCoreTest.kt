@@ -13,6 +13,7 @@ class DecisionCoreTest {
         filterModeRaw: String = "blockSpecific",
         exceptions: List<String> = emptyList(),
         allowedAppBundleIds: List<String> = emptyList(),
+        blockedAppBundleIds: List<String> = emptyList(),
         ownAppBundlePrefixes: List<String> = listOf("com.getbored"),
         systemAllowedSuffixes: List<String> = emptyList(),
     ) = PolicySnapshot(
@@ -20,6 +21,7 @@ class DecisionCoreTest {
         filterModeRaw = filterModeRaw,
         exceptions = exceptions,
         allowedAppBundleIds = allowedAppBundleIds,
+        blockedAppBundleIds = blockedAppBundleIds,
         ownAppBundlePrefixes = ownAppBundlePrefixes,
         systemAllowedSuffixes = systemAllowedSuffixes,
     )
@@ -322,5 +324,25 @@ class DecisionCoreTest {
             "BLOCK_NO_MATCH host=unrelated.example activeParent=school.example childCount=2 age=4.0",
             decision.event,
         )
+    }
+
+    @Test
+    fun isAppBlockedMatchesMembershipWithTeamPrefixAndRejectsLookalikes() {
+        val policy = policy(blockedAppBundleIds = listOf("com.tiktok.TikTok"))
+
+        // Exact match
+        assertTrue(core.isAppBlocked("com.tiktok.TikTok", policy))
+        // Team-prefix match: system prepends team ID with a dot separator
+        assertTrue(core.isAppBlocked("TEAMID.com.tiktok.TikTok", policy))
+        // Lookalike rejection: shares a prefix but does not end with ".com.tiktok.TikTok"
+        assertFalse(core.isAppBlocked("com.tiktok.TikTokEvil", policy))
+        // Unrelated app
+        assertFalse(core.isAppBlocked("com.example.other", policy))
+    }
+
+    @Test
+    fun isAppBlockedReturnsFalseForEmptyList() {
+        val policy = policy(blockedAppBundleIds = emptyList())
+        assertFalse(core.isAppBlocked("com.tiktok.TikTok", policy))
     }
 }

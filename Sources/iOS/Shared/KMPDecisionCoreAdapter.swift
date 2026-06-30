@@ -291,6 +291,17 @@ public enum KMPDecisionCoreAdapter {
         #endif
     }
 
+    public static func isAppBlocked(_ sourceApp: String, using loadedFilterRules: LoadedFilterRules) -> Bool {
+        #if canImport(GetBoredSharedCore)
+        return GetBoredSharedCore.DecisionCore().isAppBlocked(
+            sourceApp: sourceApp,
+            policy: kotlinPolicySnapshot(from: loadedFilterRules, systemAllowedSuffixes: [])
+        )
+        #else
+        kotlinCoreUnavailable()
+        #endif
+    }
+
     public static func shouldLogBlockedAppProbe(_ sourceApp: String?, using loadedFilterRules: LoadedFilterRules) -> Bool {
         #if canImport(GetBoredSharedCore)
         return GetBoredSharedCore.DecisionCore().shouldLogBlockedAppProbe(
@@ -735,6 +746,7 @@ public enum KMPDecisionCoreAdapter {
             filterModeRaw: loadedFilterRules.filterMode.rawValue,
             exceptions: loadedFilterRules.exceptions,
             allowedAppBundleIds: loadedFilterRules.allowedAppBundleIDs,
+            blockedAppBundleIds: loadedFilterRules.blockedAppBundleIDs,
             ownAppBundlePrefixes: [GetBoredIdentifiers.bundlePrefix],
             systemAllowedSuffixes: systemAllowedSuffixes
         )

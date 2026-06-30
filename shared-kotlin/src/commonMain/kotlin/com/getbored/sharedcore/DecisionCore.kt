@@ -29,6 +29,7 @@ data class PolicySnapshot(
     val filterModeRaw: String,
     val exceptions: List<String>,
     val allowedAppBundleIds: List<String>,
+    val blockedAppBundleIds: List<String>,
     val ownAppBundlePrefixes: List<String>,
     val systemAllowedSuffixes: List<String>,
 ) {
@@ -260,6 +261,15 @@ class DecisionCore {
         return allowedAppBundleIds.any { stored ->
             val allowed = stored.lowercase()
             normalizedBundleId == allowed || normalizedBundleId.endsWith(".$allowed")
+        }
+    }
+
+    fun isAppBlocked(sourceApp: String, policy: PolicySnapshot): Boolean {
+        val normalizedBundleId = sourceApp.lowercase()
+
+        return policy.blockedAppBundleIds.any { stored ->
+            val blocked = stored.lowercase()
+            normalizedBundleId == blocked || normalizedBundleId.endsWith(".$blocked")
         }
     }
 
