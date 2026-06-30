@@ -78,6 +78,20 @@ class FlowInspector: NEFilterDataProvider {
     /// The same site rules list means different things depending on mode:
     /// - blockSpecific: the list is a BLOCKLIST (block what's listed)
     /// - whiteList: the list is an ALLOWLIST (allow what's listed, block everything else)
+    ///
+    /// Call flow:
+    ///
+    ///   classifyHost(host)
+    ///           │
+    ///           ├── loadFilterRules()              ← re-read every call; CloudKit sync can change it anytime
+    ///           ├── currentMode = rules.filterMode ← side effect: cache mode for telemetry/logging
+    ///           │
+    ///           ├── mode == .whiteList     → allowedSafariParent(forChildHost: host) (parent-child allow lookup)
+    ///           └── mode == .blockSpecific → allowedParent = nil (skip parent-child lookup)
+    ///                   │
+    ///                   ▼
+    ///           KMPDecisionCoreAdapter.classifyHost(host, rules, systemAllowedSuffixes, allowedParent)
+    ///                   → (decision.blocked, decision.reason)
     private func classifyHost(_ host: String) -> (blocked: Bool, reason: String) {
         // Always re-read the mode — it could change at any time via CloudKit sync
         let loadedFilterRules = IOSRuleStore.shared.loadFilterRules()
@@ -147,9 +161,22 @@ class FlowInspector: NEFilterDataProvider {
 
     // MARK: - Telemetry Helpers
 
-    /// Emit at most one "app probe" per app per cooldown window.
-    /// In block-everything mode, a blocked app sends dozens of requests.
-    /// This limits to one log entry per app every 30 seconds.
+    /// Emit at most one "app probe" per app per cooldown window (30 s).
+    /// In whiteList (block-everything) mode a blocked app fires dozens of requests;
+    /// this throttles the Block Log to one entry per app per window.
+    ///
+    /// Call flow:
+    ///
+    ///   handleNewFlow (per-app gate) → logBlockedAppProbeIfNeeded(sourceApp, rules)
+    ///           │
+    ///           ├── sourceApp nil/empty                       → return (no-op)
+    ///           ├── !shouldLogBlockedAppProbe(sourceApp)      → return (allowed app, or not whiteList)
+    ///           ├── last probe < 30 s ago (appProbeCooldown)  → return (throttled)
+    ///           │
+    ///           └── lastAppProbeLogAt[appKey] = now           ← side effect: arms the cooldown
+    ///                   │
+    ///                   ▼
+    ///               logBlockedAppTelemetry(domain: "app:<sourceApp>", …)
     private func logBlockedAppProbeIfNeeded(sourceApp: String?, using loadedFilterRules: LoadedFilterRules) {
         guard let sourceApp, !sourceApp.isEmpty else { return }
         guard KMPDecisionCoreAdapter.shouldLogBlockedAppProbe(sourceApp, using: loadedFilterRules) else {
@@ -199,40 +226,49 @@ class FlowInspector: NEFilterDataProvider {
 
     // MARK: - Flow Handling (Chunk 4)
 
-    /// This is the busiest method in the whole filter. Every single network request
-    /// on the phone goes through it. Here's the decision tree:
+    /// The busiest method in the whole filter — every network request on the phone goes through it.
     ///
-    /// iOS detects new network connection → handleNewFlow(flow)
-    ///     │
-    ///     ├─ 1. Is it an Apple system app (not Safari)?
-    ///     │     YES → .allow()  (Apple apps use weird CDN domains, let them through)
-    ///     │
-    ///     ├─ 2. Is the app in the user's allowed-apps list?
-    ///     │     YES → .allow()  (parent explicitly whitelisted this app)
-    ///     │
-    ///     ├─ 3. Is the app in the admin's blocked-apps list?
-    ///     │     YES → .drop()   (always AFTER steps 1–2 so own-app/system never blocked)
-    ///     │
-    ///     ├─ 4. App not allowed + whiteList mode?
-    ///     │     YES → log one "app probe" per 30 seconds (for the Block Log)
-    ///     │
-    ///     ├─ 5. Is this QUIC? (UDP port 443, used by HTTP/3)
-    ///     │     YES → classifyHost(endpoint.hostname)
-    ///     │           blocked? → .needRules() (escalate to Control Provider)
-    ///     │
-    ///     ├─ 6. Does the flow have a URL? (browser like Safari)
-    ///     │     YES → classifyHost(host)
-    ///     │           blocked? → check exceptions first, then .needRules()
-    ///     │
-    ///     └─ 7. No URL? (non-browser app like TikTok, Instagram app)
-    ///           → "Give me the first 512 outbound bytes to inspect"
-    ///           → iOS will call handleOutboundData() next
+    /// SAFETY-CRITICAL ORDERING: the allow gate (own-app / Apple-system / parent-whitelisted) is
+    /// evaluated FIRST and returns .allow() immediately. Only flows that nothing allowed reach the
+    /// isAppBlocked .drop() check. Never reorder allow-before-drop — it is load-bearing:
+    ///   - Own-app traffic must never be dropped, or GetBored loses its own network + CloudKit
+    ///     control channel and can no longer be managed/recovered remotely.
+    ///   - Apple system domains must never be dropped (breaks iCloud, App Store, cert validation).
+    ///   - A parent-whitelisted app is explicit parent intent and outranks any overlap with the
+    ///     admin blocked-apps list.
+    /// If a bundle ID is in BOTH the allowed and blocked sets, allow wins by construction.
     ///
-    /// This method handles browsers (step 6) and QUIC (step 5) completely.
-    /// But non-browser apps like TikTok, Instagram, YouTube, Snapchat give us
-    /// NO URL — flow.url is nil. Without chunk 5 (handleOutboundData), every
-    /// non-browser app would slip through unfiltered. That's most of the traffic
-    /// on a teenager's phone.
+    /// Call flow:
+    ///
+    ///   iOS detects new network connection → handleNewFlow(flow)
+    ///           │
+    ///           ├── sourceApp present (per-app gate, in this exact order):
+    ///           │       │
+    ///           │       ├── shouldAllowApp (own-app / Apple-system / whitelisted) → .allow()   ← MUST be first
+    ///           │       │
+    ///           │       ├── isAppBlocked (admin blocked-apps list)               → .drop()    ← only if not allowed above
+    ///           │       │
+    ///           │       └── shouldLogBlockedAppProbe (not-allowed + whiteList)   → logBlockedAppProbeIfNeeded (≤1 / 30 s)
+    ///           │
+    ///           ├── QUIC (UDP :443, SOCK_DGRAM — HTTP/3):
+    ///           │       ├── isSystemAllowed(host) → .allow()
+    ///           │       ├── classifyHost blocked  → .needRules()  (escalate to Control Provider)
+    ///           │       └── otherwise             → .allow()
+    ///           │
+    ///           ├── flow.url present (browser, e.g. Safari):
+    ///           │       ├── isSystemAllowed(host) → .allow()
+    ///           │       ├── classifyHost blocked
+    ///           │       │       ├── matchesException(url) → .allow()
+    ///           │       │       └── otherwise             → .needRules()
+    ///           │       └── otherwise             → .allow()
+    ///           │
+    ///           └── no URL (non-browser app: TikTok / Instagram / YouTube / Snapchat):
+    ///                   └── filterDataVerdict(peekOutboundBytes: 512)
+    ///                           → iOS calls handleOutboundData() next to sniff SNI / HTTP Host
+    ///
+    /// Browsers and QUIC are handled completely here. Non-browser apps give us no URL
+    /// (flow.url == nil); without handleOutboundData() peeking the first 512 bytes they would
+    /// slip through unfiltered — that is most of the traffic on a teenager's phone.
     override func handleNewFlow(_ flow: NEFilterFlow) -> NEFilterNewFlowVerdict {
         let sourceApp = flow.sourceAppIdentifier
         let loadedFilterRules = IOSRuleStore.shared.loadFilterRules()
@@ -319,28 +355,31 @@ class FlowInspector: NEFilterDataProvider {
 
     // MARK: - Outbound Data Inspection (Chunk 5)
 
-    /// This is the callback for step 6 above. When handleNewFlow() couldn't find
-    /// a hostname (non-browser apps like TikTok, Instagram, YouTube, Snapchat),
-    /// it asked iOS for the first 512 outbound bytes. iOS delivers them here.
+    /// Callback for the "no URL" branch of handleNewFlow: no hostname was available there, so it
+    /// requested the first 512 outbound bytes and iOS delivers them here. We sniff the hostname out
+    /// of the raw bytes so non-browser apps (TikTok, Instagram, YouTube, Snapchat) can still be filtered.
     ///
-    /// We dig through the raw bytes to find the hostname:
+    /// KEY DIFFERENCE from handleNewFlow: this path uses .drop(), not .needRules(). By the time we
+    /// inspect raw bytes, .needRules() no longer reliably triggers the Control Provider, so we drop
+    /// directly and surface the event through logBlockedAppTelemetry().
     ///
-    /// iOS delivers 512 raw bytes → handleOutboundData()
-    ///     │
-    ///     ├─ Try 1: Is this a TLS ClientHello? (HTTPS — most apps)
-    ///     │   extractSNI() parses the binary TLS record
-    ///     │   Found hostname → classifyHost() → blocked? → .drop()
-    ///     │
-    ///     ├─ Try 2: Is this an HTTP request? (plain HTTP — rare)
-    ///     │   extractHTTPHost() reads the "Host:" header
-    ///     │   Found hostname → classifyHost() → check exceptions → .drop()
-    ///     │
-    ///     └─ Neither? (DNS, mDNS, system traffic)
-    ///           → .allow()
+    /// Call flow:
     ///
-    /// KEY DIFFERENCE from handleNewFlow: we use .drop() here, not .needRules().
-    /// By the time we're inspecting raw bytes, .needRules() doesn't reliably
-    /// trigger the Control Provider. So we drop directly and log via telemetry.
+    ///   iOS delivers 512 raw bytes → handleOutboundData()
+    ///           │
+    ///           ├── Try 1: extractSNI (TLS ClientHello — HTTPS, most apps)
+    ///           │       ├── isSystemAllowed(sni) → .allow()
+    ///           │       ├── classifyHost blocked → logBlockedAppTelemetry + .drop()
+    ///           │       └── otherwise            → .allow()
+    ///           │
+    ///           ├── Try 2: extractHTTPHost (plain HTTP "Host:" header — rare)
+    ///           │       ├── isSystemAllowed(host) → .allow()
+    ///           │       ├── classifyHost blocked
+    ///           │       │       ├── extractHTTPFullURL + matchesException → .allow()
+    ///           │       │       └── otherwise                            → logBlockedAppTelemetry + .drop()
+    ///           │       └── otherwise             → .allow()
+    ///           │
+    ///           └── neither TLS nor HTTP (DNS, mDNS, system traffic) → .allow()
     override func handleOutboundData(from flow: NEFilterFlow,
                                      readBytesStartOffset offset: Int,
                                      readBytes: Data) -> NEFilterDataVerdict {

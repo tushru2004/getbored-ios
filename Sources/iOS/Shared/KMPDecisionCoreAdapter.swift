@@ -280,6 +280,14 @@ public enum KMPDecisionCoreAdapter {
         #endif
     }
 
+    /// The per-app allow gate. Returns true for the "safe set" — own-app, Apple-system, and
+    /// parent-whitelisted apps — that the filter must never drop. Builds a PolicySnapshot
+    /// (systemAllowedSuffixes empty: app-level allow does not depend on the system host list)
+    /// and delegates the actual matching to Kotlin DecisionCore.shouldAllowApp.
+    ///
+    /// FlowInspector.handleNewFlow MUST call this and return .allow() BEFORE the isAppBlocked
+    /// check below — that ordering is why own-app/system traffic can never be dropped.
+    /// See DecisionCore.kt shouldAllowApp for the own-app-prefix / com.apple / allowlist branches.
     public static func shouldAllowApp(_ sourceApp: String, using loadedFilterRules: LoadedFilterRules) -> Bool {
         #if canImport(GetBoredSharedCore)
         return GetBoredSharedCore.DecisionCore().shouldAllowApp(
@@ -291,6 +299,13 @@ public enum KMPDecisionCoreAdapter {
         #endif
     }
 
+    /// Per-app block check against the admin blocked-apps list. Builds a PolicySnapshot and
+    /// delegates to Kotlin DecisionCore.isAppBlocked, which matches the full bundle ID or its
+    /// team-ID-prefixed form ("TEAMID.com.tiktok.TikTok" matches stored "com.tiktok.TikTok").
+    ///
+    /// SAFETY: callers (FlowInspector.handleNewFlow) must evaluate shouldAllowApp() and return
+    /// .allow() before reaching this — so a bundle that is both allowed and blocked is allowed,
+    /// never dropped. This function only consults blockedAppBundleIds; it has no allow logic.
     public static func isAppBlocked(_ sourceApp: String, using loadedFilterRules: LoadedFilterRules) -> Bool {
         #if canImport(GetBoredSharedCore)
         return GetBoredSharedCore.DecisionCore().isAppBlocked(
@@ -755,8 +770,9 @@ public enum KMPDecisionCoreAdapter {
     private static func policyDecision(
         from decision: GetBoredSharedCore.PolicyDecision
     ) -> PolicyDecision {
-        PolicyDecision(
-            kind: decision.kind == GetBoredSharedCore.PolicyDecisionKind.block ? .block : .allow,
+        let isBlock = decision.kind == GetBoredSharedCore.PolicyDecisionKind.block
+        return PolicyDecision(
+            kind: isBlock ? .block : .allow,
             reason: decision.reason
         )
     }

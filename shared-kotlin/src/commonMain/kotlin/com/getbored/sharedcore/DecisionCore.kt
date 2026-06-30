@@ -94,6 +94,27 @@ data class ParentChildDecision(
  * calling this boundary.
  */
 class DecisionCore {
+    /**
+     * Core host verdict for the iOS content filter. The site-rules list is interpreted by mode:
+     * WHITE_LIST treats it as an allowlist, BLOCK_SPECIFIC as a blocklist.
+     *
+     * Call flow:
+     *
+     *   FlowInspector.classifyHost → KMPDecisionCoreAdapter.classifyHost → here
+     *           │
+     *           ├── normalized host empty → ALLOW "Empty host"
+     *           ├── isSystemAllowed(host) → ALLOW "System allowed"
+     *           │
+     *           ├── mode == WHITE_LIST
+     *           │       ├── matchesSiteRule         → ALLOW "In allowed list"
+     *           │       ├── allowedSafariParent set → ALLOW "Child of allowed Safari parent"
+     *           │       └── otherwise               → BLOCK "Block everything mode"
+     *           │
+     *           └── mode == BLOCK_SPECIFIC
+     *                   ├── no entries      → ALLOW "Empty blocklist"
+     *                   ├── matchesSiteRule → BLOCK "In blocklist"
+     *                   └── otherwise       → ALLOW "Not listed"
+     */
     fun classifyHost(host: String, policy: PolicySnapshot, allowedSafariParent: String?): PolicyDecision {
         val normalizedHost = normalizeHost(host)
         if (normalizedHost.isEmpty()) {
@@ -123,6 +144,21 @@ class DecisionCore {
         return PolicyDecision(PolicyDecisionKind.ALLOW, "Not listed")
     }
 
+    /**
+     * Per-app allow gate. Returns true for traffic that must never be blocked regardless of the
+     * blocked-apps list — the "safe set" the iOS filter (FlowInspector.handleNewFlow) checks FIRST,
+     * before isAppBlocked, so own-app and Apple-system traffic can never be dropped.
+     *
+     * Call flow:
+     *
+     *   shouldAllowApp(sourceApp, policy)
+     *           │
+     *           ├── matches an ownAppBundlePrefix          → true  (never block GetBored itself)
+     *           ├── ".com.apple." app AND not mobilesafari → true  (iCloud / App Store / cert traffic)
+     *           └── otherwise → matchesAllowedApp(allowedAppBundleIds)  (parent-whitelisted app)
+     *
+     * mobilesafari is excluded so Safari stays subject to normal site filtering.
+     */
     fun shouldAllowApp(sourceApp: String, policy: PolicySnapshot): Boolean {
         val appLower = sourceApp.lowercase()
 
@@ -139,6 +175,11 @@ class DecisionCore {
         return matchesAllowedApp(sourceApp, policy.allowedAppBundleIds)
     }
 
+    /**
+     * Whether to emit a Block-Log "app probe" for this flow: only in WHITE_LIST mode, only for a
+     * non-empty sourceApp that is NOT in the allow set. Lets the UI surface which apps are being
+     * blocked in block-everything mode even when the app itself never exposes a hostname.
+     */
     fun shouldLogBlockedAppProbe(sourceApp: String?, policy: PolicySnapshot): Boolean {
         return !sourceApp.isNullOrEmpty() && policy.filterMode == FilterMode.WHITE_LIST && !shouldAllowApp(sourceApp, policy)
     }
@@ -151,6 +192,24 @@ class DecisionCore {
         }
     }
 
+    /**
+     * Direct host verdict for the Safari App Proxy path (no parent-child context, no exceptions).
+     * Note the mode inversion: being listed means ALLOW in WHITE_LIST but BLOCK in BLOCK_SPECIFIC.
+     *
+     * Call flow:
+     *
+     *   directSafariProxyDecision(host, policy)
+     *           │
+     *           ├── isSystemAllowed(host) → ALLOW "System allowed"
+     *           │
+     *           ├── mode == WHITE_LIST
+     *           │       ├── listed     → ALLOW "In allowed list"
+     *           │       └── not listed → BLOCK "Not in allowed list"
+     *           │
+     *           └── mode == BLOCK_SPECIFIC
+     *                   ├── listed     → BLOCK "In blocklist"
+     *                   └── not listed → ALLOW "Not listed"
+     */
     fun directSafariProxyDecision(host: String, policy: PolicySnapshot): PolicyDecision {
         val normalizedHost = normalizeHost(host)
         if (isSystemAllowed(normalizedHost, policy.systemAllowedSuffixes)) {
@@ -173,6 +232,21 @@ class DecisionCore {
         }
     }
 
+    /**
+     * Resolves whether a request host is covered by the currently-active Safari parent page.
+     * Branch precedence is load-bearing: staleness is checked before any parent/child match, so an
+     * expired context can never allow a child.
+     *
+     * Call flow:
+     *
+     *   parentChildDecision(host, endpoint, activeParent, activeChildren, age, maxAge)
+     *           │
+     *           ├── activeParent null/empty      → NO_ACTIVE_CONTEXT
+     *           ├── age > maxAge                 → STALE_ACTIVE_CONTEXT
+     *           ├── host == parent               → MATCH_ACTIVE_PARENT  (shouldAllow)
+     *           ├── host matches a child pattern → MATCH_ACTIVE_CHILD   (shouldAllow)
+     *           └── otherwise                    → NO_ACTIVE_MATCH
+     */
     fun parentChildDecision(
         host: String,
         endpoint: String,
@@ -237,6 +311,19 @@ class DecisionCore {
         )
     }
 
+    /**
+     * Standalone URL verdict for callers that pass raw lists instead of a PolicySnapshot.
+     *
+     * Call flow:
+     *
+     *   shouldBlock(url, siteRules, filterModeRaw, exceptions)
+     *           │
+     *           ├── matchesException(url) → false (an excepted URL is never blocked)
+     *           │
+     *           └── matched = matchesSiteRule(url, siteRules)
+     *                   ├── mode "whiteList" → !matched (block anything not allowlisted)
+     *                   └── otherwise        → matched  (block only blocklisted)
+     */
     fun shouldBlock(
         url: String,
         siteRules: List<String>,
@@ -264,6 +351,14 @@ class DecisionCore {
         }
     }
 
+    /**
+     * Per-app block check against the admin blocked-apps list, matching the full bundle ID or a
+     * team-ID-prefixed form ("TEAMID.com.tiktok.TikTok" matches stored "com.tiktok.TikTok").
+     *
+     * SAFETY: FlowInspector evaluates shouldAllowApp() and returns .allow() BEFORE calling this, so
+     * an own-app / Apple-system / parent-whitelisted bundle that also overlaps the blocked list is
+     * allowed, never dropped. This function has no allow logic — it only consults blockedAppBundleIds.
+     */
     fun isAppBlocked(sourceApp: String, policy: PolicySnapshot): Boolean {
         val normalizedBundleId = sourceApp.lowercase()
 

@@ -5,10 +5,31 @@ import {useFilterListSync} from '../../hooks/useFilterListSync';
 import {ActiveRulesScreen} from '../../screens/ActiveRulesScreen';
 import {colors, radius, spacing, typography, withAlpha} from '../../theme';
 
+/**
+ * Card that triggers an iCloud filter-list refresh and links to the read-only
+ * rules modal. Two independent pieces of state drive the render:
+ *
+ *   useFilterListSync().state  ← sync lifecycle
+ *       │
+ *       ├── 'syncing' → button disabled + "Refreshing...", pressed style forced
+ *       ├── 'success' → "Synced" pill in header
+ *       ├── 'error'   → error message line under header
+ *       └── 'idle'    → plain "Refresh Settings" button
+ *
+ *   showRules (local)          ← modal visibility
+ *       │
+ *       ├── "View Active Rules" press → setShowRules(true)
+ *       └── ActiveRulesScreen.onClose → setShowRules(false)
+ *
+ * ActiveRulesScreen is always mounted; its own `visible` prop gates rendering
+ * and re-fetches active rules each time showRules flips true.
+ */
 export const FilterListSyncCard: React.FC = () => {
   const {state, sync} = useFilterListSync();
   const isSyncing = state.kind === 'syncing';
   const [showRules, setShowRules] = useState(false);
+
+  const buttonLabel = isSyncing ? 'Refreshing...' : 'Refresh Settings';
 
   return (
     <View style={styles.card}>
@@ -33,13 +54,11 @@ export const FilterListSyncCard: React.FC = () => {
       <Pressable
         disabled={isSyncing}
         onPress={sync}
-        style={({pressed}) => [
-          styles.button,
-          (pressed || isSyncing) && styles.buttonPressed,
-        ]}>
-        <Text style={styles.buttonText}>
-          {isSyncing ? 'Refreshing...' : 'Refresh Settings'}
-        </Text>
+        style={({pressed}) => {
+          const showPressedStyle = pressed || isSyncing;
+          return [styles.button, showPressedStyle && styles.buttonPressed];
+        }}>
+        <Text style={styles.buttonText}>{buttonLabel}</Text>
       </Pressable>
 
       <Pressable

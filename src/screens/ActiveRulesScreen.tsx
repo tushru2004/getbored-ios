@@ -41,13 +41,14 @@ function getModeConfig(mode: ActiveRules['mode']): ModeConfig {
 
 const ModeCard: React.FC<{mode: ActiveRules['mode']}> = ({mode}) => {
   const config = getModeConfig(mode);
+  const badgeText = mode === 'whiteList' ? 'ALLOW' : 'BLOCK';
   return (
     <View style={styles.modeCard}>
       <View style={styles.modeRow}>
         <Text style={styles.modeLabel}>{config.label}</Text>
         <View style={[styles.modeBadge, {backgroundColor: withAlpha(config.badgeColor, 0.15)}]}>
           <Text style={[styles.modeBadgeText, {color: config.badgeColor}]}>
-            {mode === 'whiteList' ? 'ALLOW' : 'BLOCK'}
+            {badgeText}
           </Text>
         </View>
       </View>
@@ -66,6 +67,22 @@ type SectionProps = {
   emptyLabel: string;
 };
 
+/**
+ * A collapsible domain/path list with a "Show N more" expander.
+ *
+ *   items
+ *       │
+ *       ├── length === 0 → emptyLabel
+ *       └── otherwise     → render `visible`
+ *               │
+ *               ├── showAll        → all items
+ *               └── !showAll       → first INITIAL_VISIBLE (×5)
+ *                       │
+ *                       └── hiddenCount > 0 → "Show {hiddenCount} more" → setShowAll(true)
+ *
+ * Note: hiddenCount is `length - INITIAL_VISIBLE`, so the expander only appears
+ * when the list actually overflows the initial window.
+ */
 const RulesSection: React.FC<SectionProps> = ({title, items, badge, badgeColor, emptyLabel}) => {
   const [showAll, setShowAll] = useState(false);
   const visible = showAll ? items : items.slice(0, INITIAL_VISIBLE);
@@ -149,6 +166,16 @@ const BlockedAppsSection: React.FC<{apps: string[]}> = ({apps}) => (
 
 // ─── Loaded content ────────────────────────────────────────────────────────
 
+/**
+ * Renders a loaded ActiveRules snapshot. The site-entries section is the only
+ * part whose framing depends on mode — in `whiteList` (allow-only) the same
+ * `rules.entries` list is presented as ALLOWED (green), otherwise as BLOCKED
+ * (red). Path exceptions and the app sections are mode-independent.
+ *
+ *   rules.mode === 'whiteList'
+ *       ├── true  → title 'ALLOWED SITES', badge 'ALLOW',   green
+ *       └── false → title 'BLOCKED SITES', badge 'BLOCKED', red
+ */
 const RulesContent: React.FC<{rules: ActiveRules}> = ({rules}) => {
   const isAllowOnly = rules.mode === 'whiteList';
   const entriesTitle = isAllowOnly ? 'ALLOWED SITES' : 'BLOCKED SITES';
@@ -189,6 +216,22 @@ type Props = {
   onClose: () => void;
 };
 
+/**
+ * Read-only modal listing the device's active filter rules.
+ *
+ *   visible prop toggles
+ *       │
+ *       └── useEffect: visible === true → reload()   ← re-fetches on every open,
+ *                                                       so the sheet never shows
+ *                                                       stale rules from a prior open
+ *       (reload also fired manually by the nav-bar "Reload" button)
+ *
+ *   useActiveRules().state drives the body:
+ *       │
+ *       ├── 'loading' → ActivityIndicator
+ *       ├── 'error'   → error message
+ *       └── 'ready'   → <RulesContent rules={state.rules} />
+ */
 export const ActiveRulesScreen: React.FC<Props> = ({visible, onClose}) => {
   const {state, reload} = useActiveRules();
 

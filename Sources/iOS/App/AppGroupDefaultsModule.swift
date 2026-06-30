@@ -11,15 +11,24 @@ final class AppGroupDefaultsModule: NSObject {
 
     @objc static func requiresMainQueueSetup() -> Bool { false }
 
+    /// Dumps the entire App-Group UserDefaults for the JS-facing debug inspector screen.
+    ///
     /// Call flow:
     ///
-    ///   snapshot()
-    ///       │
-    ///       ├── Load app group defaults
-    ///       │   └── Filter out FLOW_WRITE_FAILED entries from flowLog
-    ///       │
-    ///       └── Map each key through typeName() and preview()
-    ///           └── resolve({groupIdentifier, flowLogKey, flowLog, keys[]})
+    ///   JS calls snapshot(resolve, reject)
+    ///           │
+    ///           ├── UserDefaults(suiteName:) == nil → reject("defaults_unavailable"), stop
+    ///           │
+    ///           └── defaults available:
+    ///                   │
+    ///                   ├── read flowLogKey array, drop "FLOW_WRITE_FAILED" entries
+    ///                   │       └── if any were dropped → defaults.set(...) ← side effect: persist cleaned log
+    ///                   │
+    ///                   ├── dictionaryRepresentation().keys sorted
+    ///                   │       └── map each → { key, typeName(value), preview(value) }
+    ///                   │
+    ///                   ▼
+    ///               resolve({ groupIdentifier, flowLogKey, flowLogLimit, flowLogCount, flowLog, keys[] })
     @objc func snapshot(_ resolve: @escaping RCTPromiseResolveBlock,
                         rejecter reject: @escaping RCTPromiseRejectBlock) {
         guard let defaults = UserDefaults(suiteName: appGroupIdentifier) else {
@@ -30,7 +39,8 @@ final class AppGroupDefaultsModule: NSObject {
         let dictionary = defaults.dictionaryRepresentation()
         let rawFlowLog = defaults.stringArray(forKey: flowLogKey) ?? []
         let flowLog = rawFlowLog.filter { !$0.contains("FLOW_WRITE_FAILED") }
-        if flowLog.count != rawFlowLog.count {
+        let didDropFailedEntries = flowLog.count != rawFlowLog.count
+        if didDropFailedEntries {
             defaults.set(flowLog, forKey: flowLogKey)
         }
         let keys = dictionary.keys.sorted().map { key -> [String: Any] in

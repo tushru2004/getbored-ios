@@ -100,6 +100,28 @@ struct SafariParentChildContextStore {
         defaults.synchronize()
     }
 
+    /// Removes the active page context, but only when the clearing request
+    /// actually owns it. The Safari extension fires a "cleared" probe whenever a
+    /// tab unloads; without the parent gate a background tab could wipe context
+    /// that a still-active foreground tab depends on.
+    ///
+    /// Call flow:
+    ///
+    ///   storeProbe (clear message) → clearActiveContext(clearingParent:)
+    ///           │
+    ///           ├── defaults nil → return  (no App Group)
+    ///           │
+    ///           ▼
+    ///       KMPDecisionCoreAdapter.shouldClearActiveContext(activeContextJson:clearingParent:)
+    ///           │
+    ///           ├── false → return  (clearingParent doesn't match stored parent → keep context)
+    ///           │
+    ///           └── true → wipe context:
+    ///                   ├── remove activeContextDataKey        ← v1 typed
+    ///                   ├── remove legacyActiveContextKey       ← compat read
+    ///                   ├── remove legacyActiveContextDateKey
+    ///                   ├── set legacyActiveContextClearedDateKey = now  ← audit marker for inspector
+    ///                   └── defaults.synchronize()
     func clearActiveContext(clearingParent: String?) {
         guard let defaults else { return }
 
@@ -157,6 +179,20 @@ struct SafariParentChildContextStore {
         )
     }
 
+    /// Unions the child domains for `parentDomain` across all three storage
+    /// sources so a child registered by any path is honored. Pure delegation —
+    /// Swift only gathers the JSON; Kotlin owns the merge.
+    ///
+    /// Call flow:
+    ///
+    ///   shouldRelayFlow → mergedChildren(for:)
+    ///           │
+    ///           ├── loadParentChildMapJson()         ← server-pushed static map
+    ///           ├── loadActiveContextJSONForKotlin() ← current page's childDomains
+    ///           ├── loadRegistryJson()               ← accumulated runtime registry
+    ///           │
+    ///           ▼
+    ///       KMPDecisionCoreAdapter.parentChildMergedChildren(...) → Set<String>
     func mergedChildren(for parentDomain: String) -> Set<String> {
         return KMPDecisionCoreAdapter.parentChildMergedChildren(
             parentChildMapJson: loadParentChildMapJson(),
@@ -166,6 +202,21 @@ struct SafariParentChildContextStore {
         )
     }
 
+    /// Persists the most recent parent↔child flow decision so later
+    /// `allowedSafariParentForChild` lookups can reason about what was just
+    /// observed. Single-slot (not a log) — each save overwrites the previous.
+    ///
+    /// Call flow:
+    ///
+    ///   shouldRelayFlow (decision.shouldSaveFlowObservation) → saveFlowObservation(...)
+    ///           │
+    ///           ├── defaults nil → return
+    ///           │
+    ///           ├── KMPDecisionCoreAdapter.normalizedFlowObservation(...) == nil → return  (invalid input dropped)
+    ///           │
+    ///           └── normalized → encode FlowObservation
+    ///                   ├── encode fails → return  (no write)
+    ///                   └── encode ok → defaults[flowObservationDataKey] = data → synchronize()
     func saveFlowObservation(requestHost: String, parentDomain: String, decision: String, endpoint: String, observedAt: Date) {
         guard let defaults,
               let normalized = KMPDecisionCoreAdapter.normalizedFlowObservation(
@@ -234,6 +285,21 @@ struct SafariParentChildContextStore {
         )
     }
 
+    /// Appends one timestamped line to the spike event ring buffer that the host
+    /// app's inspector tail-reads. Kotlin owns the ring-buffer trim so every
+    /// target caps the log identically.
+    ///
+    /// Call flow:
+    ///
+    ///   appendEvent(event)
+    ///           │
+    ///           ├── defaults nil → return
+    ///           │
+    ///           └── KMPDecisionCoreAdapter.parentChildAppendEvent(
+    ///                   existingEvents: defaults[legacyFlowLogKey],
+    ///                   event: event truncated to maxEventLength (512),  ← bounds UserDefaults growth
+    ///                   maxEvents: 50)                                   ← drops oldest beyond cap
+    ///                   └── defaults[legacyFlowLogKey] = trimmed events  (no synchronize — best-effort)
     func appendEvent(_ event: String, maxEvents: Int = 50, now: Date = Date()) {
         guard let defaults else { return }
         let timestamp = Self.eventDateFormatter.string(from: now)
@@ -313,6 +379,19 @@ struct SafariParentChildContextStore {
         return String(data: data, encoding: .utf8)
     }
 
+    /// Merge-appends the current page's children into the persistent
+    /// parent→children registry — it does NOT overwrite. The registry accumulates
+    /// across page loads so a child seen on an earlier visit stays whitelisted.
+    ///
+    /// Call flow:
+    ///
+    ///   saveActiveContext → updateRegistry(parentDomain:childDomains:)
+    ///           │
+    ///           ├── defaults nil → return
+    ///           │
+    ///           └── KMPDecisionCoreAdapter.parentChildUpdatedRegistryJSON(
+    ///                   registryJson: loadRegistryJson(), ...)  ← reads existing, unions children
+    ///                   └── defaults[legacyParentChildRegistryKey] = merged JSON
     private func updateRegistry(parentDomain: String, childDomains: [String]) {
         guard let defaults else { return }
         let updated = KMPDecisionCoreAdapter.parentChildUpdatedRegistryJSON(

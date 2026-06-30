@@ -115,7 +115,8 @@ final class SafariAppProxyProvider: NEAppProxyProvider {
     ///    decision (active Safari page context match).
     ///    - `cnbc.com` is the active parent → `Decision.matchActiveParent` → allow.
     ///    - `sb.scorecardresearch.com` is a registered child of `cnbc.com`
-    ///      within the 5s active window → `Decision.matchActiveChild` → allow.
+    ///      within the 60s active window (`activeContextMaxAge`) →
+    ///      `Decision.matchActiveChild` → allow.
     ///    - `random-tracker.example.com` with no parent context → block.
     /// 2. **TCP-only filter** — `NEAppProxyFlow` is abstract; concrete subclasses
     ///    are `NEAppProxyTCPFlow` and `NEAppProxyUDPFlow`. This spike only

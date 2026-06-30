@@ -26,6 +26,29 @@ final class FilterStatusModule: NSObject {
 
     @objc static func requiresMainQueueSetup() -> Bool { false }
 
+    /// Reports the live filter + iCloud status to JS for the status screen.
+    /// Two nested async checks; the second runs inside the first's completion.
+    /// Always resolves (errors are surfaced as nil fields, never reject).
+    ///
+    /// Call flow:
+    ///
+    ///   JS calls current()
+    ///           │
+    ///           ▼
+    ///   NEFilterManager.loadFromPreferences { filterError in ... }
+    ///           │
+    ///           ├── filterError != nil → filterEnabled = nil (unknown)
+    ///           └── filterError == nil → filterEnabled = NEFilterManager.isEnabled
+    ///                   │
+    ///                   ▼
+    ///           cloudContainer.accountStatus { status, ckError in ... }
+    ///                   │
+    ///                   ├── ckError != nil → icloudAvailable = nil (unknown)
+    ///                   └── ckError == nil → icloudAvailable = (status == .available)
+    ///                           │
+    ///                           ▼
+    ///                   KMPDecisionCoreAdapter.filterStatusViewModel(...)
+    ///                           └── resolve(vm.toDictionary())  ← reject is never called
     @objc func current(_ resolve: @escaping RCTPromiseResolveBlock,
                        rejecter reject: @escaping RCTPromiseRejectBlock) {
         NEFilterManager.shared().loadFromPreferences { filterError in
@@ -48,6 +71,20 @@ final class FilterStatusModule: NSObject {
         }
     }
 
+    /// Entry point for the Register / Refresh Registration button. Gates on
+    /// iCloud availability, then upserts this device's registration record.
+    ///
+    /// Call flow:
+    ///
+    ///   JS calls registerDevice()
+    ///           │
+    ///           ▼
+    ///   requireAvailableICloudAccount(rejecter: reject) { ... }
+    ///           │
+    ///           ├── status check fails → reject(icloud_status_failed), closure never runs
+    ///           ├── not available      → reject(icloud_unavailable),  closure never runs
+    ///           │
+    ///           └── available → upsertDeviceRegistration(resolve, rejecter: reject)
     @objc func registerDevice(_ resolve: @escaping RCTPromiseResolveBlock,
                               rejecter reject: @escaping RCTPromiseRejectBlock) {
         // React Native calls this when the user taps Register/Refresh Registration.
@@ -57,6 +94,33 @@ final class FilterStatusModule: NSObject {
         }
     }
 
+    /// Reports whether this install already has a DeviceRegistration record in
+    /// CloudKit, returning a snapshot dictionary for the status screen.
+    ///
+    /// Skips CloudKit entirely when no local device ID exists; otherwise the
+    /// local ID is only trusted after its matching record is fetched.
+    ///
+    /// Call flow:
+    ///
+    ///   JS calls currentDeviceRegistration()
+    ///           │
+    ///           ▼
+    ///   loadExistingDeviceID()  ← Keychain, then legacy UserDefaults
+    ///           │
+    ///           ├── nil → resolve(unregistered snapshot, count 0)  ← no CloudKit call
+    ///           │
+    ///           └── deviceID present → requireAvailableICloudAccount { ... }
+    ///                   │       (status check fails / unavailable → reject(...))
+    ///                   │
+    ///                   ▼
+    ///               privateCloudDatabase.fetch(DeviceRegistration-<id>-<env> in syncZone)
+    ///                   │
+    ///                   ├── fetchError
+    ///                   │       ├── unknownItem / zoneNotFound → resolve(unregistered snapshot)
+    ///                   │       └── other error               → reject(device_registration_fetch_failed)
+    ///                   ├── record == nil                     → resolve(unregistered snapshot)
+    ///                   ├── DeviceRegistration(record:) == nil → reject(device_registration_decode_failed)
+    ///                   └── decoded                            → resolve(registered snapshot, count 1)
     @objc func currentDeviceRegistration(_ resolve: @escaping RCTPromiseResolveBlock,
                                          rejecter reject: @escaping RCTPromiseRejectBlock) {
         guard let deviceID = loadExistingDeviceID() else {
@@ -150,14 +214,17 @@ final class FilterStatusModule: NSObject {
         ] as [String: Any])
     }
 
-    /// Builds and submits a CloudKit query for all `FilterList` records in the GetBoredSync zone.
+    /// Builds and submits a CloudKit query for all `FilterList` records in the default zone.
+    ///
+    /// NOTE: FilterList records live in the DEFAULT zone, not the GetBoredSync
+    /// custom zone used for DeviceRegistration — see operation.zoneID below.
     ///
     /// Call flow:
     ///
     ///   syncFilterLists (after iCloud gate) calls fetchAllFilterListRecords()
     ///           │
     ///           ├── builds CKQuery(recordType: "FilterList", predicate: true)
-    ///           ├── sets operation.zoneID = syncZoneID (GetBoredSync zone)
+    ///           ├── sets operation.zoneID = CKRecordZone.default().zoneID (default zone)
     ///           ├── configures recordMatchedBlock  ← accumulates records into fetchedRecords[]
     ///           ├── configures queryResultBlock    ← fires once when streaming is complete
     ///           └── db.add(operation)  ← submits to CloudKit, returns immediately
@@ -374,6 +441,34 @@ final class FilterStatusModule: NSObject {
         }
     }
 
+    /// Creates or refreshes this device's DeviceRegistration record in the
+    /// GetBoredSync custom zone, then resolves JS with the saved snapshot.
+    ///
+    /// Runs only after registerDevice's iCloud gate has passed. Three chained
+    /// async CloudKit steps — each fires the next from its completion closure,
+    /// and any failure rejects the JS promise without advancing the chain.
+    ///
+    /// Call flow:
+    ///
+    ///   upsertDeviceRegistration(resolve, rejecter: reject)
+    ///           │
+    ///           ├── loadOrCreateDeviceID()  ← Keychain → legacy UserDefaults → mint UUID
+    ///           ├── builds DeviceRegistration snapshot of the current device
+    ///           │
+    ///           ▼
+    ///   ensureSyncZoneExists(db:) { ... }
+    ///           │       └── zone save fails → reject(device_registration_zone_failed)
+    ///           │
+    ///           ▼
+    ///   fetchOrCreateRecord(recordID:db:) { registrationRecord in ... }
+    ///           │       └── fetch fails (non not-found) → reject(device_registration_fetch_failed)
+    ///           │
+    ///           ├── registration.write(to: registrationRecord)  ← stamps fields + updatedAt
+    ///           │
+    ///           ▼
+    ///   saveRegistrationRecord(...)
+    ///           ├── save fails → reject(device_registration_save_failed)
+    ///           └── save ok    → resolve(registered snapshot, count 1)
     private func upsertDeviceRegistration(_ resolve: @escaping RCTPromiseResolveBlock,
                                           rejecter reject: @escaping RCTPromiseRejectBlock) {
         let deviceID = loadOrCreateDeviceID()

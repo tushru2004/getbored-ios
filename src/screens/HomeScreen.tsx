@@ -9,6 +9,15 @@ import {StatusCardSkeleton} from '../components/cards/StatusCardSkeleton';
 import {useFilterStatus} from '../hooks/useFilterStatus';
 import {colors, spacing, typography} from '../theme';
 
+/**
+ * Picks the right card for the current filter-status fetch state.
+ *
+ *   useFilterStatus().state.kind
+ *       │
+ *       ├── 'loading' → <StatusCardSkeleton />
+ *       ├── 'ready'   → <StatusCard status={state.status} />
+ *       └── 'error'   → error box with "Tap to retry" → refresh()
+ */
 const StatusSection: React.FC = () => {
   const {state, refresh} = useFilterStatus();
 

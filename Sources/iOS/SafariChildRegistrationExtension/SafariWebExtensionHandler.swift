@@ -57,6 +57,21 @@ final class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
         request?.userInfo?[messageKey]
     }
 
+    /// Branch point for an inbound Safari extension message: either clear the
+    /// active context or store a new one. Always returns `true` — the ack sent
+    /// back to the web extension reports "message received", NOT "context was
+    /// persisted" (`saveActiveContext` silently no-ops if KMP rejects the input).
+    ///
+    /// Call flow:
+    ///
+    ///   beginRequest → storeProbe(message)
+    ///           │
+    ///           ├── isClearMessage(message) → clearActiveContext(message) → return true
+    ///           │
+    ///           └── normal message:
+    ///                   ├── read parentDomain / childDomains / url  (missing → "" / [])
+    ///                   ├── contextStore.saveActiveContext(...)  ← may no-op if KMP rejects it
+    ///                   └── return true
     @discardableResult
     private func storeProbe(_ message: Any?) -> Bool {
         if isClearMessage(message) {
@@ -84,6 +99,10 @@ final class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
         return dictionary["type"] as? String == "getbored.childRegistrationProbeCleared"
     }
 
+    /// Forwards a tab-unload "cleared" probe to the store, passing the message's
+    /// `parentDomain` so the store only wipes context it still owns (see
+    /// `SafariParentChildContextStore.clearActiveContext`). A missing/nil
+    /// parentDomain lets the store clear unconditionally.
     private func clearActiveContext(_ message: Any?) {
         let dictionary = message as? [String: Any] ?? [:]
         contextStore.clearActiveContext(clearingParent: dictionary["parentDomain"] as? String)
