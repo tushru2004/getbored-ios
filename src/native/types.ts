@@ -36,6 +36,7 @@ export type ActiveRules = {
   entries: string[];
   exceptions: string[];
   allowedApps: string[];
+  blockedApps: string[];
 };
 
 export type AppGroupDefaultsKey = {

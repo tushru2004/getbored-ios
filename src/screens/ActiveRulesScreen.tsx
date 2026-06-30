@@ -125,6 +125,28 @@ const AllowedAppsSection: React.FC<{apps: string[]}> = ({apps}) => (
   </View>
 );
 
+// ─── Blocked Apps section ──────────────────────────────────────────────────
+
+const BlockedAppsSection: React.FC<{apps: string[]}> = ({apps}) => (
+  <View style={styles.section}>
+    <View style={styles.sectionHeader}>
+      <Text style={styles.sectionTitle}>BLOCKED APPS</Text>
+      <Text style={styles.sectionCount}>{apps.length}</Text>
+    </View>
+    <View style={styles.sectionBody}>
+      {apps.length === 0 ? (
+        <Text style={styles.emptyText}>No apps blocked.</Text>
+      ) : (
+        apps.map(bundleID => (
+          <View key={bundleID} style={styles.row}>
+            <Text style={styles.rowDomain} numberOfLines={1}>{bundleID}</Text>
+          </View>
+        ))
+      )}
+    </View>
+  </View>
+);
+
 // ─── Loaded content ────────────────────────────────────────────────────────
 
 const RulesContent: React.FC<{rules: ActiveRules}> = ({rules}) => {
@@ -154,6 +176,8 @@ const RulesContent: React.FC<{rules: ActiveRules}> = ({rules}) => {
       />
 
       <AllowedAppsSection apps={rules.allowedApps} />
+
+      <BlockedAppsSection apps={rules.blockedApps} />
     </>
   );
 };
