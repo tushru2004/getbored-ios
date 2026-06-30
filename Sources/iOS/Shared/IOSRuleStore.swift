@@ -41,6 +41,9 @@ class IOSRuleStore {
     /// [String] — bundle IDs of apps that bypass filtering entirely
     private let allowedAppsKey = "allowedAppBundleIDs"
 
+    /// [String] — bundle IDs of apps whose traffic is blocked entirely
+    private let blockedAppsKey = "blockedAppBundleIDs"
+
     /// JSON-encoded static Safari parent -> child domain map
     private let parentChildMapKey = GetBoredIdentifiers.SafariParentChild.parentChildMapKey
 
@@ -108,14 +111,15 @@ class IOSRuleStore {
     ///   filter extension (hot path) calls loadFilterRules()
     ///           │
     ///           ├── sharedDefaults?.string(forKey: modeKey)   → FilterMode (fallback: .blockSpecific)
-    ///           ├── loadSiteRules()    → [SiteRule] from JSON in UserDefaults
-    ///           ├── loadExceptions()  → [String] from UserDefaults
-    ///           └── loadAllowedApps() → [String] from UserDefaults
+    ///           ├── loadSiteRules()     → [SiteRule] from JSON in UserDefaults
+    ///           ├── loadExceptions()   → [String] from UserDefaults
+    ///           ├── loadAllowedApps()  → [String] from UserDefaults
+    ///           └── loadBlockedApps()  → [String] from UserDefaults
     ///                   │
     ///                   ▼
     ///               LoadedFilterRules (passed to KMPDecisionCoreAdapter for every decision)
     ///
-    /// All four reads hit the same cached UserDefaults instance (5-second TTL).
+    /// All five reads hit the same cached UserDefaults instance (5-second TTL).
     func loadFilterRules() -> LoadedFilterRules {
         let rawMode = sharedDefaults?.string(forKey: modeKey) ?? FilterMode.blockSpecific.rawValue
         let mode = FilterMode(rawValue: rawMode) ?? .blockSpecific
@@ -123,7 +127,8 @@ class IOSRuleStore {
             siteRules: loadSiteRules(),
             filterMode: mode,
             exceptions: loadExceptions(),
-            allowedAppBundleIDs: loadAllowedApps()
+            allowedAppBundleIDs: loadAllowedApps(),
+            blockedAppBundleIDs: loadBlockedApps()
         )
     }
 
@@ -174,20 +179,21 @@ class IOSRuleStore {
     ///   syncFilterLists resolves assigned+active FilterLists from CloudKit
     ///           │
     ///           ▼
-    ///   applyFilterListSnapshot(mode:entries:exceptions:allowedApps:)
+    ///   applyFilterListSnapshot(mode:entries:exceptions:allowedApps:blockedApps:)
     ///           │
     ///           ├── convert [String] entries → [SiteRule] (url = title = entry)
     ///           ├── convert FilterListMode → FilterMode (same raw value)
-    ///           ├── write siteRulesKey, modeKey, exceptionsKey, allowedAppsKey in one defaults batch
+    ///           ├── write siteRulesKey, modeKey, exceptionsKey, allowedAppsKey, blockedAppsKey in one defaults batch
     ///           ├── defaults.synchronize()  ← flush cross-process so extension sees new values
     ///           └── invalidateDefaultsCache()  ← force next read to re-create UserDefaults instance
     ///
-    /// All four keys are written before synchronize() so the extension never sees a partial state.
+    /// All five keys are written before synchronize() so the extension never sees a partial state.
     func applyFilterListSnapshot(
         mode: FilterListMode,
         entries: [String],
         exceptions: [String],
-        allowedApps: [String]
+        allowedApps: [String],
+        blockedApps: [String]
     ) {
         let filterMode = FilterMode(rawValue: mode.rawValue) ?? .blockSpecific
         let siteRules = entries.map { SiteRule(url: $0, title: $0) }
@@ -199,11 +205,12 @@ class IOSRuleStore {
         defaults?.set(filterMode.rawValue, forKey: modeKey)
         defaults?.set(exceptions, forKey: exceptionsKey)
         defaults?.set(allowedApps, forKey: allowedAppsKey)
+        defaults?.set(blockedApps, forKey: blockedAppsKey)
         defaults?.synchronize()
 
         invalidateDefaultsCache()
 
-        logger.info("applyFilterListSnapshot: \(entries.count) entries, mode=\(filterMode.rawValue), \(exceptions.count) exceptions, \(allowedApps.count) allowedApps")
+        logger.info("applyFilterListSnapshot: \(entries.count) entries, mode=\(filterMode.rawValue), \(exceptions.count) exceptions, \(allowedApps.count) allowedApps, \(blockedApps.count) blockedApps")
     }
 
     // MARK: - Filter Mode
@@ -263,6 +270,32 @@ class IOSRuleStore {
         let result = KMPDecisionCoreAdapter.matchesAllowedApp(bundleID, using: loadFilterRules())
         if result {
             logger.info("isAppAllowed: \(bundleID) is allowed")
+        }
+        return result
+    }
+
+    // MARK: - Blocked Apps (per-app network block)
+
+    /// Save bundle IDs of apps whose traffic should be blocked entirely
+    func setBlockedApps(_ bundleIDs: [String]) {
+        logger.info("setBlockedApps: \(bundleIDs.count) apps")
+        sharedDefaults?.set(bundleIDs, forKey: blockedAppsKey)
+        sharedDefaults?.synchronize()
+    }
+
+    /// Load blocked app bundle IDs
+    func loadBlockedApps() -> [String] {
+        let apps = sharedDefaults?.stringArray(forKey: blockedAppsKey) ?? []
+        logger.debug("loadBlockedApps: \(apps.count) apps")
+        return apps
+    }
+
+    /// Check if an app is in the blocked list.
+    /// Handles team ID prefix — "EQHXZ8M8AV.com.tiktok.TikTok" matches stored "com.tiktok.TikTok"
+    func isAppBlocked(_ bundleID: String) -> Bool {
+        let result = KMPDecisionCoreAdapter.isAppBlocked(bundleID, using: loadFilterRules())
+        if result {
+            logger.info("isAppBlocked: \(bundleID) is blocked")
         }
         return result
     }

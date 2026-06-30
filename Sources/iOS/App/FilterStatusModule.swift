@@ -146,6 +146,7 @@ final class FilterStatusModule: NSObject {
             "entries":     entries,
             "exceptions":  store.loadExceptions(),
             "allowedApps": store.loadAllowedApps(),
+            "blockedApps": store.loadBlockedApps(),
         ] as [String: Any])
     }
 
@@ -277,9 +278,10 @@ final class FilterStatusModule: NSObject {
     ///           │  (still on CloudKit callback thread)
     ///           │
     ///           ├── resolveEffectiveMode  ← whiteList wins if any list is whiteList
-    ///           ├── orderedUnique(flatMap \.entries)     → merged domain blocklist/allowlist
-    ///           ├── orderedUnique(flatMap \.exceptions)  → merged URL path exceptions
-    ///           └── orderedUnique(flatMap \.allowedApps) → merged per-app bypasses
+    ///           ├── orderedUnique(flatMap \.entries)      → merged domain blocklist/allowlist
+    ///           ├── orderedUnique(flatMap \.exceptions)   → merged URL path exceptions
+    ///           ├── orderedUnique(flatMap \.allowedApps)  → merged per-app bypasses
+    ///           └── orderedUnique(flatMap \.blockedApps)  → merged per-app blocks
     ///                   │
     ///                   ▼
     ///               DispatchQueue.main.async  ← hop to main thread for UserDefaults write
@@ -299,13 +301,15 @@ final class FilterStatusModule: NSObject {
         let entries = orderedUnique(lists.flatMap(\.entries))
         let exceptions = orderedUnique(lists.flatMap(\.exceptions))
         let allowedApps = orderedUnique(lists.flatMap(\.allowedApps))
+        let blockedApps = orderedUnique(lists.flatMap(\.blockedApps))
 
         DispatchQueue.main.async {
             IOSRuleStore.shared.applyFilterListSnapshot(
                 mode: effectiveMode,
                 entries: entries,
                 exceptions: exceptions,
-                allowedApps: allowedApps
+                allowedApps: allowedApps,
+                blockedApps: blockedApps
             )
             resolve(nil)
         }
@@ -671,6 +675,7 @@ private struct CloudFilterList {
         let entries     = record["entries"]      as? [String] ?? []
         let exceptions  = record["exceptions"]   as? [String] ?? []
         let allowedApps = record["allowedApps"]  as? [String] ?? []
+        let blockedApps = record["blockedApps"]  as? [String] ?? []
         let assignedIds = Set(record["assignedDeviceIds"] as? [String] ?? [])
         let isActive    = ((record["isActive"] as? Int64) ?? 0) == 1
         let mode        = FilterListMode(rawValue: record["mode"] as? String ?? "") ?? .blockSpecific
@@ -679,7 +684,7 @@ private struct CloudFilterList {
         self.filterList = FilterList(
             id: id, name: name, description: description,
             entries: entries, exceptions: exceptions, locations: [],
-            allowedApps: allowedApps, isActive: isActive,
+            allowedApps: allowedApps, blockedApps: blockedApps, isActive: isActive,
             createdAt: createdAt, mode: mode, assignedDeviceIds: assignedIds
         )
     }

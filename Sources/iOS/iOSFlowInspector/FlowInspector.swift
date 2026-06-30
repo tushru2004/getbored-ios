@@ -210,22 +210,25 @@ class FlowInspector: NEFilterDataProvider {
     ///     ├─ 2. Is the app in the user's allowed-apps list?
     ///     │     YES → .allow()  (parent explicitly whitelisted this app)
     ///     │
-    ///     ├─ 3. App not allowed + whiteList mode?
+    ///     ├─ 3. Is the app in the admin's blocked-apps list?
+    ///     │     YES → .drop()   (always AFTER steps 1–2 so own-app/system never blocked)
+    ///     │
+    ///     ├─ 4. App not allowed + whiteList mode?
     ///     │     YES → log one "app probe" per 30 seconds (for the Block Log)
     ///     │
-    ///     ├─ 4. Is this QUIC? (UDP port 443, used by HTTP/3)
+    ///     ├─ 5. Is this QUIC? (UDP port 443, used by HTTP/3)
     ///     │     YES → classifyHost(endpoint.hostname)
     ///     │           blocked? → .needRules() (escalate to Control Provider)
     ///     │
-    ///     ├─ 5. Does the flow have a URL? (browser like Safari)
+    ///     ├─ 6. Does the flow have a URL? (browser like Safari)
     ///     │     YES → classifyHost(host)
     ///     │           blocked? → check exceptions first, then .needRules()
     ///     │
-    ///     └─ 6. No URL? (non-browser app like TikTok, Instagram app)
+    ///     └─ 7. No URL? (non-browser app like TikTok, Instagram app)
     ///           → "Give me the first 512 outbound bytes to inspect"
     ///           → iOS will call handleOutboundData() next
     ///
-    /// This method handles browsers (step 5) and QUIC (step 4) completely.
+    /// This method handles browsers (step 6) and QUIC (step 5) completely.
     /// But non-browser apps like TikTok, Instagram, YouTube, Snapchat give us
     /// NO URL — flow.url is nil. Without chunk 5 (handleOutboundData), every
     /// non-browser app would slip through unfiltered. That's most of the traffic
@@ -247,13 +250,19 @@ class FlowInspector: NEFilterDataProvider {
                 return .allow()
             }
 
-            // 3. App not allowed + whiteList → emit one app probe per cooldown window
+            // 3. Explicit app block — allow wins above, so own-app/system/allowed are already safe.
+            if KMPDecisionCoreAdapter.isAppBlocked(sourceApp, using: loadedFilterRules) {
+                os_log("handleNewFlow: dropping blocked app: %{public}@", log: logger, type: .info, sourceApp)
+                return .drop()
+            }
+
+            // 4. App not allowed + whiteList → emit one app probe per cooldown window
             if KMPDecisionCoreAdapter.shouldLogBlockedAppProbe(sourceApp, using: loadedFilterRules) {
                 logBlockedAppProbeIfNeeded(sourceApp: sourceApp, using: loadedFilterRules)
             }
         }
 
-        // ── Step 4: QUIC (HTTP/3) ───────────────────────────────────────
+        // ── Step 5: QUIC (HTTP/3) ───────────────────────────────────────
         // QUIC uses UDP port 443. Our TLS SNI parser only handles TCP,
         // but iOS can still provide the hostname on the socket flow. Prefer
         // remoteHostname because the endpoint hostname can be only an IP.
@@ -274,7 +283,7 @@ class FlowInspector: NEFilterDataProvider {
             return .allow()
         }
 
-        // ── Step 5: Browser flows (have a URL) ──────────────────────────
+        // ── Step 6: Browser flows (have a URL) ──────────────────────────
         if let url = flow.url, let host = url.host?.lowercased() {
             #if DEBUG
             logParentChildOwnerProbe(flow: flow, host: host, url: url)

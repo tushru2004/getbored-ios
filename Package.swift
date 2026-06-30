@@ -11,7 +11,7 @@ let package = Package(
         .library(name: "GetBoredIOSCore", targets: ["GetBoredIOSCore"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/tushru2004/getbored-core", from: "0.1.1"),
+        .package(url: "https://github.com/tushru2004/getbored-core", from: "0.1.2"),
     ],
     targets: [
         .target(
