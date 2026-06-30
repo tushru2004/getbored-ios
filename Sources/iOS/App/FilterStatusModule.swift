@@ -659,6 +659,20 @@ private extension GetBoredIdentifiers.CloudKit.Field {
     static let buildConfiguration = "buildConfiguration"
 }
 
+// FilterList record fields. The shared `mode`, `exceptions`, and `allowedApps`
+// keys already live in GetBoredIdentifiers.CloudKit.Field (getbored-core); the
+// remaining FilterList-only keys are declared locally because the consumed
+// getbored-core v0.1.2 does not yet model the FilterList record type.
+private extension GetBoredIdentifiers.CloudKit.Field {
+    static let name = "name"
+    static let listDescription = "description"
+    static let entries = "entries"
+    static let blockedApps = "blockedApps"
+    static let assignedDeviceIds = "assignedDeviceIds"
+    static let isActive = "isActive"
+    static let createdAt = "createdAt"
+}
+
 // MARK: - CloudFilterList
 
 /// Decodes a CloudKit `FilterList` record into the canonical `FilterList` model.
@@ -670,16 +684,16 @@ private struct CloudFilterList {
     init?(record: CKRecord) {
         guard let id = UUID(uuidString: record.recordID.recordName) else { return nil }
 
-        let name        = record["name"]        as? String ?? ""
-        let description = record["description"] as? String ?? ""
-        let entries     = record["entries"]      as? [String] ?? []
-        let exceptions  = record["exceptions"]   as? [String] ?? []
-        let allowedApps = record["allowedApps"]  as? [String] ?? []
-        let blockedApps = record["blockedApps"]  as? [String] ?? []
-        let assignedIds = Set(record["assignedDeviceIds"] as? [String] ?? [])
-        let isActive    = ((record["isActive"] as? Int64) ?? 0) == 1
-        let mode        = FilterListMode(rawValue: record["mode"] as? String ?? "") ?? .blockSpecific
-        let createdAt   = Self.parseCreatedAt(record["createdAt"] as? String)
+        let name        = record[GetBoredIdentifiers.CloudKit.Field.name]            as? String ?? ""
+        let description = record[GetBoredIdentifiers.CloudKit.Field.listDescription] as? String ?? ""
+        let entries     = record[GetBoredIdentifiers.CloudKit.Field.entries]         as? [String] ?? []
+        let exceptions  = record[GetBoredIdentifiers.CloudKit.Field.exceptions]      as? [String] ?? []
+        let allowedApps = record[GetBoredIdentifiers.CloudKit.Field.allowedApps]     as? [String] ?? []
+        let blockedApps = record[GetBoredIdentifiers.CloudKit.Field.blockedApps]     as? [String] ?? []
+        let assignedIds = Set(record[GetBoredIdentifiers.CloudKit.Field.assignedDeviceIds] as? [String] ?? [])
+        let isActive    = ((record[GetBoredIdentifiers.CloudKit.Field.isActive] as? Int64) ?? 0) == 1
+        let mode        = FilterListMode(rawValue: record[GetBoredIdentifiers.CloudKit.Field.mode] as? String ?? "") ?? .blockSpecific
+        let createdAt   = Self.parseCreatedAt(record[GetBoredIdentifiers.CloudKit.Field.createdAt] as? String)
 
         self.filterList = FilterList(
             id: id, name: name, description: description,

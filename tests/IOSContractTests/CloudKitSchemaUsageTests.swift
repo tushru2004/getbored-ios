@@ -11,7 +11,7 @@ final class CloudKitSchemaUsageTests: XCTestCase {
         let forbiddenPatterns = [
             #"CKRecord\.ID\(recordName:\s*""#,
             #"CKRecord\(recordType:\s*""#,
-            #"(?:record|regRecord)\["(urls|mode|exceptions|allowedApps|devicesJSON|activityLogJSON|parent_child_map_v1|updatedAt|filterListsJSON)"\]"#,
+            #"(?:record|regRecord)\["(urls|mode|exceptions|allowedApps|blockedApps|devicesJSON|activityLogJSON|parent_child_map_v1|updatedAt|filterListsJSON)"\]"#,
             #"iCloud\.com\.getbored\.sync"#,
             #"cloudContainerID\s*=\s*"iCloud\.com\.getbored\.sync""#,
         ]
