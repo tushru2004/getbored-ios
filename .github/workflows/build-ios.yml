@@ -44,3 +44,27 @@ jobs:
             -destination 'generic/platform=iOS' \
             CODE_SIGNING_ALLOWED=NO \
             build
+
+      # Debug builds load JS from Metro and never exercise the RN bundling
+      # build phase, so a broken/missing "Bundle React Native code and
+      # images" phase (or a wrong PROJECT_ROOT) only surfaces in Release —
+      # exactly the class of bug that shipped an unlaunchable TestFlight
+      # build. Build Release here and assert main.jsbundle actually landed.
+      - name: Build GetBored iOS (Release)
+        run: |
+          xcodebuild \
+            -workspace GetBoredIOS.xcworkspace \
+            -scheme "GetBored iOS" \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath ./iOSDeviceDerivedData \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+      - name: Verify Release JS bundle is embedded
+        run: |
+          BUNDLE_PATH="./iOSDeviceDerivedData/Build/Products/Release-iphoneos/GetBored.app/main.jsbundle"
+          if [ ! -f "$BUNDLE_PATH" ]; then
+            echo "::error::$BUNDLE_PATH is missing — the RN bundling build phase did not run or produced no output."
+            exit 1
+          fi

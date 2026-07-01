@@ -647,6 +647,7 @@
 				E75E238758A0043A8ABC3E68 /* Frameworks */,
 				1B9914CB140DC9905B606221 /* [CP] Embed Pods Frameworks */,
 				F544731C65EDE08AB2B8F2FD /* Resources */,
+				D1F000000000000000000010 /* Bundle React Native code and images */,
 				0581A378DFAA3250C559FB42 /* [CP] Copy Pods Resources */,
 				F04B48411D2377BB118C7C00 /* Embed App Extensions */,
 			);
@@ -878,6 +879,25 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "set -eu\n\nexport JAVA_HOME=\"${JAVA_HOME:-/opt/homebrew/opt/openjdk}\"\n\ncd \"${SRCROOT}\"\n./gradlew :shared-kotlin:assembleGetBoredSharedCoreXCFramework --quiet\n";
+		};
+		D1F000000000000000000010 /* Bundle React Native code and images */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Bundle React Native code and images";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "set -e\n\nWITH_ENVIRONMENT=\"$SRCROOT/node_modules/react-native/scripts/xcode/with-environment.sh\"\nREACT_NATIVE_XCODE=\"$SRCROOT/node_modules/react-native/scripts/react-native-xcode.sh\"\n\n/bin/sh -c \"$WITH_ENVIRONMENT $REACT_NATIVE_XCODE\"\n";
 		};
 		D1F000000000000000000002 /* Verify GetBoredSharedCore XCFramework */ = {
 			isa = PBXShellScriptBuildPhase;
