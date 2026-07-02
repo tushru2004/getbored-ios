@@ -37,7 +37,7 @@ export const FilterListSyncCard: React.FC = () => {
         <View style={styles.titleColumn}>
           <Text style={styles.title}>Filter Settings</Text>
           <Text style={styles.subtitle}>
-            Pull the latest filter lists assigned to this device from iCloud.
+            Pull your latest self-control rules from iCloud.
           </Text>
         </View>
         {state.kind === 'success' && (

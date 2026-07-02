@@ -28,9 +28,9 @@ export const DeviceRegistrationCard: React.FC = () => {
     <View style={styles.card}>
       <View style={styles.headerRow}>
         <View style={styles.titleColumn}>
-          <Text style={styles.title}>Device Registration</Text>
+          <Text style={styles.title}>Device Sync</Text>
           <Text style={styles.subtitle}>
-            Register this supervised companion device with CloudKit.
+            Sync this device to your GetBored account so your rules follow you everywhere.
           </Text>
         </View>
         <View
@@ -72,8 +72,8 @@ export const DeviceRegistrationCard: React.FC = () => {
             : isSaving
             ? 'Registering...'
             : isRegistered
-              ? 'Refresh Registration'
-              : 'Register This Device'}
+              ? 'Refresh Sync'
+              : 'Set Up This Device'}
         </Text>
       </Pressable>
     </View>

@@ -90,9 +90,27 @@ const Row: React.FC<RowProps> = ({title, subtitle, visual}) => (
   </View>
 );
 
+/**
+ * Informational block shown when the filter is `inactive`. It exists so a
+ * fresh install doesn't dead-end on a bare "OFF" chip with no explanation —
+ * there is deliberately no button/link here: turning the filter on happens
+ * through the one-time device setup flow, not from this screen.
+ */
+const SetupRequiredNotice: React.FC = () => (
+  <View style={styles.noticeContainer}>
+    <Text style={styles.noticeTitle}>Setup required</Text>
+    <Text style={styles.noticeBody}>
+      The GetBored filter isn't switched on for this device yet. It activates
+      through a one-time device setup. Once it's on, this screen will show
+      'Active & Protecting.'
+    </Text>
+  </View>
+);
+
 export const StatusCard: React.FC<Props> = ({status}) => {
   const filterRowVisual = filterVisual(status.filter);
   const icloudRowVisual = icloudVisual(status.icloud);
+  const isFilterInactive = status.filter.kind === 'inactive';
   return (
     <View style={styles.card}>
       <Row
@@ -100,6 +118,7 @@ export const StatusCard: React.FC<Props> = ({status}) => {
         subtitle={status.filter.label}
         visual={filterRowVisual}
       />
+      {isFilterInactive && <SetupRequiredNotice />}
       <View style={styles.divider} />
       <Row
         title="iCloud Sync"
@@ -158,5 +177,21 @@ const styles = StyleSheet.create({
     height: StyleSheet.hairlineWidth,
     backgroundColor: colors.separator,
     marginLeft: 62,
+  },
+  noticeContainer: {
+    marginHorizontal: spacing.md + 2,
+    marginBottom: spacing.sm,
+    padding: spacing.md,
+    borderRadius: radius.sm,
+    backgroundColor: withAlpha(colors.warning, 0.08),
+  },
+  noticeTitle: {
+    ...typography.body,
+    color: colors.label,
+  },
+  noticeBody: {
+    ...typography.subhead,
+    color: colors.labelSecondary,
+    marginTop: spacing.xs,
   },
 });

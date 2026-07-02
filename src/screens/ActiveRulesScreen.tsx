@@ -269,7 +269,7 @@ export const ActiveRulesScreen: React.FC<Props> = ({visible, onClose}) => {
 
           {state.kind === 'ready' && <RulesContent rules={state.rules} />}
 
-          <Text style={styles.footer}>Read-only · managed by your admin</Text>
+          <Text style={styles.footer}>Read-only · the rules you've set for yourself</Text>
         </ScrollView>
       </SafeAreaView>
     </Modal>
