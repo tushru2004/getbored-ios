@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		0186EB2AE76340AE817DFF4F /* SafariSimulatorUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FECA319772A4BDBBB1DFB04 /* SafariSimulatorUITests.swift */; };
 		05753476881C485990506DE1 /* SafariDeviceUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D615CDD517A423BB7392497 /* SafariDeviceUITests.swift */; };
+		05EAD64A8AE2BCD5EC0AD1FD /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 8E00374ACD51EBAADF87F6CD /* PrivacyInfo.xcprivacy */; };
 		0A6797321316119EAA7F2E0E /* Sources/iOS/SafariAppProxyProvider/SafariAppProxyProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DD35A8E7BDBA66F99B4C580 /* Sources/iOS/SafariAppProxyProvider/SafariAppProxyProvider.swift */; };
 		0A6797321316119EAA7F2E10 /* SafariParentChildContextStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A6797321316119EAA7F2E11 /* SafariParentChildContextStore.swift */; };
 		0A6797321316119EAA7F2E12 /* SafariParentChildContextStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A6797321316119EAA7F2E11 /* SafariParentChildContextStore.swift */; };
@@ -20,6 +21,7 @@
 		15A4720589D9AEFDFD52A8A4 /* iOSFlowInspector.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = B13C109D52BB8CF4949E1E76 /* iOSFlowInspector.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		1699D5F4A9B63F480FEA6969 /* SafariAppProxyProvider.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = 59841F631E2C9BFA4D39A6D3 /* SafariAppProxyProvider.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		20E57F207296D0DF42071525 /* iOSBlockHandler.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = 51FFB3E78FF333C5FA74A95F /* iOSBlockHandler.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		2C02EB53051A6D7572A6F0E6 /* Sources/iOS/iOSBlockHandler/PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 2A6750D54954AF636FE5875B /* Sources/iOS/iOSBlockHandler/PrivacyInfo.xcprivacy */; };
 		3866DA922000B43E04EFB167 /* IOSRuleStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54405896F6E80832028947EF /* IOSRuleStore.swift */; };
 		443040EDA4807A81C2B76CF1 /* libPods-GetBored iOS.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 971B4EA717467C724F2B0077 /* libPods-GetBored iOS.a */; };
 		4A68D160529876E915DC147F /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CAF0878EF27A9625CCD0F666 /* Foundation.framework */; };
@@ -148,6 +150,7 @@
 		1C37D159CC53DB5E921D9621 /* icon-256.png */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = image.png; name = "icon-256.png"; path = "images/icon-256.png"; sourceTree = "<group>"; };
 		28220110C03D8DA025447634 /* content.js */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.javascript; path = content.js; sourceTree = "<group>"; };
 		28827043679B0AA339B0AC65 /* GetBored.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = GetBored.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		2A6750D54954AF636FE5875B /* Sources/iOS/iOSBlockHandler/PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Sources/iOS/iOSBlockHandler/PrivacyInfo.xcprivacy; sourceTree = SOURCE_ROOT; };
 		2E1593454C4A4A047824CB58 /* icon-128.png */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = image.png; name = "icon-128.png"; path = "images/icon-128.png"; sourceTree = "<group>"; };
 		2F1C44A2C5B24D1010BB0986 /* Sources/iOS/SafariAppProxyProvider/SafariAppProxyProvider.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; path = Sources/iOS/SafariAppProxyProvider/SafariAppProxyProvider.entitlements; sourceTree = SOURCE_ROOT; };
 		2FECA319772A4BDBBB1DFB04 /* SafariSimulatorUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SafariSimulatorUITests.swift; sourceTree = "<group>"; };
@@ -177,6 +180,7 @@
 		729E48CD1BFC77ED88933AC0 /* System/Library/Frameworks/NetworkExtension.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = System/Library/Frameworks/NetworkExtension.framework; sourceTree = SDKROOT; };
 		790C22BAE3CAAEEFF3CCD75D /* icon-96.png */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = image.png; name = "icon-96.png"; path = "images/icon-96.png"; sourceTree = "<group>"; };
 		855DF3E6AC69A81713170DB1 /* FlowInspector.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = FlowInspector.swift; path = Sources/iOS/iOSFlowInspector/FlowInspector.swift; sourceTree = "<group>"; };
+		8E00374ACD51EBAADF87F6CD /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; name = PrivacyInfo.xcprivacy; path = Sources/iOS/iOSFlowInspector/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		90EB16EBC4784D4BA92EF651 /* SafariTestHarnessApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SafariTestHarnessApp.swift; sourceTree = "<group>"; };
 		971B4EA717467C724F2B0077 /* libPods-GetBored iOS.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-GetBored iOS.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		A1B2C3D4E5F60718293A4B5C /* KMPDecisionCoreAdapter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = KMPDecisionCoreAdapter.swift; path = Sources/iOS/Shared/KMPDecisionCoreAdapter.swift; sourceTree = SOURCE_ROOT; };
@@ -354,6 +358,7 @@
 				855DF3E6AC69A81713170DB1 /* FlowInspector.swift */,
 				614F239932F6AA8814E550E2 /* Info.plist */,
 				E5E8702C81E4C7EC000CAB9E /* iOSFlowInspector.entitlements */,
+				8E00374ACD51EBAADF87F6CD /* PrivacyInfo.xcprivacy */,
 			);
 			name = iOSFlowInspector;
 			sourceTree = "<group>";
@@ -387,6 +392,7 @@
 				10BFDEA06AA597F4DDE3805D /* Sources/iOS/iOSBlockHandler/BlockHandler.swift */,
 				04CDADA57F651C3DC77B1CA7 /* Sources/iOS/iOSBlockHandler/Info.plist */,
 				3B23D4366EBD7FDCF1CB268B /* Sources/iOS/iOSBlockHandler/iOSBlockHandler.entitlements */,
+				2A6750D54954AF636FE5875B /* Sources/iOS/iOSBlockHandler/PrivacyInfo.xcprivacy */,
 			);
 			name = iOSBlockHandler;
 			sourceTree = "<group>";
@@ -519,6 +525,7 @@
 				D1F000000000000000000003 /* Verify GetBoredSharedCore XCFramework */,
 				41947A62280D872B880DC0B3 /* Sources */,
 				ADEBBDB5095FC5ECDFA5333A /* Frameworks */,
+				43CB9BEDCB8CEB74D38F4F27 /* Resources */,
 			);
 			buildRules = (
 			);
@@ -642,6 +649,7 @@
 				D1F000000000000000000010 /* Bundle React Native code and images */,
 				0581A378DFAA3250C559FB42 /* [CP] Copy Pods Resources */,
 				F04B48411D2377BB118C7C00 /* Embed App Extensions */,
+				2F04CEC1C6D2044545DED8FD /* Inject Debug-only Metro/local-network keys */,
 			);
 			buildRules = (
 			);
@@ -737,6 +745,14 @@
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		43CB9BEDCB8CEB74D38F4F27 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2C02EB53051A6D7572A6F0E6 /* Sources/iOS/iOSBlockHandler/PrivacyInfo.xcprivacy in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		483EC72DAB195AE1A433D0AF /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -756,6 +772,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				05EAD64A8AE2BCD5EC0AD1FD /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -888,6 +905,25 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "set -e\n\nWITH_ENVIRONMENT=\"$SRCROOT/node_modules/react-native/scripts/xcode/with-environment.sh\"\nREACT_NATIVE_XCODE=\"$SRCROOT/node_modules/react-native/scripts/react-native-xcode.sh\"\n\n/bin/sh -c \"$WITH_ENVIRONMENT $REACT_NATIVE_XCODE\"\n";
+		};
+		2F04CEC1C6D2044545DED8FD /* Inject Debug-only Metro/local-network keys */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Inject Debug-only Metro/local-network keys";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "set -e\n\nif [ \"${CONFIGURATION}\" = \"Debug\" ]; then\n  PLIST=\"${BUILT_PRODUCTS_DIR}/${INFOPLIST_PATH}\"\n\n  /usr/libexec/PlistBuddy -c \"Delete :NSAppTransportSecurity\" \"${PLIST}\" 2>/dev/null || true\n  /usr/libexec/PlistBuddy -c \"Add :NSAppTransportSecurity dict\" \"${PLIST}\"\n  /usr/libexec/PlistBuddy -c \"Add :NSAppTransportSecurity:NSAllowsLocalNetworking bool true\" \"${PLIST}\"\n\n  /usr/libexec/PlistBuddy -c \"Delete :NSLocalNetworkUsageDescription\" \"${PLIST}\" 2>/dev/null || true\n  /usr/libexec/PlistBuddy -c \"Add :NSLocalNetworkUsageDescription string \\\"GetBored connects to the Metro packager on your Mac to load the JS bundle during development.\\\"\" \"${PLIST}\"\n\n  /usr/libexec/PlistBuddy -c \"Delete :NSBonjourServices\" \"${PLIST}\" 2>/dev/null || true\n  /usr/libexec/PlistBuddy -c \"Add :NSBonjourServices array\" \"${PLIST}\"\n  /usr/libexec/PlistBuddy -c \"Add :NSBonjourServices:0 string _http._tcp\" \"${PLIST}\"\nfi\n";
+			showEnvVarsInLog = 0;
 		};
 		D1F000000000000000000002 /* Verify GetBoredSharedCore XCFramework */ = {
 			isa = PBXShellScriptBuildPhase;

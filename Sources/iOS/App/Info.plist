@@ -22,17 +22,6 @@
 	<string>1</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
-	<key>NSAppTransportSecurity</key>
-	<dict>
-		<key>NSAllowsLocalNetworking</key>
-		<true/>
-	</dict>
-	<key>NSLocalNetworkUsageDescription</key>
-	<string>GetBored connects to the Metro packager on your Mac to load the JS bundle during development.</string>
-	<key>NSBonjourServices</key>
-	<array>
-		<string>_http._tcp</string>
-	</array>
 	<key>RCTNewArchEnabled</key>
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
