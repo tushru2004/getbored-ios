@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>aps-environment</key>
-	<string>development</string>
+	<string>production</string>
 	<key>com.apple.developer.icloud-container-identifiers</key>
 	<array>
 		<string>iCloud.com.getbored.sync</string>
@@ -15,7 +15,6 @@
 	<key>com.apple.developer.networking.networkextension</key>
 	<array>
 		<string>content-filter-provider</string>
-		<string>app-proxy-provider</string>
 	</array>
 	<key>com.apple.security.application-groups</key>
 	<array>
