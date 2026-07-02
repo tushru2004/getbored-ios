@@ -38,18 +38,3 @@ export type ActiveRules = {
   allowedApps: string[];
   blockedApps: string[];
 };
-
-export type AppGroupDefaultsKey = {
-  key: string;
-  type: string;
-  preview: string;
-};
-
-export type AppGroupDefaultsSnapshot = {
-  groupIdentifier: string;
-  flowLogKey: string;
-  flowLogLimit: number;
-  flowLogCount: number;
-  flowLog: string[];
-  keys: AppGroupDefaultsKey[];
-};
