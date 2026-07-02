@@ -394,6 +394,12 @@ final class FilterStatusModule: NSObject {
     /// whiteList wins because it is strictly more permissive — a mixed assignment means
     /// the parent intended to allow everything except the listed entries, so blocking
     /// on top of that would silently override their intent.
+    ///
+    /// NOTE: v1 ships BLOCK MODE ONLY (the whitelist machinery was removed from this build).
+    /// If this resolves to `.whiteList` — e.g. an older CloudKit FilterList predating the
+    /// cutover — IOSRuleStore.loadFilterRules() defensively coerces it back to `.blockSpecific`
+    /// when read (see decodedFilterMode() in IOSRuleStore.swift), so it never reaches the
+    /// flow-inspection decision. This function is left as-is; the guard lives downstream.
     private func resolveEffectiveMode(_ lists: [FilterList]) -> FilterListMode {
         let hasWhiteList = lists.contains { $0.mode == .whiteList }
         return hasWhiteList ? .whiteList : .blockSpecific

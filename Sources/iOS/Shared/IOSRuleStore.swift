@@ -106,11 +106,15 @@ class IOSRuleStore {
 
     /// Load the full policy snapshot expected by the shared decision core.
     ///
+    /// This is the single chokepoint all consumers (FlowInspector, KMPDecisionCoreAdapter,
+    /// isListed/isExcepted/isAppAllowed/isAppBlocked below) go through to get a filter mode —
+    /// see decodedFilterMode() for the block-mode-only safety guard applied here.
+    ///
     /// Call flow:
     ///
     ///   filter extension (hot path) calls loadFilterRules()
     ///           │
-    ///           ├── sharedDefaults?.string(forKey: modeKey)   → FilterMode (fallback: .blockSpecific)
+    ///           ├── decodedFilterMode()  → FilterMode (block-mode-only guard; never .whiteList)
     ///           ├── loadSiteRules()     → [SiteRule] from JSON in UserDefaults
     ///           ├── loadExceptions()   → [String] from UserDefaults
     ///           ├── loadAllowedApps()  → [String] from UserDefaults
@@ -121,11 +125,9 @@ class IOSRuleStore {
     ///
     /// All five reads hit the same cached UserDefaults instance (5-second TTL).
     func loadFilterRules() -> LoadedFilterRules {
-        let rawMode = sharedDefaults?.string(forKey: modeKey) ?? FilterMode.blockSpecific.rawValue
-        let mode = FilterMode(rawValue: rawMode) ?? .blockSpecific
         return LoadedFilterRules(
             siteRules: loadSiteRules(),
-            filterMode: mode,
+            filterMode: decodedFilterMode(),
             exceptions: loadExceptions(),
             allowedAppBundleIDs: loadAllowedApps(),
             blockedAppBundleIDs: loadBlockedApps()
@@ -222,11 +224,46 @@ class IOSRuleStore {
         sharedDefaults?.synchronize()
     }
 
-    /// Get the current filter mode (defaults to "blockSpecific")
+    /// Get the current filter mode (defaults to "blockSpecific"). Goes through
+    /// decodedFilterMode() so a stored `.whiteList` value is never surfaced here either —
+    /// this is also what the React Native "Active Rules" screen reads for display.
     func getMode() -> String {
-        let mode = sharedDefaults?.string(forKey: modeKey) ?? FilterMode.blockSpecific.rawValue
+        let mode = decodedFilterMode().rawValue
         logger.debug("getMode: \(mode)")
         return mode
+    }
+
+    /// Decodes the stored filter mode, defensively coercing `.whiteList` to `.blockSpecific`.
+    ///
+    /// v1 ships BLOCK MODE ONLY — the parent-child Safari whitelist machinery
+    /// (allowedSafariParent, the two Safari extensions, the App-Proxy provider) was removed
+    /// from this build. A CloudKit-synced FilterList (or a stale UserDefaults value written
+    /// before the block-mode-only cutover) can still carry `mode == .whiteList` — that is a
+    /// valid raw value, so the plain `FilterMode(rawValue:)` decode below does not catch it.
+    /// Letting it reach the decision core would either exercise removed machinery or, worse,
+    /// silently degrade into an unfiltered pass-through. Coerce it to the safe block-mode
+    /// default instead — this must NEVER coerce toward "allow everything".
+    ///
+    /// Call flow:
+    ///
+    ///   loadFilterRules() / getMode() → decodedFilterMode()
+    ///           │
+    ///           ├── sharedDefaults?.string(forKey: modeKey)   → raw string (fallback: "blockSpecific")
+    ///           ├── FilterMode(rawValue:)                     → decoded mode (fallback: .blockSpecific)
+    ///           │
+    ///           ├── decoded == .blockSpecific → return unchanged (fast path)
+    ///           └── decoded == .whiteList
+    ///                   └── log warning, return .blockSpecific   ← safe default, never allow-all
+    private func decodedFilterMode() -> FilterMode {
+        let rawMode = sharedDefaults?.string(forKey: modeKey) ?? FilterMode.blockSpecific.rawValue
+        let decodedMode = FilterMode(rawValue: rawMode) ?? .blockSpecific
+
+        guard decodedMode == .whiteList else {
+            return decodedMode
+        }
+
+        logger.warning("decodedFilterMode: whiteList mode received in block-mode-only build; coercing to block-mode default (whitelist machinery removed in v1)")
+        return .blockSpecific
     }
 
     // MARK: - Exceptions (URL path exemptions)

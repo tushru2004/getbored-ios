@@ -79,14 +79,23 @@ class FlowInspector: NEFilterDataProvider {
     /// - blockSpecific: the list is a BLOCKLIST (block what's listed)
     /// - whiteList: the list is an ALLOWLIST (allow what's listed, block everything else)
     ///
+    /// v1 SHIPS BLOCK MODE ONLY: the parent-child Safari whitelist machinery this branch
+    /// feeds (allowedSafariParent, the two Safari extensions, the App-Proxy provider) was
+    /// removed from this build. `loadedFilterRules.filterMode` can never actually be
+    /// `.whiteList` here — IOSRuleStore.loadFilterRules() (via decodedFilterMode()) coerces
+    /// any `.whiteList` config back to `.blockSpecific` before it reaches this function. The
+    /// `mode == .whiteList` branch below is kept only as defense in depth; do not re-enable
+    /// the whitelist machinery by relying on it.
+    ///
     /// Call flow:
     ///
     ///   classifyHost(host)
     ///           │
     ///           ├── loadFilterRules()              ← re-read every call; CloudKit sync can change it anytime
+    ///           │                                     (.whiteList is already coerced to .blockSpecific here)
     ///           ├── currentMode = rules.filterMode ← side effect: cache mode for telemetry/logging
     ///           │
-    ///           ├── mode == .whiteList     → allowedSafariParent(forChildHost: host) (parent-child allow lookup)
+    ///           ├── mode == .whiteList     → allowedSafariParent(forChildHost: host) (dead in v1; see above)
     ///           └── mode == .blockSpecific → allowedParent = nil (skip parent-child lookup)
     ///                   │
     ///                   ▼
