@@ -214,7 +214,8 @@ final class FilterStatusModule: NSObject {
         ] as [String: Any])
     }
 
-    /// Builds and submits a CloudKit query for all `FilterList` records in the default zone.
+    /// Builds and submits the first-page CloudKit query for all `FilterList` records
+    /// in the default zone; runFilterListQuery follows pagination from there.
     ///
     /// NOTE: FilterList records live in the DEFAULT zone, not the GetBoredSync
     /// custom zone used for DeviceRegistration — see operation.zoneID below.
@@ -225,20 +226,8 @@ final class FilterStatusModule: NSObject {
     ///           │
     ///           ├── builds CKQuery(recordType: "FilterList", predicate: true)
     ///           ├── sets operation.zoneID = CKRecordZone.default().zoneID (default zone)
-    ///           ├── configures recordMatchedBlock  ← accumulates records into fetchedRecords[]
-    ///           ├── configures queryResultBlock    ← fires once when streaming is complete
-    ///           └── db.add(operation)  ← submits to CloudKit, returns immediately
-    ///                   │
-    ///                   └── (CloudKit background thread calls back later)
-    ///                           │
-    ///                           ├── recordMatchedBlock(.success) → fetchedRecords.append(record)
-    ///                           ├── recordMatchedBlock(.failure) → skip record (non-fatal)
-    ///                           │
-    ///                           └── queryResultBlock
-    ///                                   ├── .failure(zoneNotFound/unknownItem)
-    ///                                   │       └── resolve(nil)  ← no lists configured yet
-    ///                                   ├── .failure(other) → reject(filter_list_fetch_failed)
-    ///                                   └── .success → decodeAndApplyFilterLists(fetchedRecords)
+    ///           └── runFilterListQuery(operation, fetchedRecords: [])
+    ///                   └── (see runFilterListQuery below for pagination + decode/apply)
     ///
     /// SCHEMA REQUIREMENT: The `FilterList` record type must have a queryable index
     /// deployed in CloudKit for NSPredicate(value: true) to succeed. Verify this in
@@ -251,13 +240,44 @@ final class FilterStatusModule: NSObject {
         let query = CKQuery(recordType: "FilterList", predicate: NSPredicate(value: true))
         let operation = CKQueryOperation(query: query)
         operation.zoneID = CKRecordZone.default().zoneID
+        runFilterListQuery(operation, fetchedRecords: [], resolve: resolve, rejecter: reject)
+    }
 
-        var fetchedRecords: [CKRecord] = []
+    /// Runs a `FilterList` query operation and follows CloudKit's pagination cursor
+    /// until the whole result set is drained, before handing off to decode/apply.
+    ///
+    /// A device's assigned+active lists are now allowed to resolve to an empty
+    /// snapshot (see decodeAndApplyFilterLists) whenever an admin deletion leaves
+    /// none assigned. That makes a truncated page dangerous: without following the
+    /// cursor, a device with >100 `FilterList` records in the container could see a
+    /// spuriously empty first page and have its real rules wiped. Draining every
+    /// page before deciding "no lists assigned" avoids that false negative.
+    ///
+    /// Call flow:
+    ///
+    ///   fetchAllFilterListRecords calls runFilterListQuery(operation, fetchedRecords: [])
+    ///           │
+    ///           ├── recordMatchedBlock × N  ← accumulates into this page's pageRecords
+    ///           │
+    ///           └── queryResultBlock
+    ///                   ├── .failure(zoneNotFound/unknownItem) → resolve(nil)
+    ///                   ├── .failure(other error)              → reject(filter_list_fetch_failed)
+    ///                   ├── .success(cursor: non-nil)
+    ///                   │       └── CKQueryOperation(cursor:) → recurse with fetchedRecords + pageRecords
+    ///                   └── .success(cursor: nil)  ← last page
+    ///                           └── decodeAndApplyFilterLists(fetchedRecords + pageRecords)
+    private func runFilterListQuery(
+        _ operation: CKQueryOperation,
+        fetchedRecords: [CKRecord],
+        resolve: @escaping RCTPromiseResolveBlock,
+        rejecter reject: @escaping RCTPromiseRejectBlock
+    ) {
+        var pageRecords: [CKRecord] = []
 
         operation.recordMatchedBlock = { _, result in
             switch result {
             case .success(let record):
-                fetchedRecords.append(record)
+                pageRecords.append(record)
             case .failure:
                 // A single record failing to load is non-fatal — skip it and continue.
                 break
@@ -274,9 +294,14 @@ final class FilterStatusModule: NSObject {
                 } else {
                     reject("filter_list_fetch_failed", Self.cloudKitErrorMessage(error), error)
                 }
-            case .success:
-                // TODO: handle queryCursor if list count ever exceeds 100
-                self.decodeAndApplyFilterLists(from: fetchedRecords, resolve: resolve, rejecter: reject)
+            case .success(let cursor):
+                let allRecords = fetchedRecords + pageRecords
+                guard let cursor else {
+                    self.decodeAndApplyFilterLists(from: allRecords, resolve: resolve, rejecter: reject)
+                    return
+                }
+                let nextOperation = CKQueryOperation(cursor: cursor)
+                self.runFilterListQuery(nextOperation, fetchedRecords: allRecords, resolve: resolve, rejecter: reject)
             }
         }
 
@@ -301,13 +326,10 @@ final class FilterStatusModule: NSObject {
     ///                   │
     ///                   ├── filter: isActive AND assignedDeviceIds.contains(recordName)
     ///                   │
-    ///                   ├── assignedActiveLists is empty
-    ///                   │       └── no lists assigned to this device → resolve(nil), preserve rules
-    ///                   │
-    ///                   └── assignedActiveLists non-empty
-    ///                           │
-    ///                           ▼
-    ///                       applyDecodedFilterLists(assignedActiveLists)
+    ///                   └── applyDecodedFilterLists(assignedActiveLists)
+    ///                           ← always called, even when assignedActiveLists is empty, so an
+    ///                             admin deleting/deactivating every list clears the device's
+    ///                             rules instead of leaving a stale snapshot in place
     private func decodeAndApplyFilterLists(
         from records: [CKRecord],
         resolve: @escaping RCTPromiseResolveBlock,
@@ -326,14 +348,10 @@ final class FilterStatusModule: NSObject {
             list.isActive && list.assignedDeviceIds.contains(recordName)
         }
 
-        guard !assignedActiveLists.isEmpty else {
-            // No lists are assigned+active for this device — preserve existing rules rather
-            // than wiping them. The admin may not have configured this device yet, or all
-            // assigned lists are temporarily inactive.
-            resolve(nil)
-            return
-        }
-
+        // No guard on emptiness here: if the admin deletes/deactivates every list
+        // assigned to this device, assignedActiveLists is legitimately empty and
+        // applyDecodedFilterLists([]) below writes an empty snapshot — clearing
+        // stale entries instead of leaving a deleted list's rules stuck forever.
         applyDecodedFilterLists(assignedActiveLists, resolve: resolve)
     }
 
