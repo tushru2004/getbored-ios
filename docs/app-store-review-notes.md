@@ -68,8 +68,13 @@ via iCloud.
 only be enabled on a *supervised* device (an iOS platform requirement), so on a
 standard device the app honestly shows "Setup required" and the filter reads
 inactive. Rule creation and iCloud sync are fully testable without supervision.
-A demo video of the filter actively blocking on a supervised device is available
-on request.
+
+**Demo video:** Beta App Review is governed by the same App Review Guidelines
+as full App Store Review, so we treat the demo video as required, not optional.
+We have attached a demo video showing the filter **active on a supervised
+device**, blocking a user-chosen website in Safari, so the core blocking
+behavior can be verified end to end. If you'd prefer hands-on testing instead,
+we're happy to ship a pre-supervised device — just let us know.
 
 **Contact:** Tushar — tushru2004@gmail.com
 
