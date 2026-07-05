@@ -23,16 +23,22 @@ API on a standard, unsupervised device.
 
 Because of this, on a stock (unsupervised) review device the app will display a
 clear **"Setup required"** state and the filter status will read *inactive*.
-**This is expected behavior, not a bug.** Everything else is fully testable
-without supervision:
+**This is expected behavior, not a bug.** What the app itself shows on an
+unsupervised device:
 
-- Creating and editing your own block lists (websites and apps).
-- Syncing those rules across your own devices via your private iCloud (CloudKit).
-- The full app UI, onboarding, and the honest "Setup required" disclosure.
+- The Content Filter / iCloud Sync status, including the honest "Setup required"
+  disclosure and the full app UI and onboarding.
+- Registering this device to your own private iCloud (CloudKit) via "Device Sync".
+- Pulling the latest rules from iCloud ("Refresh Settings") and viewing them
+  read-only under "View Active Rules".
 
-**Demo video:** We have attached a demo video showing the filter **active on a
-supervised device**, blocking a user-chosen website in Safari, so you can verify
-the core blocking behavior end to end.
+Block lists themselves are created in the companion GetBored web console (not in
+the iOS app) and sync down to the device.
+
+**Demo video:** We have attached a demo video (also viewable at
+https://d1lm440g1i1fns.cloudfront.net/getbored-demo-v1.mp4) showing the filter
+**active on a supervised device**, blocking a user-chosen website in Safari, so
+you can verify the core blocking behavior end to end.
 
 **If you would prefer hands-on testing:** we are happy to ship you a
 pre-supervised device, or provide step-by-step Apple Configurator instructions
@@ -55,26 +61,38 @@ Thank you — happy to answer any questions or supervise a device for you.
 
 ---
 
-## 2. Beta App Review Information (TestFlight external — "Test Information")
+## 2. Beta App Review Information (TestFlight external — "What to Test")
 
-**What to test:** Create a self-control block list (add a website and/or an app),
-then review it under Active Rules and confirm it syncs across your own devices
-via iCloud.
+Paste this whole section into the external group's **What to Test** box at
+submit time (TestFlight review notes are text-only — no file attachment field).
 
-**Sign-in:** No demo account needed. GetBored uses your own iCloud account
-(CloudKit) — just be signed in to iCloud on the test device.
+**⚠️ Please read first — the core filter cannot be activated on a standard
+device.** GetBored enforces blocking with an on-device Network Content Filter
+(`NEFilterDataProvider`). On iOS that filter can only be turned *on* on a
+**supervised** device, via a Web Content Filter configuration profile — an Apple
+platform requirement the app cannot bypass. On a normal, unsupervised review
+device the app correctly shows a **"Setup required"** notice and the Content
+Filter row reads **OFF**. This is expected behavior, not a bug; the website/app
+blocking itself cannot be exercised on a stock device.
 
-**About the "Setup required" filter state:** The on-device content filter can
-only be enabled on a *supervised* device (an iOS platform requirement), so on a
-standard device the app honestly shows "Setup required" and the filter reads
-inactive. Rule creation and iCloud sync are fully testable without supervision.
+To see it work end to end (filter **active on a supervised device**, blocking a
+user-chosen website in Safari), please watch the demo video:
 
-**Demo video:** Beta App Review is governed by the same App Review Guidelines
-as full App Store Review, so we treat the demo video as required, not optional.
-We have attached a demo video showing the filter **active on a supervised
-device**, blocking a user-chosen website in Safari, so the core blocking
-behavior can be verified end to end. If you'd prefer hands-on testing instead,
-we're happy to ship a pre-supervised device — just let us know.
+https://d1lm440g1i1fns.cloudfront.net/getbored-demo-v1.mp4
+
+We're also glad to ship a pre-supervised device, or send Apple Configurator
+steps to supervise a spare device, so you can verify hands-on — just let us know.
+
+**What you'll see in the app:** a home screen with (1) a **Content Filter**
+status row reading **OFF** with the "Setup required" explanation above, plus an
+**iCloud Sync** row; (2) a **Device Sync** card to register this device to your
+own iCloud; and (3) a **Filter Settings** card with **Refresh Settings** (pulls
+your rules from iCloud) and **View Active Rules** (a read-only view of the rules
+synced to this device). Block lists themselves are created in the companion
+GetBored web console and sync down to the app.
+
+**Sign-in:** No demo account needed — GetBored uses your own iCloud account
+(CloudKit). Just be signed in to iCloud on the device.
 
 **Contact:** Tushar — tushru2004@gmail.com
 
