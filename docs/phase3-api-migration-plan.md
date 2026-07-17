@@ -51,6 +51,13 @@ deletion (TN3194: exchange at Apple's `/auth/token`, revoke at
 
 ### Backend (getbored-mac-ios-admin)
 
+> **Status (2026-07-17): B1–B5 all done and verified on staging.** B3
+> added a V7 migration (`user_identities.apple_client_id`) beyond this
+> plan: Apple's `/auth/revoke` needs a client secret minted for the same
+> client id the grant belongs to, so the V6 token alone wasn't revocable.
+> B2's remaining proof is one real sign-in on staging web to observe a
+> captured refresh token. B5 confirmed the wire contract with no changes.
+
 **B1 — Revocable sessions.** `sessions` table (id/jti, user_id, created_at,
 revoked_at); mint stamps `jti`; the `jwt("session")` validate step checks
 the row isn't revoked (one PK read, same cost as the entitlement gate).
