@@ -416,6 +416,13 @@ class IOSActivityLogger {
     ///                       └── encode + defaults.set + defaults.synchronize()
     ///
     /// All writes are serialized on `queue` (serial, .utility QoS) to avoid data races.
+    // Activity logging is DISABLED (2026-07-18): out of scope for iOS v1.
+    // Method bodies below are commented out — not deleted — so the extension
+    // call sites (FlowInspector, BlockHandler) keep compiling as no-ops and
+    // the feature can be re-enabled by uncommenting. Known issue when
+    // re-enabling: the 2 s flushInterval is only evaluated on the NEXT log()
+    // call — no timer is ever scheduled, so a lone entry can sit in memory
+    // until the extension process dies.
     func log(domain: String,
              blocked: Bool,
              reason: String,
@@ -423,6 +430,7 @@ class IOSActivityLogger {
              rawEndpoint: String? = nil,
              resolutionSource: String = "legacy",
              isResolvableHostname: Bool = true) {
+        /*
         let entry = ActivityLogEntry(
             displayDomain: domain,
             blocked: blocked,
@@ -441,29 +449,36 @@ class IOSActivityLogger {
                 self._flushPending()
             }
         }
+        */
     }
 
-    /// Force-flush pending entries to disk (async)
+    /// Force-flush pending entries to disk (async). Disabled — see log().
     func flush() {
+        /*
         queue.async { [weak self] in
             self?._flushPending()
         }
+        */
     }
 
-    /// Synchronously flush pending entries. Call before reading entries for upload.
+    /// Synchronously flush pending entries. Disabled — see log().
     func flushSync() {
+        /*
         queue.sync { [weak self] in
             self?._flushPending()
         }
+        */
     }
 
-    /// Must be called on `queue`.
+    /// Must be called on `queue`. Disabled — see log().
     private func _flushPending() {
+        /*
         guard !pendingEntries.isEmpty else { return }
         let toWrite = pendingEntries
         pendingEntries = []
         lastFlush = Date()
         writeEntries(toWrite)
+        */
     }
 
     /// Read-merge-trim-write cycle on the shared activity log.
@@ -472,6 +487,7 @@ class IOSActivityLogger {
     /// reading the log for upload) may have written a tombstone or trim since this process
     /// last read. Without it we'd re-inflate entries that were already cleared.
     private func writeEntries(_ newEntries: [ActivityLogEntry]) {
+        /*
         guard let defaults = sharedDefaults else {
             os_log("IOSActivityLogger.writeEntries: sharedDefaults is nil!", log: writeLogger, type: .error)
             return
@@ -493,21 +509,27 @@ class IOSActivityLogger {
             defaults.set(data, forKey: logKey)
             defaults.synchronize()
         }
+        */
     }
 
     // MARK: - Reading
 
-    /// Read the activity log (called from the iOS app)
+    /// Read the activity log (called from the iOS app). Disabled — see log().
     func loadEntries() -> [ActivityLogEntry] {
+        /*
         guard let defaults = sharedDefaults else { return [] }
         defaults.synchronize()
         guard let data = defaults.data(forKey: logKey) else { return [] }
         return (try? JSONDecoder().decode([ActivityLogEntry].self, from: data)) ?? []
+        */
+        return []
     }
 
-    /// Clear all log entries
+    /// Clear all log entries. Disabled — see log().
     func clearLog() {
+        /*
         sharedDefaults?.removeObject(forKey: logKey)
         sharedDefaults?.synchronize()
+        */
     }
 }
