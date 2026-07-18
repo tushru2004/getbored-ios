@@ -51,12 +51,21 @@ deletion (TN3194: exchange at Apple's `/auth/token`, revoke at
 
 ### Backend (getbored-mac-ios-admin)
 
-> **Status (2026-07-17): B1–B5 all done and verified on staging.** B3
-> added a V7 migration (`user_identities.apple_client_id`) beyond this
-> plan: Apple's `/auth/revoke` needs a client secret minted for the same
-> client id the grant belongs to, so the V6 token alone wasn't revocable.
-> B2's remaining proof is one real sign-in on staging web to observe a
-> captured refresh token. B5 confirmed the wire contract with no changes.
+> **Status (2026-07-18): B1–B5 all done and E2E-verified on staging,**
+> including B2's real-sign-in proof (refresh token + client id stored on
+> `user_identities`). Two deviations from this plan, discovered the hard
+> way: (1) B3 added a V7 migration (`user_identities.apple_client_id`) —
+> Apple's `/auth/revoke` needs a client secret minted for the same client
+> id the grant belongs to, so the V6 token alone wasn't revocable.
+> (2) Web (popup) authorization codes are bound to the exact
+> `redirectURI` used at authorize; the SPA now sends it and the exchange
+> forwards it (`AppleSignInRequest.redirectUri`, optional — iOS omits
+> it). The original SIWA key (`STHXQ5Z457`) was rejected by Apple on
+> every exchange despite correct config and was rotated to `QT9H5S27LB`
+> (2026-07-18), which fixed it. B5 confirmed the wire contract with no
+> changes. iOS note for i2: send `authorizationCode` but NO
+> `redirectUri`; the server env on prod still needs the `APPLE_*` trio
+> (key id `QT9H5S27LB`) at promote time.
 
 **B1 — Revocable sessions.** `sessions` table (id/jti, user_id, created_at,
 revoked_at); mint stamps `jti`; the `jwt("session")` validate step checks
