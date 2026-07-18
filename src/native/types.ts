@@ -4,31 +4,27 @@ export type FilterStatus =
   | {kind: 'checking'; label: string}
   | {kind: 'error'; label: string};
 
-export type ICloudStatus =
-  | {kind: 'available'; label: string}
-  | {kind: 'unavailable'; label: string}
-  | {kind: 'checking'; label: string};
+export type AccountStatus =
+  | {kind: 'signedIn'; label: string}
+  | {kind: 'signedOut'; label: string};
 
 export type StatusViewModel = {
   filter: FilterStatus;
-  icloud: ICloudStatus;
+  account: AccountStatus;
 };
 
 export type DeviceRegistration = {
   id: string;
-  deviceName: string;
-  deviceModel: string;
-  systemVersion: string;
-  appVersion: string;
-  lastSeenAt: string;
-  buildConfiguration: string;
-  registeredDeviceCount: number;
+  name: string | null;
+  model: string | null;
+  appVersion: string | null;
+  lastSeenAt: string | null;
+  createdAt: string;
 };
 
 export type DeviceRegistrationSnapshot = {
   isRegistered: boolean;
   registration: DeviceRegistration | null;
-  registeredDeviceCount: number;
 };
 
 export type ActiveRules = {
@@ -37,4 +33,13 @@ export type ActiveRules = {
   exceptions: string[];
   allowedApps: string[];
   blockedApps: string[];
+};
+
+export type AccountSummary = {
+  signedIn: boolean;
+  userId?: string;
+};
+
+export type SignInResult = {
+  userId: string;
 };

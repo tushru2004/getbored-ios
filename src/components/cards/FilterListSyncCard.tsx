@@ -1,35 +1,51 @@
 import React, {useState} from 'react';
 import {Pressable, StyleSheet, Text, View} from 'react-native';
 
-import {useFilterListSync} from '../../hooks/useFilterListSync';
+import {
+  FilterListSyncState,
+  useFilterListSync,
+} from '../../hooks/useFilterListSync';
 import {ActiveRulesScreen} from '../../screens/ActiveRulesScreen';
 import {colors, radius, spacing, typography, withAlpha} from '../../theme';
 
+function buttonLabel(state: FilterListSyncState): string {
+  if (state.kind === 'syncing') return 'Refreshing...';
+  return 'Refresh Settings';
+}
+
 /**
- * Card that triggers an iCloud filter-list refresh and links to the read-only
- * rules modal. Two independent pieces of state drive the render:
+ * Card that triggers a filter-list refresh from the server and links to the
+ * read-only rules modal. Two independent pieces of state drive the render:
  *
  *   useFilterListSync().state  ← sync lifecycle
  *       │
- *       ├── 'syncing' → button disabled + "Refreshing...", pressed style forced
- *       ├── 'success' → "Synced" pill in header
- *       ├── 'error'   → error message line under header
- *       └── 'idle'    → plain "Refresh Settings" button
+ *       ├── 'syncing'              → button disabled + "Refreshing...", pressed style forced
+ *       ├── 'success'              → "Synced" pill in header
+ *       ├── 'signedOut'            → notice line, sync button hidden (rules were kept)
+ *       ├── 'subscriptionRequired' → notice line, sync button hidden (filtering stopped)
+ *       ├── 'notRegistered'        → notice line, sync button hidden (register the device first)
+ *       ├── 'error'                → error message line under header
+ *       └── 'idle'                 → plain "Refresh Settings" button
  *
  *   showRules (local)          ← modal visibility
  *       │
  *       ├── "View Active Rules" press → setShowRules(true)
  *       └── ActiveRulesScreen.onClose → setShowRules(false)
  *
- * ActiveRulesScreen is always mounted; its own `visible` prop gates rendering
- * and re-fetches active rules each time showRules flips true.
+ * ActiveRulesScreen is always mounted regardless of sync state — the rules
+ * it reads are the last ones applied on-device, which stay valid through
+ * signedOut/subscriptionRequired, so viewing them is never blocked.
  */
 export const FilterListSyncCard: React.FC = () => {
   const {state, sync} = useFilterListSync();
   const isSyncing = state.kind === 'syncing';
+  // notRegistered keeps the button: the fix (registering, in the card above)
+  // doesn't reset this card's state, so hiding the button here would leave no
+  // way to retry after registering. signedOut/subscriptionRequired still hide
+  // it — their fixes (signing in / reactivating) re-render the whole screen.
+  const isBlocked =
+    state.kind === 'signedOut' || state.kind === 'subscriptionRequired';
   const [showRules, setShowRules] = useState(false);
-
-  const buttonLabel = isSyncing ? 'Refreshing...' : 'Refresh Settings';
 
   return (
     <View style={styles.card}>
@@ -37,7 +53,7 @@ export const FilterListSyncCard: React.FC = () => {
         <View style={styles.titleColumn}>
           <Text style={styles.title}>Filter Settings</Text>
           <Text style={styles.subtitle}>
-            Pull your latest self-control rules from iCloud.
+            Pull your latest self-control rules from your account.
           </Text>
         </View>
         {state.kind === 'success' && (
@@ -50,16 +66,33 @@ export const FilterListSyncCard: React.FC = () => {
       {state.kind === 'error' && (
         <Text style={styles.errorText}>{state.message}</Text>
       )}
+      {state.kind === 'signedOut' && (
+        <Text style={styles.noticeText}>
+          Sign in again to refresh your settings.
+        </Text>
+      )}
+      {state.kind === 'subscriptionRequired' && (
+        <Text style={styles.noticeText}>
+          Filtering has stopped until your subscription is active again.
+        </Text>
+      )}
+      {state.kind === 'notRegistered' && (
+        <Text style={styles.noticeText}>
+          Set up this device above before syncing.
+        </Text>
+      )}
 
-      <Pressable
-        disabled={isSyncing}
-        onPress={sync}
-        style={({pressed}) => {
-          const showPressedStyle = pressed || isSyncing;
-          return [styles.button, showPressedStyle && styles.buttonPressed];
-        }}>
-        <Text style={styles.buttonText}>{buttonLabel}</Text>
-      </Pressable>
+      {!isBlocked && (
+        <Pressable
+          disabled={isSyncing}
+          onPress={sync}
+          style={({pressed}) => {
+            const showPressedStyle = pressed || isSyncing;
+            return [styles.button, showPressedStyle && styles.buttonPressed];
+          }}>
+          <Text style={styles.buttonText}>{buttonLabel(state)}</Text>
+        </Pressable>
+      )}
 
       <Pressable
         onPress={() => setShowRules(true)}
@@ -115,6 +148,11 @@ const styles = StyleSheet.create({
   errorText: {
     ...typography.subhead,
     color: colors.danger,
+    marginTop: spacing.md,
+  },
+  noticeText: {
+    ...typography.subhead,
+    color: colors.labelSecondary,
     marginTop: spacing.md,
   },
   button: {

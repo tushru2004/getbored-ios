@@ -1,19 +1,19 @@
 import {NativeModules} from 'react-native';
 
+import {NativeModuleUnavailableError} from './errors';
 import {
+  AccountStatus,
   ActiveRules,
   DeviceRegistration,
   DeviceRegistrationSnapshot,
   FilterStatus,
-  ICloudStatus,
   StatusViewModel,
 } from './types';
 
 type RawStatus = {
   filterState: string;
   filterLabel: string;
-  icloudState: string;
-  icloudLabel: string;
+  signedIn: boolean;
 };
 
 type NativeFilterStatus = {
@@ -26,13 +26,6 @@ type NativeFilterStatus = {
 
 const native = (NativeModules as {FilterStatus?: NativeFilterStatus})
   .FilterStatus;
-
-export class NativeModuleUnavailableError extends Error {
-  constructor() {
-    super('FilterStatus native module is not linked');
-    this.name = 'NativeModuleUnavailableError';
-  }
-}
 
 /**
  * Maps the loosely-typed native `filterState` string onto the discriminated
@@ -57,28 +50,19 @@ const parseFilter = (raw: RawStatus): FilterStatus => {
 };
 
 /**
- * Maps the native `icloudState` string onto the ICloudStatus union. Unknown
- * values fall back to `unavailable` (fail-safe: treat unrecognized as not-ready)
- * instead of throwing.
+ * Maps the native `signedIn` flag onto the AccountStatus union (session
+ * presence in the Keychain — a plain boolean now that the async CloudKit
+ * account check is gone, so there's no `checking` state to represent here).
  *
- *   raw.icloudState
+ *   raw.signedIn
  *       │
- *       ├── 'available' | 'unavailable' | 'checking' → {kind, label}
- *       └── default (unknown)                        → {kind:'unavailable', label:'Unknown iCloud state: …'}
+ *       ├── true  → {kind: 'signedIn', label: 'Signed in'}
+ *       └── false → {kind: 'signedOut', label: 'Signed out'}
  */
-const parseICloud = (raw: RawStatus): ICloudStatus => {
-  switch (raw.icloudState) {
-    case 'available':
-    case 'unavailable':
-    case 'checking':
-      return {kind: raw.icloudState, label: raw.icloudLabel};
-    default:
-      return {
-        kind: 'unavailable',
-        label: `Unknown iCloud state: ${raw.icloudState}`,
-      };
-  }
-};
+const parseAccount = (raw: RawStatus): AccountStatus =>
+  raw.signedIn
+    ? {kind: 'signedIn', label: 'Signed in'}
+    : {kind: 'signedOut', label: 'Signed out'};
 
 /**
  * Typed JS facade over the `FilterStatus` native module (registered by the iOS
@@ -102,39 +86,39 @@ export const FilterStatusBridge = {
   /**
    * Fetches the raw status blob and normalizes it into a view model.
    *
-   *   native.current()  ← async, returns RawStatus (loose strings)
+   *   native.current()  ← async, returns RawStatus (loose strings + a flag)
    *       │
-   *       ├── parseFilter(raw) → FilterStatus
-   *       └── parseICloud(raw) → ICloudStatus
+   *       ├── parseFilter(raw)  → FilterStatus
+   *       └── parseAccount(raw) → AccountStatus
    *       │
    *       ▼
-   *   {filter, icloud}  ← StatusViewModel
+   *   {filter, account}  ← StatusViewModel
    */
   async current(): Promise<StatusViewModel> {
-    if (!native) throw new NativeModuleUnavailableError();
+    if (!native) throw new NativeModuleUnavailableError('FilterStatus');
     const raw = await native.current();
     const filter = parseFilter(raw);
-    const icloud = parseICloud(raw);
-    return {filter, icloud};
+    const account = parseAccount(raw);
+    return {filter, account};
   },
 
   async registerDevice(): Promise<DeviceRegistration> {
-    if (!native) throw new NativeModuleUnavailableError();
+    if (!native) throw new NativeModuleUnavailableError('FilterStatus');
     return native.registerDevice();
   },
 
   async currentDeviceRegistration(): Promise<DeviceRegistrationSnapshot> {
-    if (!native) throw new NativeModuleUnavailableError();
+    if (!native) throw new NativeModuleUnavailableError('FilterStatus');
     return native.currentDeviceRegistration();
   },
 
   async syncFilterLists(): Promise<void> {
-    if (!native) throw new NativeModuleUnavailableError();
+    if (!native) throw new NativeModuleUnavailableError('FilterStatus');
     return native.syncFilterLists();
   },
 
   async loadActiveRules(): Promise<ActiveRules> {
-    if (!native) throw new NativeModuleUnavailableError();
+    if (!native) throw new NativeModuleUnavailableError('FilterStatus');
     return native.loadActiveRules();
   },
 };

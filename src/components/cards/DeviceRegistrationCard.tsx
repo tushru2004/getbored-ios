@@ -1,7 +1,17 @@
 import React from 'react';
-import {Pressable, StyleSheet, Text, View} from 'react-native';
+import {
+  Pressable,
+  StyleSheet,
+  Text,
+  TextStyle,
+  View,
+  ViewStyle,
+} from 'react-native';
 
-import {useDeviceRegistration} from '../../hooks/useDeviceRegistration';
+import {
+  DeviceRegistrationState,
+  useDeviceRegistration,
+} from '../../hooks/useDeviceRegistration';
 import {DeviceRegistration} from '../../native/types';
 import {colors, radius, spacing, typography, withAlpha} from '../../theme';
 
@@ -9,20 +19,43 @@ const RegistrationDetails: React.FC<{registration: DeviceRegistration}> = ({
   registration,
 }) => (
   <View style={styles.details}>
-    <Text style={styles.detailText}>{registration.deviceName}</Text>
-    <Text style={styles.metaText}>
-      {registration.deviceModel} · iOS {registration.systemVersion}
-    </Text>
+    <Text style={styles.detailText}>{registration.name}</Text>
+    <Text style={styles.metaText}>{registration.model}</Text>
     <Text style={styles.metaText}>Device ID {registration.id}</Text>
   </View>
 );
 
+type Tone = 'neutral' | 'success' | 'warn';
+
+function statusTone(state: DeviceRegistrationState): Tone {
+  if (state.kind === 'registered') return 'success';
+  if (state.kind === 'signedOut' || state.kind === 'subscriptionRequired') {
+    return 'warn';
+  }
+  return 'neutral';
+}
+
+function statusLabel(state: DeviceRegistrationState): string {
+  if (state.kind === 'checking') return 'Checking';
+  if (state.kind === 'registered') return 'Registered';
+  if (state.kind === 'signedOut') return 'Signed out';
+  if (state.kind === 'subscriptionRequired') return 'Subscription required';
+  return 'Not registered';
+}
+
+function buttonLabel(state: DeviceRegistrationState): string {
+  if (state.kind === 'checking') return 'Checking...';
+  if (state.kind === 'saving') return 'Registering...';
+  if (state.kind === 'registered') return 'Refresh Sync';
+  return 'Set Up This Device';
+}
+
 export const DeviceRegistrationCard: React.FC = () => {
   const {state, register} = useDeviceRegistration();
-  const isChecking = state.kind === 'checking';
-  const isSaving = state.kind === 'saving';
-  const isRegistered = state.kind === 'registered';
-  const isBusy = isChecking || isSaving;
+  const isBusy = state.kind === 'checking' || state.kind === 'saving';
+  const isBlocked =
+    state.kind === 'signedOut' || state.kind === 'subscriptionRequired';
+  const tone = statusTone(state);
 
   return (
     <View style={styles.card}>
@@ -33,21 +66,9 @@ export const DeviceRegistrationCard: React.FC = () => {
             Sync this device to your GetBored account so your rules follow you everywhere.
           </Text>
         </View>
-        <View
-          style={[
-            styles.statusPill,
-            isRegistered ? styles.registeredPill : styles.pendingPill,
-          ]}>
-          <Text
-            style={[
-              styles.statusText,
-              isRegistered ? styles.registeredText : styles.pendingText,
-            ]}>
-            {isChecking
-              ? 'Checking'
-              : isRegistered
-                ? 'Registered'
-                : 'Not registered'}
+        <View style={[styles.statusPill, TONE_PILL_STYLE[tone]]}>
+          <Text style={[styles.statusText, TONE_TEXT_STYLE[tone]]}>
+            {statusLabel(state)}
           </Text>
         </View>
       </View>
@@ -58,24 +79,28 @@ export const DeviceRegistrationCard: React.FC = () => {
       {state.kind === 'error' && (
         <Text style={styles.errorText}>{state.message}</Text>
       )}
-
-      <Pressable
-        disabled={isBusy}
-        onPress={register}
-        style={({pressed}) => [
-          styles.button,
-          (pressed || isBusy) && styles.buttonPressed,
-        ]}>
-        <Text style={styles.buttonText}>
-          {isChecking
-            ? 'Checking...'
-            : isSaving
-            ? 'Registering...'
-            : isRegistered
-              ? 'Refresh Sync'
-              : 'Set Up This Device'}
+      {state.kind === 'signedOut' && (
+        <Text style={styles.noticeText}>
+          Sign in again to keep syncing this device.
         </Text>
-      </Pressable>
+      )}
+      {state.kind === 'subscriptionRequired' && (
+        <Text style={styles.noticeText}>
+          Device sync is paused until your subscription is active again.
+        </Text>
+      )}
+
+      {!isBlocked && (
+        <Pressable
+          disabled={isBusy}
+          onPress={register}
+          style={({pressed}) => [
+            styles.button,
+            (pressed || isBusy) && styles.buttonPressed,
+          ]}>
+          <Text style={styles.buttonText}>{buttonLabel(state)}</Text>
+        </Pressable>
+      )}
     </View>
   );
 };
@@ -117,6 +142,9 @@ const styles = StyleSheet.create({
   registeredPill: {
     backgroundColor: withAlpha(colors.success, 0.12),
   },
+  warnPill: {
+    backgroundColor: withAlpha(colors.warning, 0.12),
+  },
   statusText: {
     ...typography.caption,
   },
@@ -125,6 +153,9 @@ const styles = StyleSheet.create({
   },
   registeredText: {
     color: colors.success,
+  },
+  warnText: {
+    color: colors.warning,
   },
   details: {
     borderTopWidth: StyleSheet.hairlineWidth,
@@ -146,6 +177,11 @@ const styles = StyleSheet.create({
     color: colors.danger,
     marginTop: spacing.md,
   },
+  noticeText: {
+    ...typography.subhead,
+    color: colors.labelSecondary,
+    marginTop: spacing.md,
+  },
   button: {
     alignItems: 'center',
     backgroundColor: colors.info,
@@ -161,3 +197,15 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
 });
+
+const TONE_PILL_STYLE: Record<Tone, ViewStyle> = {
+  neutral: styles.pendingPill,
+  success: styles.registeredPill,
+  warn: styles.warnPill,
+};
+
+const TONE_TEXT_STYLE: Record<Tone, TextStyle> = {
+  neutral: styles.pendingText,
+  success: styles.registeredText,
+  warn: styles.warnText,
+};

@@ -1,5 +1,6 @@
 import {useCallback, useEffect, useState} from 'react';
 
+import {nativeErrorCode} from '../native/errors';
 import {FilterStatusBridge} from '../native/FilterStatusBridge';
 import {DeviceRegistration} from '../native/types';
 
@@ -8,6 +9,8 @@ export type DeviceRegistrationState =
   | {kind: 'idle'}
   | {kind: 'saving'}
   | {kind: 'registered'; registration: DeviceRegistration}
+  | {kind: 'signedOut'}
+  | {kind: 'subscriptionRequired'}
   | {kind: 'error'; message: string};
 
 export type UseDeviceRegistration = {
@@ -15,6 +18,21 @@ export type UseDeviceRegistration = {
   refresh: (showErrors?: boolean) => Promise<void>;
   register: () => Promise<void>;
 };
+
+/**
+ * Classifies a rejection from a device-registration call into the state the
+ * UI should show. SIGNED_OUT / SUBSCRIPTION_REQUIRED are expected, calm
+ * outcomes — the on-device rules are kept either way — so they get their own
+ * states instead of the red error box; everything else (NETWORK, SERVER, an
+ * unrecognized code, or a plain Error) falls back to the generic error state.
+ */
+function classifyFailure(e: unknown): DeviceRegistrationState {
+  const code = nativeErrorCode(e);
+  if (code === 'SIGNED_OUT') return {kind: 'signedOut'};
+  if (code === 'SUBSCRIPTION_REQUIRED') return {kind: 'subscriptionRequired'};
+  const message = e instanceof Error ? e.message : String(e);
+  return {kind: 'error', message};
+}
 
 export function useDeviceRegistration(): UseDeviceRegistration {
   const [state, setState] = useState<DeviceRegistrationState>({
@@ -31,8 +49,15 @@ export function useDeviceRegistration(): UseDeviceRegistration {
         setState({kind: 'idle'});
       }
     } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : String(e);
-      setState(showErrors ? {kind: 'error', message} : {kind: 'idle'});
+      const failure = classifyFailure(e);
+      // A silent background refresh (mount) only surfaces the calm states;
+      // a generic error still collapses to idle unless the caller opted in
+      // via showErrors, same suppression as before this hook learned codes.
+      if (failure.kind === 'error' && !showErrors) {
+        setState({kind: 'idle'});
+        return;
+      }
+      setState(failure);
     }
   }, []);
 
@@ -42,8 +67,7 @@ export function useDeviceRegistration(): UseDeviceRegistration {
       const registration = await FilterStatusBridge.registerDevice();
       setState({kind: 'registered', registration});
     } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : String(e);
-      setState({kind: 'error', message});
+      setState(classifyFailure(e));
     }
   }, []);
 

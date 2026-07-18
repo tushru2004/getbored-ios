@@ -4,8 +4,10 @@ import {SafeAreaView, ScrollView, StyleSheet, Text, View} from 'react-native';
 import {ErrorBoundary} from '../components/ErrorBoundary';
 import {DeviceRegistrationCard} from '../components/cards/DeviceRegistrationCard';
 import {FilterListSyncCard} from '../components/cards/FilterListSyncCard';
+import {SignInCard} from '../components/cards/SignInCard';
 import {StatusCard} from '../components/cards/StatusCard';
 import {StatusCardSkeleton} from '../components/cards/StatusCardSkeleton';
+import {AccountState, useAccount} from '../hooks/useAccount';
 import {useFilterStatus} from '../hooks/useFilterStatus';
 import {colors, spacing, typography} from '../theme';
 
@@ -39,18 +41,38 @@ const StatusSection: React.FC = () => {
   }
 };
 
-export const HomeScreen: React.FC = () => (
-  <SafeAreaView style={styles.root}>
-    <ScrollView contentContainerStyle={styles.scroll}>
-      <Text style={styles.header}>GetBored</Text>
-      <ErrorBoundary>
-        <StatusSection />
-        <DeviceRegistrationCard />
-        <FilterListSyncCard />
-      </ErrorBoundary>
-    </ScrollView>
-  </SafeAreaView>
-);
+/**
+ * The register-device and sync cards need a signed-in server session, so
+ * they're gated on account state: shown once signed in, and also shown on
+ * a native build that predates the Account module (`unavailable`) since
+ * there's no signal to gate on there — that's the pre-migration app, and
+ * pre-migration those cards were always visible.
+ */
+function areGatedCardsUnlocked(accountState: AccountState): boolean {
+  return accountState.kind === 'signedIn' || accountState.kind === 'unavailable';
+}
+
+export const HomeScreen: React.FC = () => {
+  const {state: accountState} = useAccount();
+
+  return (
+    <SafeAreaView style={styles.root}>
+      <ScrollView contentContainerStyle={styles.scroll}>
+        <Text style={styles.header}>GetBored</Text>
+        <ErrorBoundary>
+          <StatusSection />
+          <SignInCard />
+          {areGatedCardsUnlocked(accountState) && (
+            <>
+              <DeviceRegistrationCard />
+              <FilterListSyncCard />
+            </>
+          )}
+        </ErrorBoundary>
+      </ScrollView>
+    </SafeAreaView>
+  );
+};
 
 const styles = StyleSheet.create({
   root: {

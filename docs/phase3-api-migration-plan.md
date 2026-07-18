@@ -99,6 +99,24 @@ free-text `model`/`appVersion` fields ("iPhone11,8 · iOS 18.2").
 
 ### iOS (this repo)
 
+> **Status (2026-07-18): i1–i6 done and E2E-verified on the XR against
+> staging** — sign in (native SIWA, refresh token captured server-side, no
+> `redirectUri`) → register (`devices` row) → assign in web admin → sync
+> (policy pulled, `last_seen_at` stamped, rules on device). Deviations:
+> (1) i1 added a parallel `KeychainStore` instead of extending
+> `KeychainDeviceID`; the old file is now dead code, kept for a later
+> cleanup commit (removal needs a pbxproj edit). (2) i5 gained a
+> `NOT_REGISTERED` reject code (sync before registration was a silent
+> no-op under CloudKit; now explicit). (3) The device dict shape changed
+> (`name`/`model`/`appVersion`/`lastSeenAt`/`createdAt`, four of them
+> nullable — `lastSeenAt` is null until the first policy pull). (4) i6
+> also stripped iCloud entitlements from SafariAppProxyProvider (the plan
+> listed only App/FlowInspector/BlockHandler). (5) Found+fixed on the
+> backend during E2E: staging never set `WEB_ALLOWED_ORIGIN`, so the CSRF
+> origin check 403'd all admin writes (compose fix `d23c669`). The
+> sign-in button is a styled stand-in, not `ASAuthorizationAppleIDButton`
+> — revisit before App Store submission (HIG / guideline 4.8).
+
 **i1 — API client + config.** Small `URLSession` client in
 `Sources/iOS/App/` (no dependency): base URL by build config (`#if DEBUG` →
 staging, else prod), Bearer header injection, typed errors distinguishing

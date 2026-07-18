@@ -266,6 +266,16 @@ export const ActiveRulesScreen: React.FC<Props> = ({visible, onClose}) => {
           {state.kind === 'error' && (
             <Text style={styles.errorText}>{state.message}</Text>
           )}
+          {state.kind === 'signedOut' && (
+            <Text style={styles.noticeText}>
+              Sign in again to view your active rules.
+            </Text>
+          )}
+          {state.kind === 'subscriptionRequired' && (
+            <Text style={styles.noticeText}>
+              Filtering has stopped until your subscription is active again.
+            </Text>
+          )}
 
           {state.kind === 'ready' && <RulesContent rules={state.rules} />}
 
@@ -320,6 +330,11 @@ const styles = StyleSheet.create({
   errorText: {
     ...typography.subhead,
     color: colors.danger,
+    margin: spacing.lg,
+  },
+  noticeText: {
+    ...typography.subhead,
+    color: colors.labelSecondary,
     margin: spacing.lg,
   },
 

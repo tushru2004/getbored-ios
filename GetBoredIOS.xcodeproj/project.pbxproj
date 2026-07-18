@@ -72,6 +72,10 @@
 		KCDID010000000000000001 /* KeychainDeviceID.swift in Sources */ = {isa = PBXBuildFile; fileRef = KCDID000000000000000001 /* KeychainDeviceID.swift */; };
 		WLITEM001000000000000001 /* WhitelistItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = WLITEM000000000000000001 /* WhitelistItem.swift */; };
 		WLMGR001000000000000001 /* WhitelistManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = WLMGR000000000000000001 /* WhitelistManager.swift */; };
+		KCSTORE01000000000000001 /* KeychainStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = KCSTORE00000000000000001 /* KeychainStore.swift */; };
+		APICLI010000000000000001 /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = APICLI000000000000000001 /* APIClient.swift */; };
+		ACCTSW010000000000000001 /* AccountModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACCTSW000000000000000001 /* AccountModule.swift */; };
+		ACCTOBJC0100000000000001 /* AccountModule.m in Sources */ = {isa = PBXBuildFile; fileRef = ACCTOBJC0000000000000001 /* AccountModule.m */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -205,6 +209,10 @@
 		KCDID000000000000000001 /* KeychainDeviceID.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = KeychainDeviceID.swift; path = Sources/iOS/App/KeychainDeviceID.swift; sourceTree = SOURCE_ROOT; };
 		WLITEM000000000000000001 /* WhitelistItem.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = WhitelistItem.swift; path = Sources/iOS/App/WhitelistItem.swift; sourceTree = SOURCE_ROOT; };
 		WLMGR000000000000000001 /* WhitelistManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = WhitelistManager.swift; path = Sources/iOS/App/WhitelistManager.swift; sourceTree = SOURCE_ROOT; };
+		KCSTORE00000000000000001 /* KeychainStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = KeychainStore.swift; path = Sources/iOS/App/KeychainStore.swift; sourceTree = SOURCE_ROOT; };
+		APICLI000000000000000001 /* APIClient.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = APIClient.swift; path = Sources/iOS/App/APIClient.swift; sourceTree = SOURCE_ROOT; };
+		ACCTSW000000000000000001 /* AccountModule.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AccountModule.swift; path = Sources/iOS/App/AccountModule.swift; sourceTree = SOURCE_ROOT; };
+		ACCTOBJC0000000000000001 /* AccountModule.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = AccountModule.m; path = Sources/iOS/App/AccountModule.m; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -468,6 +476,10 @@
 				KCDID000000000000000001 /* KeychainDeviceID.swift */,
 				WLITEM000000000000000001 /* WhitelistItem.swift */,
 				WLMGR000000000000000001 /* WhitelistManager.swift */,
+				KCSTORE00000000000000001 /* KeychainStore.swift */,
+				APICLI000000000000000001 /* APIClient.swift */,
+				ACCTSW000000000000000001 /* AccountModule.swift */,
+				ACCTOBJC0000000000000001 /* AccountModule.m */,
 				00E54D0F98645FFEB51C88D6 /* Assets.xcassets */,
 			);
 			name = App;
@@ -1024,6 +1036,10 @@
 				KCDID010000000000000001 /* KeychainDeviceID.swift in Sources */,
 				WLITEM001000000000000001 /* WhitelistItem.swift in Sources */,
 				WLMGR001000000000000001 /* WhitelistManager.swift in Sources */,
+				KCSTORE01000000000000001 /* KeychainStore.swift in Sources */,
+				APICLI010000000000000001 /* APIClient.swift in Sources */,
+				ACCTSW010000000000000001 /* AccountModule.swift in Sources */,
+				ACCTOBJC0100000000000001 /* AccountModule.m in Sources */,
 				6D69476B2FBBC214009321E3 /* FilterStatusModule.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

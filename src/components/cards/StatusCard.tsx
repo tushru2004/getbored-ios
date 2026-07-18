@@ -1,7 +1,7 @@
 import React from 'react';
 import {StyleSheet, Text, View} from 'react-native';
 
-import {FilterStatus, ICloudStatus, StatusViewModel} from '../../native/types';
+import {AccountStatus, FilterStatus, StatusViewModel} from '../../native/types';
 import {colors, radius, spacing, typography, withAlpha} from '../../theme';
 
 type Props = {
@@ -51,14 +51,20 @@ const filterVisual = (filter: FilterStatus): RowVisual => {
   }
 };
 
-const icloudVisual = (icloud: ICloudStatus): RowVisual => {
-  switch (icloud.kind) {
-    case 'available':
-      return {symbol: '☁', tint: colors.info};
-    case 'unavailable':
-      return {symbol: '☁', tint: colors.danger};
-    case 'checking':
-      return {symbol: '…', tint: colors.neutral};
+const accountVisual = (account: AccountStatus): RowVisual => {
+  switch (account.kind) {
+    case 'signedIn':
+      return {
+        symbol: '',
+        tint: colors.success,
+        pill: {text: 'ON', bg: withAlpha(colors.success, 0.12), fg: colors.success},
+      };
+    case 'signedOut':
+      return {
+        symbol: '',
+        tint: colors.warning,
+        pill: {text: 'OFF', bg: withAlpha(colors.warning, 0.12), fg: colors.warning},
+      };
   }
 };
 
@@ -109,7 +115,7 @@ const SetupRequiredNotice: React.FC = () => (
 
 export const StatusCard: React.FC<Props> = ({status}) => {
   const filterRowVisual = filterVisual(status.filter);
-  const icloudRowVisual = icloudVisual(status.icloud);
+  const accountRowVisual = accountVisual(status.account);
   const isFilterInactive = status.filter.kind === 'inactive';
   return (
     <View style={styles.card}>
@@ -121,9 +127,9 @@ export const StatusCard: React.FC<Props> = ({status}) => {
       {isFilterInactive && <SetupRequiredNotice />}
       <View style={styles.divider} />
       <Row
-        title="iCloud Sync"
-        subtitle={status.icloud.label}
-        visual={icloudRowVisual}
+        title="Account"
+        subtitle={status.account.label}
+        visual={accountRowVisual}
       />
     </View>
   );
