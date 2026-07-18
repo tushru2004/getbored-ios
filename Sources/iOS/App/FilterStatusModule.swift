@@ -224,7 +224,7 @@ final class FilterStatusModule: NSObject {
     ///                   ├── .success(snapshot)
     ///                   │       └── DispatchQueue.main.async
     ///                   │               ├── IOSRuleStore.shared.applyFilterListSnapshot(...)
-    ///                   │               └── resolve(nil)
+    ///                   │               └── resolve({sites, exceptions, allowedApps, blockedApps})
     ///                   │
     ///                   └── .failure(error) → reject(for: error, rejecter: reject)
     ///
@@ -256,7 +256,15 @@ final class FilterStatusModule: NSObject {
                         allowedApps: snapshot.allowedApps,
                         blockedApps: snapshot.blockedApps
                     )
-                    resolve(nil)
+                    // Resolve what was just applied so the UI can say
+                    // "12 sites blocked · synced 4:32 PM" instead of a bare
+                    // green pill — the snapshot is in hand, counting is free.
+                    resolve([
+                        "sites": snapshot.entries.count,
+                        "exceptions": snapshot.exceptions.count,
+                        "allowedApps": snapshot.allowedApps.count,
+                        "blockedApps": snapshot.blockedApps.count,
+                    ])
                 }
             case .failure(let error):
                 self.reject(for: error, rejecter: reject)

@@ -27,6 +27,14 @@ export type DeviceRegistrationSnapshot = {
   registration: DeviceRegistration | null;
 };
 
+/** Counts of what a successful sync just applied on-device. */
+export type SyncSummary = {
+  sites: number;
+  exceptions: number;
+  allowedApps: number;
+  blockedApps: number;
+};
+
 export type ActiveRules = {
   mode: 'blockSpecific' | 'whiteList';
   entries: string[];

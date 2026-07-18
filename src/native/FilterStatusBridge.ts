@@ -8,6 +8,7 @@ import {
   DeviceRegistrationSnapshot,
   FilterStatus,
   StatusViewModel,
+  SyncSummary,
 } from './types';
 
 type RawStatus = {
@@ -20,7 +21,7 @@ type NativeFilterStatus = {
   current: () => Promise<RawStatus>;
   registerDevice: () => Promise<DeviceRegistration>;
   currentDeviceRegistration: () => Promise<DeviceRegistrationSnapshot>;
-  syncFilterLists: () => Promise<void>;
+  syncFilterLists: () => Promise<SyncSummary>;
   loadActiveRules: () => Promise<ActiveRules>;
 };
 
@@ -112,7 +113,7 @@ export const FilterStatusBridge = {
     return native.currentDeviceRegistration();
   },
 
-  async syncFilterLists(): Promise<void> {
+  async syncFilterLists(): Promise<SyncSummary> {
     if (!native) throw new NativeModuleUnavailableError('FilterStatus');
     return native.syncFilterLists();
   },

@@ -2,11 +2,12 @@ import {useCallback, useState} from 'react';
 
 import {nativeErrorCode} from '../native/errors';
 import {FilterStatusBridge} from '../native/FilterStatusBridge';
+import {SyncSummary} from '../native/types';
 
 export type FilterListSyncState =
   | {kind: 'idle'}
   | {kind: 'syncing'}
-  | {kind: 'success'}
+  | {kind: 'success'; summary: SyncSummary; syncedAtMs: number}
   | {kind: 'signedOut'}
   | {kind: 'subscriptionRequired'}
   | {kind: 'notRegistered'}
@@ -48,7 +49,7 @@ function classifyFailure(e: unknown): FilterListSyncState {
  *       ▼
  *   FilterStatusBridge.syncFilterLists()  ← async; throws if native unavailable
  *       │
- *       ├── resolves               → setState({success})
+ *       ├── resolves(summary)      → setState({success, summary, syncedAtMs})
  *       └── rejects → classifyFailure(e)
  *               ├── SIGNED_OUT             → setState({signedOut})            ← rules were kept
  *               ├── SUBSCRIPTION_REQUIRED  → setState({subscriptionRequired}) ← filtering stopped on device
@@ -63,8 +64,8 @@ export function useFilterListSync(): UseFilterListSync {
   const sync = useCallback(async () => {
     setState({kind: 'syncing'});
     try {
-      await FilterStatusBridge.syncFilterLists();
-      setState({kind: 'success'});
+      const summary = await FilterStatusBridge.syncFilterLists();
+      setState({kind: 'success', summary, syncedAtMs: Date.now()});
     } catch (e: unknown) {
       setState(classifyFailure(e));
     }

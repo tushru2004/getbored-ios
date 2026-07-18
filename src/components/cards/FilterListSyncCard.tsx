@@ -2,12 +2,39 @@ import React, {useState} from 'react';
 import {Pressable, StyleSheet, Text, View} from 'react-native';
 
 import {FilterListSyncState} from '../../hooks/useFilterListSync';
+import {SyncSummary} from '../../native/types';
 import {ActiveRulesScreen} from '../../screens/ActiveRulesScreen';
 import {colors, radius, spacing, typography, withAlpha} from '../../theme';
 
 function buttonLabel(state: FilterListSyncState): string {
   if (state.kind === 'syncing') return 'Syncing...';
   return 'Sync Now';
+}
+
+function countLabel(count: number, singular: string, plural: string): string {
+  if (count === 1) {
+    return `1 ${singular}`;
+  }
+  return `${count} ${plural}`;
+}
+
+/**
+ * One quiet line of substance under the Synced pill, e.g.
+ * "12 sites blocked · 2 apps blocked · synced 4:32 PM". Sites always show
+ * (including "0 sites blocked" — an admin clearing every list is real news);
+ * apps only when present.
+ */
+function summaryLine(summary: SyncSummary, syncedAtMs: number): string {
+  const parts = [countLabel(summary.sites, 'site blocked', 'sites blocked')];
+  if (summary.blockedApps > 0) {
+    parts.push(countLabel(summary.blockedApps, 'app blocked', 'apps blocked'));
+  }
+  const time = new Date(syncedAtMs).toLocaleTimeString([], {
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+  parts.push(`synced ${time}`);
+  return parts.join(' · ');
 }
 
 type Props = {
@@ -66,6 +93,11 @@ export const FilterListSyncCard: React.FC<Props> = ({state, onSync}) => {
         )}
       </View>
 
+      {state.kind === 'success' && (
+        <Text style={styles.noticeText}>
+          {summaryLine(state.summary, state.syncedAtMs)}
+        </Text>
+      )}
       {state.kind === 'error' && (
         <Text style={styles.errorText}>{state.message}</Text>
       )}
