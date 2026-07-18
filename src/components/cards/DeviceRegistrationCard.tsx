@@ -8,10 +8,7 @@ import {
   ViewStyle,
 } from 'react-native';
 
-import {
-  DeviceRegistrationState,
-  useDeviceRegistration,
-} from '../../hooks/useDeviceRegistration';
+import {DeviceRegistrationState} from '../../hooks/useDeviceRegistration';
 import {DeviceRegistration} from '../../native/types';
 import {colors, radius, spacing, typography, withAlpha} from '../../theme';
 
@@ -21,7 +18,6 @@ const RegistrationDetails: React.FC<{registration: DeviceRegistration}> = ({
   <View style={styles.details}>
     <Text style={styles.detailText}>{registration.name}</Text>
     <Text style={styles.metaText}>{registration.model}</Text>
-    <Text style={styles.metaText}>Device ID {registration.id}</Text>
   </View>
 );
 
@@ -37,33 +33,44 @@ function statusTone(state: DeviceRegistrationState): Tone {
 
 function statusLabel(state: DeviceRegistrationState): string {
   if (state.kind === 'checking') return 'Checking';
-  if (state.kind === 'registered') return 'Registered';
+  if (state.kind === 'registered') return 'Connected';
   if (state.kind === 'signedOut') return 'Signed out';
   if (state.kind === 'subscriptionRequired') return 'Subscription required';
-  return 'Not registered';
+  return 'Not connected';
 }
 
 function buttonLabel(state: DeviceRegistrationState): string {
   if (state.kind === 'checking') return 'Checking...';
-  if (state.kind === 'saving') return 'Registering...';
-  if (state.kind === 'registered') return 'Refresh Sync';
-  return 'Set Up This Device';
+  if (state.kind === 'saving') return 'Connecting...';
+  return 'Connect This Device';
 }
 
-export const DeviceRegistrationCard: React.FC = () => {
-  const {state, register} = useDeviceRegistration();
+type Props = {
+  state: DeviceRegistrationState;
+  onConnect: () => void;
+};
+
+/**
+ * Presentational card for the device's server connection. Connecting happens
+ * automatically after sign-in (see useConnectedApp); the button renders only
+ * pre-connection as a manual retry for failed/edge cases, and disappears
+ * once the device is connected — there is nothing for a human to do then.
+ */
+export const DeviceRegistrationCard: React.FC<Props> = ({state, onConnect}) => {
   const isBusy = state.kind === 'checking' || state.kind === 'saving';
   const isBlocked =
-    state.kind === 'signedOut' || state.kind === 'subscriptionRequired';
+    state.kind === 'signedOut' ||
+    state.kind === 'subscriptionRequired' ||
+    state.kind === 'registered';
   const tone = statusTone(state);
 
   return (
     <View style={styles.card}>
       <View style={styles.headerRow}>
         <View style={styles.titleColumn}>
-          <Text style={styles.title}>Device Sync</Text>
+          <Text style={styles.title}>This Device</Text>
           <Text style={styles.subtitle}>
-            Sync this device to your GetBored account so your rules follow you everywhere.
+            Connected devices receive the rules you manage in your GetBored account.
           </Text>
         </View>
         <View style={[styles.statusPill, TONE_PILL_STYLE[tone]]}>
@@ -93,7 +100,7 @@ export const DeviceRegistrationCard: React.FC = () => {
       {!isBlocked && (
         <Pressable
           disabled={isBusy}
-          onPress={register}
+          onPress={onConnect}
           style={({pressed}) => [
             styles.button,
             (pressed || isBusy) && styles.buttonPressed,

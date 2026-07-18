@@ -1,31 +1,35 @@
 import React, {useState} from 'react';
 import {Pressable, StyleSheet, Text, View} from 'react-native';
 
-import {
-  FilterListSyncState,
-  useFilterListSync,
-} from '../../hooks/useFilterListSync';
+import {FilterListSyncState} from '../../hooks/useFilterListSync';
 import {ActiveRulesScreen} from '../../screens/ActiveRulesScreen';
 import {colors, radius, spacing, typography, withAlpha} from '../../theme';
 
 function buttonLabel(state: FilterListSyncState): string {
-  if (state.kind === 'syncing') return 'Refreshing...';
-  return 'Refresh Settings';
+  if (state.kind === 'syncing') return 'Syncing...';
+  return 'Sync Now';
 }
 
+type Props = {
+  state: FilterListSyncState;
+  onSync: () => void;
+};
+
 /**
- * Card that triggers a filter-list refresh from the server and links to the
- * read-only rules modal. Two independent pieces of state drive the render:
+ * Card showing the rule-sync lifecycle and linking to the read-only rules
+ * modal. Presentational: syncing runs automatically (after connect, and on
+ * every app foreground — see useConnectedApp); the button is a manual
+ * "pull right now" for impatient moments and error retries.
  *
- *   useFilterListSync().state  ← sync lifecycle
+ *   state (from useConnectedApp)
  *       │
- *       ├── 'syncing'              → button disabled + "Refreshing...", pressed style forced
+ *       ├── 'syncing'              → button disabled + "Syncing...", pressed style forced
  *       ├── 'success'              → "Synced" pill in header
  *       ├── 'signedOut'            → notice line, sync button hidden (rules were kept)
  *       ├── 'subscriptionRequired' → notice line, sync button hidden (filtering stopped)
- *       ├── 'notRegistered'        → notice line, sync button hidden (register the device first)
+ *       ├── 'notRegistered'        → notice line, button kept (retry after connecting)
  *       ├── 'error'                → error message line under header
- *       └── 'idle'                 → plain "Refresh Settings" button
+ *       └── 'idle'                 → plain "Sync Now" button
  *
  *   showRules (local)          ← modal visibility
  *       │
@@ -36,12 +40,11 @@ function buttonLabel(state: FilterListSyncState): string {
  * it reads are the last ones applied on-device, which stay valid through
  * signedOut/subscriptionRequired, so viewing them is never blocked.
  */
-export const FilterListSyncCard: React.FC = () => {
-  const {state, sync} = useFilterListSync();
+export const FilterListSyncCard: React.FC<Props> = ({state, onSync}) => {
   const isSyncing = state.kind === 'syncing';
-  // notRegistered keeps the button: the fix (registering, in the card above)
+  // notRegistered keeps the button: the fix (connecting, in the card above)
   // doesn't reset this card's state, so hiding the button here would leave no
-  // way to retry after registering. signedOut/subscriptionRequired still hide
+  // way to retry after connecting. signedOut/subscriptionRequired still hide
   // it — their fixes (signing in / reactivating) re-render the whole screen.
   const isBlocked =
     state.kind === 'signedOut' || state.kind === 'subscriptionRequired';
@@ -78,14 +81,14 @@ export const FilterListSyncCard: React.FC = () => {
       )}
       {state.kind === 'notRegistered' && (
         <Text style={styles.noticeText}>
-          Set up this device above before syncing.
+          Connect this device above before syncing.
         </Text>
       )}
 
       {!isBlocked && (
         <Pressable
           disabled={isSyncing}
-          onPress={sync}
+          onPress={onSync}
           style={({pressed}) => {
             const showPressedStyle = pressed || isSyncing;
             return [styles.button, showPressedStyle && styles.buttonPressed];

@@ -191,10 +191,14 @@ final class AccountModule: NSObject {
         ) { result in
             switch result {
             case .success(let me):
-                resolve(["signedIn": true, "userId": me.userId])
+                var payload: [String: Any] = ["signedIn": true, "userId": me.userId]
+                if let email = me.contactEmail ?? me.identityEmail {
+                    payload["email"] = email
+                }
+                resolve(payload)
             case .failure:
                 // Keychain presence already answered "signedIn" above; a
-                // failed enrichment call just means "userId" is omitted.
+                // failed enrichment call just means userId/email are omitted.
                 resolve(["signedIn": true])
             }
         }
@@ -379,10 +383,13 @@ private struct AppleSignInResponse: Decodable {
     let userId: String
 }
 
-/// GET /api/me response body, narrowed to the one field `currentAccount`
-/// uses. `JSONDecoder` ignores undeclared response fields (contactEmail,
-/// identityEmail, plan), so this stays decoupled from fields this module
-/// never reads.
+/// GET /api/me response body, narrowed to the fields `currentAccount` uses.
+/// `JSONDecoder` ignores undeclared response fields (plan), so this stays
+/// decoupled from fields this module never reads. Both email fields are
+/// nullable on the wire; `contactEmail` is the user-managed address and wins
+/// over `identityEmail` (the Apple-provided one, possibly a private relay).
 private struct MeResponse: Decodable {
     let userId: String
+    let contactEmail: String?
+    let identityEmail: String?
 }

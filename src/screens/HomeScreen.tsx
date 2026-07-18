@@ -7,7 +7,8 @@ import {FilterListSyncCard} from '../components/cards/FilterListSyncCard';
 import {SignInCard} from '../components/cards/SignInCard';
 import {StatusCard} from '../components/cards/StatusCard';
 import {StatusCardSkeleton} from '../components/cards/StatusCardSkeleton';
-import {AccountState, useAccount} from '../hooks/useAccount';
+import {AccountState} from '../hooks/useAccount';
+import {useConnectedApp} from '../hooks/useConnectedApp';
 import {useFilterStatus} from '../hooks/useFilterStatus';
 import {colors, spacing, typography} from '../theme';
 
@@ -53,7 +54,7 @@ function areGatedCardsUnlocked(accountState: AccountState): boolean {
 }
 
 export const HomeScreen: React.FC = () => {
-  const {state: accountState} = useAccount();
+  const {account, registration, filterSync} = useConnectedApp();
 
   return (
     <SafeAreaView style={styles.root}>
@@ -61,11 +62,21 @@ export const HomeScreen: React.FC = () => {
         <Text style={styles.header}>GetBored</Text>
         <ErrorBoundary>
           <StatusSection />
-          <SignInCard />
-          {areGatedCardsUnlocked(accountState) && (
+          <SignInCard
+            account={account.state}
+            onSignIn={account.signIn}
+            onSignOut={account.signOut}
+          />
+          {areGatedCardsUnlocked(account.state) && (
             <>
-              <DeviceRegistrationCard />
-              <FilterListSyncCard />
+              <DeviceRegistrationCard
+                state={registration.state}
+                onConnect={registration.register}
+              />
+              <FilterListSyncCard
+                state={filterSync.state}
+                onSync={filterSync.sync}
+              />
             </>
           )}
         </ErrorBoundary>

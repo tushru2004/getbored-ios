@@ -1,25 +1,25 @@
 import React from 'react';
 import {ActivityIndicator, Pressable, StyleSheet, Text, View} from 'react-native';
 
-import {useAccount} from '../../hooks/useAccount';
+import {AccountState} from '../../hooks/useAccount';
 import {colors, radius, spacing, typography} from '../../theme';
 
 const APPLE_GLYPH = '';
 
 type SignedInBodyProps = {
-  userId?: string;
+  email?: string;
   onSignOut: () => void;
 };
 
-const SignedInBody: React.FC<SignedInBodyProps> = ({userId, onSignOut}) => (
+const SignedInBody: React.FC<SignedInBodyProps> = ({email, onSignOut}) => (
   <>
     <View style={styles.signedInRow}>
       <View style={styles.statusDot} />
       <View style={styles.signedInTextCol}>
         <Text style={styles.signedInTitle}>Signed in</Text>
-        {userId && (
+        {email && (
           <Text style={styles.signedInSubtitle} numberOfLines={1}>
-            {userId}
+            {email}
           </Text>
         )}
       </View>
@@ -59,20 +59,27 @@ const SignInButton: React.FC<SignInButtonProps> = ({busy, onPress}) => (
   </Pressable>
 );
 
+type Props = {
+  account: AccountState;
+  onSignIn: () => void;
+  onSignOut: () => void;
+};
+
 /**
- * Home-screen account card. Drives its own useAccount() instance (see that
- * hook's doc comment for why a second independent instance in HomeScreen's
- * gating check is the right call rather than lifting this state).
+ * Home-screen account card. Purely presentational: account state lives in
+ * useConnectedApp (HomeScreen owns the single instance and passes it down),
+ * so this card, the gating logic, and the auto-register/auto-sync effects
+ * all read the same state machine.
  *
- *   state.kind
+ *   account.kind
  *     │
  *     ├── 'unavailable'                          → render nothing (older native build)
  *     ├── 'error'                                 → message, then the sign-in button as retry
  *     ├── 'checking' | 'signedOut' | 'signingIn'  → sign-in button (busy while checking/signingIn)
- *     └── 'signedIn'                               → signed-in row + Sign Out
+ *     └── 'signedIn'                               → signed-in row (account email) + Sign Out
  */
-export const SignInCard: React.FC = () => {
-  const {state, signIn, signOut} = useAccount();
+export const SignInCard: React.FC<Props> = ({account, onSignIn, onSignOut}) => {
+  const state = account;
 
   if (state.kind === 'unavailable') return null;
 
@@ -84,7 +91,7 @@ export const SignInCard: React.FC = () => {
       </Text>
 
       {state.kind === 'signedIn' && (
-        <SignedInBody userId={state.userId} onSignOut={signOut} />
+        <SignedInBody email={state.email} onSignOut={onSignOut} />
       )}
 
       {state.kind === 'error' && (
@@ -94,7 +101,7 @@ export const SignInCard: React.FC = () => {
       {state.kind !== 'signedIn' && (
         <SignInButton
           busy={state.kind === 'checking' || state.kind === 'signingIn'}
-          onPress={signIn}
+          onPress={onSignIn}
         />
       )}
     </View>

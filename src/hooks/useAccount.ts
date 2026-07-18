@@ -8,7 +8,7 @@ export type AccountState =
   | {kind: 'checking'}
   | {kind: 'signedOut'}
   | {kind: 'signingIn'}
-  | {kind: 'signedIn'; userId?: string}
+  | {kind: 'signedIn'; userId?: string; email?: string}
   | {kind: 'error'; message: string};
 
 export type UseAccount = {
@@ -19,11 +19,9 @@ export type UseAccount = {
 };
 
 /**
- * Drives the account/sign-in lifecycle: backs SignInCard directly, and
- * HomeScreen calls it a second time to decide whether the register/sync
- * cards are unlocked. Both call sites read the same cheap Keychain-presence
- * check, so there's no shared store to wire up — just two independent
- * instances of this hook converging on the same answer.
+ * Drives the account/sign-in lifecycle. Instantiated exactly once, by
+ * useConnectedApp — HomeScreen passes the state down to SignInCard and uses
+ * it for gating, so every consumer reads the same state machine.
  *
  * Call flow:
  *
@@ -73,7 +71,11 @@ export function useAccount(): UseAccount {
     try {
       const summary = await AccountBridge.currentAccount();
       if (summary.signedIn) {
-        setState({kind: 'signedIn', userId: summary.userId});
+        setState({
+          kind: 'signedIn',
+          userId: summary.userId,
+          email: summary.email,
+        });
       } else {
         setState({kind: 'signedOut'});
       }
