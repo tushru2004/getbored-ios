@@ -202,6 +202,48 @@ final class FilterStatusModule: NSObject {
         }
     }
 
+    /// Turns the content filter on from inside the app (the "Turn Filtering
+    /// On" hero button) instead of sending the user to Settings. Saving the
+    /// configuration makes iOS raise its own consent prompt when needed;
+    /// on this app's already-configured devices it re-enables silently.
+    ///
+    /// Call flow:
+    ///
+    ///   NEFilterManager.loadFromPreferences
+    ///           │
+    ///           ├── load error → reject(SERVER)
+    ///           └── ok
+    ///                ├── no providerConfiguration yet → create one (filterSockets)
+    ///                ├── isEnabled = true
+    ///                ▼
+    ///           saveToPreferences
+    ///                ├── save error (incl. user denying the consent prompt) → reject(SERVER)
+    ///                └── ok → resolve(nil)   ← caller re-reads current() for the new state
+    @objc func enableFilter(_ resolve: @escaping RCTPromiseResolveBlock,
+                            rejecter reject: @escaping RCTPromiseRejectBlock) {
+        let manager = NEFilterManager.shared()
+        manager.loadFromPreferences { loadError in
+            if let loadError {
+                reject("SERVER", loadError.localizedDescription, loadError)
+                return
+            }
+            if manager.providerConfiguration == nil {
+                let configuration = NEFilterProviderConfiguration()
+                configuration.filterSockets = true
+                manager.providerConfiguration = configuration
+            }
+            manager.localizedDescription = "GetBored"
+            manager.isEnabled = true
+            manager.saveToPreferences { saveError in
+                if let saveError {
+                    reject("SERVER", saveError.localizedDescription, saveError)
+                    return
+                }
+                resolve(nil)
+            }
+        }
+    }
+
     // MARK: - Filter List Sync
 
     /// Pulls this device's already-merged policy from the server and writes it

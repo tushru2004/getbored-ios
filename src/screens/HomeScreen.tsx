@@ -1,90 +1,313 @@
-import React from 'react';
-import {SafeAreaView, ScrollView, StyleSheet, Text, View} from 'react-native';
+import React, {useCallback, useState} from 'react';
+import {
+  ActivityIndicator,
+  Pressable,
+  RefreshControl,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 
+import {AccountSheet} from '../components/AccountSheet';
 import {ErrorBoundary} from '../components/ErrorBoundary';
-import {DeviceRegistrationCard} from '../components/cards/DeviceRegistrationCard';
-import {FilterListSyncCard} from '../components/cards/FilterListSyncCard';
-import {SignInCard} from '../components/cards/SignInCard';
-import {StatusCard} from '../components/cards/StatusCard';
-import {StatusCardSkeleton} from '../components/cards/StatusCardSkeleton';
+import {StillWaterRings} from '../components/StillWaterRings';
 import {AccountState} from '../hooks/useAccount';
 import {useConnectedApp} from '../hooks/useConnectedApp';
-import {useFilterStatus} from '../hooks/useFilterStatus';
-import {colors, spacing, typography} from '../theme';
+import {DeviceRegistrationState} from '../hooks/useDeviceRegistration';
+import {FilterListSyncState} from '../hooks/useFilterListSync';
+import {FilterStatusState, useFilterStatus} from '../hooks/useFilterStatus';
+import {SyncSummary} from '../native/types';
+import {colors, radius, spacing, typography} from '../theme';
+import {ActiveRulesScreen} from './ActiveRulesScreen';
 
-/**
- * Picks the right card for the current filter-status fetch state.
- *
- *   useFilterStatus().state.kind
- *       │
- *       ├── 'loading' → <StatusCardSkeleton />
- *       ├── 'ready'   → <StatusCard status={state.status} />
- *       └── 'error'   → error box with "Tap to retry" → refresh()
- */
-const StatusSection: React.FC = () => {
-  const {state, refresh} = useFilterStatus();
+// ─── Hero derivation ───────────────────────────────────────────────────────
 
-  switch (state.kind) {
-    case 'loading':
-      return <StatusCardSkeleton />;
-    case 'ready':
-      return <StatusCard status={state.status} />;
-    case 'error':
-      return (
-        <View style={styles.errorBox}>
-          <Text style={styles.errorTitle}>Couldn’t load status</Text>
-          <Text style={styles.errorMessage}>{state.message}</Text>
-          <Text style={styles.errorRetry} onPress={refresh}>
-            Tap to retry
-          </Text>
-        </View>
-      );
-  }
+type Hero = {
+  word: string;
+  color: string;
+  variant: 'closed' | 'open';
+  substance: string;
+  showEnable: boolean;
 };
 
-/**
- * The register-device and sync cards need a signed-in server session, so
- * they're gated on account state: shown once signed in, and also shown on
- * a native build that predates the Account module (`unavailable`) since
- * there's no signal to gate on there — that's the pre-migration app, and
- * pre-migration those cards were always visible.
- */
-function areGatedCardsUnlocked(accountState: AccountState): boolean {
-  return accountState.kind === 'signedIn' || accountState.kind === 'unavailable';
+function countLabel(count: number, singular: string, plural: string): string {
+  if (count === 1) {
+    return `1 ${singular}`;
+  }
+  return `${count} ${plural}`;
 }
+
+function summaryLine(summary: SyncSummary, syncedAtMs: number): string {
+  const parts = [countLabel(summary.sites, 'site blocked', 'sites blocked')];
+  if (summary.blockedApps > 0) {
+    parts.push(countLabel(summary.blockedApps, 'app blocked', 'apps blocked'));
+  }
+  const time = new Date(syncedAtMs).toLocaleTimeString([], {
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+  parts.push(`synced ${time}`);
+  return parts.join(' · ');
+}
+
+/** The quiet line under the state word, in precedence order. */
+function substanceLine(
+  sync: FilterListSyncState,
+  registration: DeviceRegistrationState,
+): string {
+  if (registration.kind === 'saving') {
+    return 'Connecting this iPhone…';
+  }
+  if (sync.kind === 'syncing') {
+    return 'Syncing…';
+  }
+  if (sync.kind === 'success') {
+    return summaryLine(sync.summary, sync.syncedAtMs);
+  }
+  if (sync.kind === 'notRegistered') {
+    return 'Waiting to connect…';
+  }
+  if (sync.kind === 'error') {
+    return sync.message;
+  }
+  return '';
+}
+
+/**
+ * Collapses filter status + sync + registration into the one answer the top
+ * half of the screen exists to give. Subscription lapse and a disabled
+ * filter both read as "Paused" — in both cases the truth is: not filtering.
+ */
+function deriveHero(
+  filter: FilterStatusState,
+  sync: FilterListSyncState,
+  registration: DeviceRegistrationState,
+): Hero {
+  if (sync.kind === 'subscriptionRequired') {
+    return {
+      word: 'Paused',
+      color: colors.warning,
+      variant: 'open',
+      substance: 'Subscription required — filtering stopped',
+      showEnable: false,
+    };
+  }
+  if (filter.kind === 'loading') {
+    return {
+      word: 'Checking…',
+      color: colors.neutral,
+      variant: 'closed',
+      substance: '',
+      showEnable: false,
+    };
+  }
+  if (filter.kind === 'error') {
+    return {
+      word: 'Unknown',
+      color: colors.neutral,
+      variant: 'open',
+      substance: filter.message,
+      showEnable: false,
+    };
+  }
+  const filterKind = filter.status.filter.kind;
+  if (filterKind === 'inactive') {
+    return {
+      word: 'Paused',
+      color: colors.warning,
+      variant: 'open',
+      substance: 'The content filter is turned off',
+      showEnable: true,
+    };
+  }
+  if (filterKind === 'active') {
+    return {
+      word: 'Protected',
+      color: colors.success,
+      variant: 'closed',
+      substance: substanceLine(sync, registration),
+      showEnable: false,
+    };
+  }
+  return {
+    word: 'Checking…',
+    color: colors.neutral,
+    variant: 'closed',
+    substance: '',
+    showEnable: false,
+  };
+}
+
+// ─── Welcome (signed out / deleting) ───────────────────────────────────────
+
+type WelcomeProps = {
+  account: AccountState;
+  onSignIn: () => void;
+};
+
+const Welcome: React.FC<WelcomeProps> = ({account, onSignIn}) => {
+  const busy =
+    account.kind === 'checking' ||
+    account.kind === 'signingIn' ||
+    account.kind === 'deleting';
+  const tagline =
+    account.kind === 'deleting'
+      ? 'Deleting your account…'
+      : 'Block the noise.\nKeep the calm.';
+
+  return (
+    <View style={styles.welcome}>
+      <StillWaterRings size={140} color={colors.info} variant="closed" />
+      <Text style={styles.welcomeWordmark}>GetBored</Text>
+      <Text style={styles.welcomeTagline}>{tagline}</Text>
+      {account.kind === 'error' && (
+        <Text style={styles.welcomeError}>{account.message}</Text>
+      )}
+      <Pressable
+        disabled={busy}
+        onPress={onSignIn}
+        style={({pressed}) => [
+          styles.appleButton,
+          (pressed || busy) && styles.pressedDim,
+        ]}>
+        {busy ? (
+          <ActivityIndicator color="#FFFFFF" />
+        ) : (
+          <Text style={styles.appleButtonText}>Sign in with Apple</Text>
+        )}
+      </Pressable>
+      <Text style={styles.welcomeLegal}>
+        One account. Rules managed from your admin.
+      </Text>
+    </View>
+  );
+};
+
+// ─── Home ──────────────────────────────────────────────────────────────────
 
 export const HomeScreen: React.FC = () => {
   const {account, registration, filterSync} = useConnectedApp();
+  const filterStatus = useFilterStatus();
+  const [showAccount, setShowAccount] = useState(false);
+  const [showRules, setShowRules] = useState(false);
+  const [pulling, setPulling] = useState(false);
+
+  const {sync} = filterSync;
+  const {refresh: refreshStatus, enable} = filterStatus;
+
+  const onPullRefresh = useCallback(async () => {
+    setPulling(true);
+    try {
+      await Promise.all([sync(), refreshStatus()]);
+    } finally {
+      setPulling(false);
+    }
+  }, [sync, refreshStatus]);
+
+  const signedIn = account.state.kind === 'signedIn';
+  const accountAbsent = account.state.kind === 'unavailable';
+  const showMain = signedIn || accountAbsent;
+
+  const hero = deriveHero(filterStatus.state, filterSync.state, registration.state);
+  const accountEmail =
+    account.state.kind === 'signedIn' ? account.state.email : undefined;
+  const connected = registration.state.kind === 'registered';
+  const rulesValue =
+    filterSync.state.kind === 'success'
+      ? countLabel(filterSync.state.summary.sites, 'site', 'sites')
+      : '—';
 
   return (
     <SafeAreaView style={styles.root}>
-      <ScrollView contentContainerStyle={styles.scroll}>
-        <Text style={styles.header}>GetBored</Text>
-        <ErrorBoundary>
-          <StatusSection />
-          <SignInCard
-            account={account.state}
-            onSignIn={account.signIn}
-            onSignOut={account.signOut}
-            onDeleteAccount={account.deleteAccount}
-          />
-          {areGatedCardsUnlocked(account.state) && (
-            <>
-              <DeviceRegistrationCard
-                state={registration.state}
-                onConnect={registration.register}
-              />
-              <FilterListSyncCard
-                state={filterSync.state}
-                onSync={filterSync.sync}
-              />
-            </>
-          )}
-        </ErrorBoundary>
-      </ScrollView>
+      <ErrorBoundary>
+        {!showMain && (
+          <Welcome account={account.state} onSignIn={account.signIn} />
+        )}
+
+        {showMain && (
+          <ScrollView
+            contentContainerStyle={styles.scroll}
+            refreshControl={
+              <RefreshControl refreshing={pulling} onRefresh={onPullRefresh} />
+            }>
+            <Text style={styles.wordmark}>GetBored</Text>
+
+            <View style={styles.hero}>
+              <StillWaterRings size={120} color={hero.color} variant={hero.variant} />
+              <Text style={[styles.stateWord, {color: heroWordColor(hero)}]}>
+                {hero.word}
+              </Text>
+              {hero.substance !== '' && (
+                <Text style={styles.substance}>{hero.substance}</Text>
+              )}
+            </View>
+
+            {hero.showEnable && (
+              <Pressable
+                onPress={enable}
+                style={({pressed}) => [styles.cta, pressed && styles.pressedDim]}>
+                <Text style={styles.ctaText}>Turn Filtering On</Text>
+              </Pressable>
+            )}
+
+            <View style={styles.rows}>
+              {signedIn && (
+                <Pressable
+                  style={({pressed}) => [styles.row, pressed && styles.pressedDim]}
+                  onPress={() => setShowAccount(true)}>
+                  <View
+                    style={[
+                      styles.dot,
+                      {backgroundColor: connected ? colors.success : colors.warning},
+                    ]}
+                  />
+                  <Text style={styles.rowLabel}>Account</Text>
+                  <Text style={styles.rowValue} numberOfLines={1}>
+                    {accountEmail ?? 'Signed in'}
+                  </Text>
+                  <Text style={styles.chevron}>›</Text>
+                </Pressable>
+              )}
+              <Pressable
+                style={({pressed}) => [styles.row, pressed && styles.pressedDim]}
+                onPress={() => setShowRules(true)}>
+                <Text style={styles.rowLabel}>Active rules</Text>
+                <Text style={styles.rowValue}>{rulesValue}</Text>
+                <Text style={styles.chevron}>›</Text>
+              </Pressable>
+            </View>
+
+            <Text style={styles.footerWhisper}>
+              This iPhone syncs automatically.
+            </Text>
+          </ScrollView>
+        )}
+      </ErrorBoundary>
+
+      <AccountSheet
+        visible={showAccount}
+        onClose={() => setShowAccount(false)}
+        email={accountEmail}
+        registration={registration.state}
+        onSignOut={account.signOut}
+        onDeleteAccount={account.deleteAccount}
+      />
+      <ActiveRulesScreen
+        visible={showRules}
+        onClose={() => setShowRules(false)}
+      />
     </SafeAreaView>
   );
 };
+
+function heroWordColor(hero: Hero): string {
+  if (hero.word === 'Paused') {
+    return '#8A5C14';
+  }
+  return colors.label;
+}
 
 const styles = StyleSheet.create({
   root: {
@@ -92,32 +315,133 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   scroll: {
-    paddingVertical: spacing.lg,
+    flexGrow: 1,
+    paddingHorizontal: spacing.xl,
+    paddingBottom: spacing.xxl,
   },
-  header: {
-    ...typography.title,
+  wordmark: {
+    ...typography.wordmark,
     color: colors.label,
-    marginHorizontal: spacing.lg,
-    marginBottom: spacing.md,
+    paddingTop: spacing.md,
   },
-  errorBox: {
-    marginHorizontal: spacing.lg,
-    padding: spacing.lg,
-    backgroundColor: colors.surface,
-    borderRadius: 12,
+  hero: {
+    alignItems: 'center',
+    paddingTop: spacing.xxl + spacing.md,
+    paddingBottom: spacing.xxl,
+    gap: spacing.lg,
   },
-  errorTitle: {
-    ...typography.headline,
-    color: colors.label,
-    marginBottom: spacing.xs,
+  stateWord: {
+    ...typography.hero,
+    marginTop: spacing.sm,
   },
-  errorMessage: {
+  substance: {
     ...typography.subhead,
+    fontSize: 14,
     color: colors.labelSecondary,
-    marginBottom: spacing.md,
+    fontVariant: ['tabular-nums'],
+    textAlign: 'center',
   },
-  errorRetry: {
+  cta: {
+    backgroundColor: colors.info,
+    borderRadius: radius.md + 2,
+    alignItems: 'center',
+    paddingVertical: spacing.lg,
+    marginBottom: spacing.xl,
+  },
+  ctaText: {
     ...typography.body,
-    color: colors.info,
+    fontSize: 16,
+    color: colors.background,
+  },
+  rows: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.separator,
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingVertical: spacing.lg,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.separator,
+  },
+  dot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+  },
+  rowLabel: {
+    ...typography.body,
+    color: colors.label,
+  },
+  rowValue: {
+    ...typography.subhead,
+    fontSize: 14,
+    color: colors.labelSecondary,
+    marginLeft: 'auto',
+    maxWidth: 170,
+    fontVariant: ['tabular-nums'],
+  },
+  chevron: {
+    ...typography.body,
+    color: colors.neutral,
+  },
+  footerWhisper: {
+    ...typography.caption,
+    fontWeight: '400',
+    color: colors.neutral,
+    textAlign: 'center',
+    marginTop: 'auto',
+    paddingTop: spacing.xxl,
+  },
+  pressedDim: {
+    opacity: 0.6,
+  },
+
+  // Welcome
+  welcome: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.xl,
+    paddingBottom: spacing.xxl * 2,
+  },
+  welcomeWordmark: {
+    ...typography.wordmarkLarge,
+    color: colors.label,
+    marginTop: spacing.xl,
+  },
+  welcomeTagline: {
+    ...typography.subhead,
+    fontSize: 15,
+    lineHeight: 22,
+    color: colors.labelSecondary,
+    textAlign: 'center',
+    marginTop: spacing.sm,
+  },
+  welcomeError: {
+    ...typography.subhead,
+    color: colors.danger,
+    textAlign: 'center',
+    marginTop: spacing.md,
+  },
+  appleButton: {
+    alignSelf: 'stretch',
+    alignItems: 'center',
+    backgroundColor: '#0B0B0B',
+    borderRadius: radius.md + 2,
+    paddingVertical: spacing.lg,
+    marginTop: spacing.xl,
+  },
+  appleButtonText: {
+    ...typography.body,
+    fontSize: 16,
+    color: '#FFFFFF',
+  },
+  welcomeLegal: {
+    ...typography.caption,
+    fontWeight: '400',
+    color: colors.neutral,
+    marginTop: spacing.md,
   },
 });

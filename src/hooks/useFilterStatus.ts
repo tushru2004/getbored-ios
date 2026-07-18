@@ -13,6 +13,8 @@ export type FilterStatusState =
 export type UseFilterStatus = {
   state: FilterStatusState;
   refresh: () => void;
+  /** In-app filter enable ("Turn Filtering On"); reloads status after. */
+  enable: () => Promise<void>;
 };
 
 export function useFilterStatus(): UseFilterStatus {
@@ -39,5 +41,16 @@ export function useFilterStatus(): UseFilterStatus {
     };
   }, [load]);
 
-  return {state, refresh: load};
+  const enable = useCallback(async () => {
+    try {
+      await FilterStatusBridge.enableFilter();
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : String(e);
+      if (mountedRef.current) setState({kind: 'error', message});
+      return;
+    }
+    await load();
+  }, [load]);
+
+  return {state, refresh: load, enable};
 }
