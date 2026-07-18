@@ -7,6 +7,7 @@ type NativeAccount = {
   signIn: () => Promise<SignInResult>;
   signOut: () => Promise<void>;
   currentAccount: () => Promise<AccountSummary>;
+  deleteAccount: () => Promise<void>;
 };
 
 const native = (NativeModules as {Account?: NativeAccount}).Account;
@@ -35,5 +36,10 @@ export const AccountBridge = {
   async currentAccount(): Promise<AccountSummary> {
     if (!native) throw new NativeModuleUnavailableError('Account');
     return native.currentAccount();
+  },
+
+  async deleteAccount(): Promise<void> {
+    if (!native) throw new NativeModuleUnavailableError('Account');
+    return native.deleteAccount();
   },
 };

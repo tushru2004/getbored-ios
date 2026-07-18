@@ -9,12 +9,14 @@ export type AccountState =
   | {kind: 'signedOut'}
   | {kind: 'signingIn'}
   | {kind: 'signedIn'; userId?: string; email?: string}
+  | {kind: 'deleting'}
   | {kind: 'error'; message: string};
 
 export type UseAccount = {
   state: AccountState;
   signIn: () => Promise<void>;
   signOut: () => Promise<void>;
+  deleteAccount: () => Promise<void>;
   refresh: () => Promise<void>;
 };
 
@@ -108,9 +110,32 @@ export function useAccount(): UseAccount {
     }
   }, []);
 
+  /**
+   * Permanent account deletion (App Review 5.1.1(v)). Native clears the
+   * session, the server device id, and the applied rules on success, so
+   * landing on {signedOut} here reflects true local state. A SIGNED_OUT
+   * rejection means there was no live session to begin with — same outcome.
+   * Other failures keep local state intact (native contract) so the user
+   * can simply retry.
+   */
+  const deleteAccount = useCallback(async () => {
+    setState({kind: 'deleting'});
+    try {
+      await AccountBridge.deleteAccount();
+      setState({kind: 'signedOut'});
+    } catch (e: unknown) {
+      if (nativeErrorCode(e) === 'SIGNED_OUT') {
+        setState({kind: 'signedOut'});
+        return;
+      }
+      const message = e instanceof Error ? e.message : String(e);
+      setState({kind: 'error', message});
+    }
+  }, []);
+
   useEffect(() => {
     refresh();
   }, [refresh]);
 
-  return {state, signIn, signOut, refresh};
+  return {state, signIn, signOut, deleteAccount, refresh};
 }

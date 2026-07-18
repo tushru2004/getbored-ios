@@ -11,4 +11,7 @@ RCT_EXTERN_METHOD(signOut:(RCTPromiseResolveBlock)resolve
 RCT_EXTERN_METHOD(currentAccount:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject)
 
+RCT_EXTERN_METHOD(deleteAccount:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject)
+
 @end

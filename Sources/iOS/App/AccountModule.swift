@@ -3,6 +3,7 @@ import AuthenticationServices
 import CryptoKit
 import UIKit
 import React
+import GetBoredCore
 
 /// Native Sign in with Apple bridge, exposed to JS as `NativeModules.Account`
 /// (see the `RCT_EXTERN_MODULE(Account, ...)` declaration in AccountModule.m).
@@ -154,6 +155,53 @@ final class AccountModule: NSObject {
         APIClient.shared.send(.post, path: "/auth/logout", authenticated: true) { _ in
             KeychainStore.delete(.sessionToken)
             resolve(nil)
+        }
+    }
+
+    // MARK: - deleteAccount
+
+    /// Permanently deletes the account (App Review guideline 5.1.1(v)).
+    ///
+    /// Server side, DELETE /api/account revokes the stored Apple refresh
+    /// grants (TN3194), revokes every session, and cascades devices, lists,
+    /// and identities away. The endpoint is exempt from the entitlement gate,
+    /// so a lapsed subscriber can still delete their account.
+    ///
+    /// Locally, success clears every trace and stops filtering:
+    ///
+    ///   DELETE /api/account (authenticated)
+    ///           │
+    ///           ├── .success → KeychainStore.delete(.sessionToken)
+    ///           │              KeychainStore.delete(.serverDeviceID)   ← server row is gone
+    ///           │              DispatchQueue.main.async
+    ///           │                  ├── applyFilterListSnapshot(empty)  ← filtering stops,
+    ///           │                  │     same as the subscription-lapse path
+    ///           │                  └── resolve(nil)
+    ///           │
+    ///           └── .failure → same SIGNED_OUT / SUBSCRIPTION_REQUIRED /
+    ///                          NETWORK / SERVER mapping as signIn; nothing
+    ///                          is cleared locally on failure, so the user
+    ///                          can retry.
+    @objc func deleteAccount(_ resolve: @escaping RCTPromiseResolveBlock,
+                             rejecter reject: @escaping RCTPromiseRejectBlock) {
+        APIClient.shared.send(.delete, path: "/api/account", authenticated: true) { result in
+            switch result {
+            case .success:
+                KeychainStore.delete(.sessionToken)
+                KeychainStore.delete(.serverDeviceID)
+                DispatchQueue.main.async {
+                    IOSRuleStore.shared.applyFilterListSnapshot(
+                        mode: .blockSpecific,
+                        entries: [],
+                        exceptions: [],
+                        allowedApps: [],
+                        blockedApps: []
+                    )
+                    resolve(nil)
+                }
+            case .failure(let apiError):
+                Self.rejectSignIn(reject, dueTo: apiError)
+            }
         }
     }
 

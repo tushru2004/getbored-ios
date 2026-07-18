@@ -66,6 +66,7 @@ export const HomeScreen: React.FC = () => {
             account={account.state}
             onSignIn={account.signIn}
             onSignOut={account.signOut}
+            onDeleteAccount={account.deleteAccount}
           />
           {areGatedCardsUnlocked(account.state) && (
             <>

@@ -1,5 +1,12 @@
 import React from 'react';
-import {ActivityIndicator, Pressable, StyleSheet, Text, View} from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 
 import {AccountState} from '../../hooks/useAccount';
 import {colors, radius, spacing, typography} from '../../theme';
@@ -9,9 +16,14 @@ const APPLE_GLYPH = '';
 type SignedInBodyProps = {
   email?: string;
   onSignOut: () => void;
+  onDeleteAccount: () => void;
 };
 
-const SignedInBody: React.FC<SignedInBodyProps> = ({email, onSignOut}) => (
+const SignedInBody: React.FC<SignedInBodyProps> = ({
+  email,
+  onSignOut,
+  onDeleteAccount,
+}) => (
   <>
     <View style={styles.signedInRow}>
       <View style={styles.statusDot} />
@@ -28,6 +40,11 @@ const SignedInBody: React.FC<SignedInBodyProps> = ({email, onSignOut}) => (
       onPress={onSignOut}
       style={({pressed}) => [styles.signOutRow, pressed && styles.buttonPressed]}>
       <Text style={styles.signOutText}>Sign Out</Text>
+    </Pressable>
+    <Pressable
+      onPress={onDeleteAccount}
+      style={({pressed}) => [styles.deleteRow, pressed && styles.buttonPressed]}>
+      <Text style={styles.deleteText}>Delete Account</Text>
     </Pressable>
   </>
 );
@@ -63,7 +80,23 @@ type Props = {
   account: AccountState;
   onSignIn: () => void;
   onSignOut: () => void;
+  onDeleteAccount: () => void;
 };
+
+/**
+ * Native confirmation ahead of the irreversible path. Deletion itself runs
+ * in useAccount → native deleteAccount; this only guards the tap.
+ */
+function confirmDeleteAccount(onConfirmed: () => void) {
+  Alert.alert(
+    'Delete account?',
+    'This permanently deletes your account, connected devices, and blocklists. Filtering on this device will stop.',
+    [
+      {text: 'Cancel', style: 'cancel'},
+      {text: 'Delete', style: 'destructive', onPress: onConfirmed},
+    ],
+  );
+}
 
 /**
  * Home-screen account card. Purely presentational: account state lives in
@@ -78,7 +111,12 @@ type Props = {
  *     ├── 'checking' | 'signedOut' | 'signingIn'  → sign-in button (busy while checking/signingIn)
  *     └── 'signedIn'                               → signed-in row (account email) + Sign Out
  */
-export const SignInCard: React.FC<Props> = ({account, onSignIn, onSignOut}) => {
+export const SignInCard: React.FC<Props> = ({
+  account,
+  onSignIn,
+  onSignOut,
+  onDeleteAccount,
+}) => {
   const state = account;
 
   if (state.kind === 'unavailable') return null;
@@ -91,14 +129,25 @@ export const SignInCard: React.FC<Props> = ({account, onSignIn, onSignOut}) => {
       </Text>
 
       {state.kind === 'signedIn' && (
-        <SignedInBody email={state.email} onSignOut={onSignOut} />
+        <SignedInBody
+          email={state.email}
+          onSignOut={onSignOut}
+          onDeleteAccount={() => confirmDeleteAccount(onDeleteAccount)}
+        />
+      )}
+
+      {state.kind === 'deleting' && (
+        <View style={styles.deletingRow}>
+          <ActivityIndicator color={colors.labelSecondary} />
+          <Text style={styles.deletingText}>Deleting account...</Text>
+        </View>
       )}
 
       {state.kind === 'error' && (
         <Text style={styles.errorText}>{state.message}</Text>
       )}
 
-      {state.kind !== 'signedIn' && (
+      {state.kind !== 'signedIn' && state.kind !== 'deleting' && (
         <SignInButton
           busy={state.kind === 'checking' || state.kind === 'signingIn'}
           onPress={onSignIn}
@@ -179,6 +228,28 @@ const styles = StyleSheet.create({
   },
   signOutText: {
     ...typography.subhead,
+    color: colors.labelSecondary,
+  },
+  deleteRow: {
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.separator,
+  },
+  deleteText: {
+    ...typography.subhead,
     color: colors.danger,
+  },
+  deletingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    marginTop: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  deletingText: {
+    ...typography.subhead,
+    color: colors.labelSecondary,
   },
 });

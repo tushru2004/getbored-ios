@@ -49,8 +49,21 @@ export function useConnectedApp(): ConnectedApp {
   const registered = registration.state.kind === 'registered';
   const registrationIdle = registration.state.kind === 'idle';
   const syncIdle = filterSync.state.kind === 'idle';
-  const {register} = registration;
+  const {register, refresh: refreshRegistration} = registration;
   const {sync} = filterSync;
+
+  // On every signed-out → signed-in transition, re-check the device's server
+  // registration instead of trusting the cached machine state. Matters after
+  // account deletion or a sign-out/sign-in cycle: the old 'registered' state
+  // is stale (the server row may be gone), and refreshing lands the machine
+  // back in 'idle', which re-triggers auto-connect below.
+  const wasSignedIn = useRef(false);
+  useEffect(() => {
+    if (signedIn && !wasSignedIn.current) {
+      refreshRegistration();
+    }
+    wasSignedIn.current = signedIn;
+  }, [signedIn, refreshRegistration]);
 
   // Auto-connect the device after sign-in. The ref limits this to one
   // attempt per signed-in period even across transient re-renders; it
@@ -67,9 +80,14 @@ export function useConnectedApp(): ConnectedApp {
     }
   }, [signedIn, registrationIdle, register]);
 
-  // First sync of the session, as soon as we're signed in and connected.
+  // Sync when the device BECOMES connected (fresh registration — including
+  // the auto-connect above), and once per session when it already was
+  // connected at launch (sync still 'idle').
+  const wasRegistered = useRef(false);
   useEffect(() => {
-    if (signedIn && registered && syncIdle) {
+    const becameRegistered = registered && !wasRegistered.current;
+    wasRegistered.current = registered;
+    if (signedIn && registered && (becameRegistered || syncIdle)) {
       sync();
     }
   }, [signedIn, registered, syncIdle, sync]);
