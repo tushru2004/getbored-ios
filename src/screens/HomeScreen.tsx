@@ -87,8 +87,15 @@ function displayEmail(email?: string): string {
 
 // ─── Stat pair (what the last sync applied) ────────────────────────────────
 
-const StatPair: React.FC<{summary: SyncSummary}> = ({summary}) => (
-  <View style={styles.statPair}>
+/** Tapping the counts answers the obvious follow-up — "blocked WHAT?" —
+ * by opening the Active Rules list. */
+const StatPair: React.FC<{summary: SyncSummary; onPress: () => void}> = ({
+  summary,
+  onPress,
+}) => (
+  <Pressable
+    onPress={onPress}
+    style={({pressed}) => [styles.statPair, pressed && styles.pressedDim]}>
     <View style={styles.stat}>
       <Text style={styles.statNum}>{summary.sites}</Text>
       <Text style={styles.statCap}>
@@ -103,7 +110,7 @@ const StatPair: React.FC<{summary: SyncSummary}> = ({summary}) => (
         </Text>
       </View>
     )}
-  </View>
+  </Pressable>
 );
 
 /**
@@ -277,7 +284,10 @@ export const HomeScreen: React.FC = () => {
                 {hero.word}
               </Text>
               {showStatPair && syncSuccess && (
-                <StatPair summary={syncSuccess.summary} />
+                <StatPair
+                  summary={syncSuccess.summary}
+                  onPress={() => setShowRules(true)}
+                />
               )}
               {!showStatPair && hero.substance !== '' && (
                 <Text style={styles.substance}>{hero.substance}</Text>
