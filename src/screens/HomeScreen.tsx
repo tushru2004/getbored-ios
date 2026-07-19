@@ -39,20 +39,18 @@ function countLabel(count: number, singular: string, plural: string): string {
   return `${count} ${plural}`;
 }
 
-function summaryLine(summary: SyncSummary, syncedAtMs: number): string {
-  const parts = [countLabel(summary.sites, 'site blocked', 'sites blocked')];
-  if (summary.blockedApps > 0) {
-    parts.push(countLabel(summary.blockedApps, 'app blocked', 'apps blocked'));
-  }
-  const time = new Date(syncedAtMs).toLocaleTimeString([], {
+function formatSyncTime(syncedAtMs: number): string {
+  return new Date(syncedAtMs).toLocaleTimeString([], {
     hour: 'numeric',
     minute: '2-digit',
   });
-  parts.push(`synced ${time}`);
-  return parts.join(' · ');
 }
 
-/** The quiet line under the state word, in precedence order. */
+/**
+ * The quiet line under the state word, in precedence order. A successful
+ * sync returns '' — its counts render as the stat pair instead, and its
+ * timestamp lives in the footer whisper.
+ */
 function substanceLine(
   sync: FilterListSyncState,
   registration: DeviceRegistrationState,
@@ -64,7 +62,7 @@ function substanceLine(
     return 'Syncing…';
   }
   if (sync.kind === 'success') {
-    return summaryLine(sync.summary, sync.syncedAtMs);
+    return '';
   }
   if (sync.kind === 'notRegistered') {
     return 'Waiting to connect…';
@@ -74,6 +72,39 @@ function substanceLine(
   }
   return '';
 }
+
+/** Never show a private-relay address raw — it reads as gibberish. The full
+ * address stays visible in the Account sheet. */
+function displayEmail(email?: string): string {
+  if (!email) {
+    return 'Signed in';
+  }
+  if (email.endsWith('@privaterelay.appleid.com')) {
+    return 'Hidden Apple email';
+  }
+  return email;
+}
+
+// ─── Stat pair (what the last sync applied) ────────────────────────────────
+
+const StatPair: React.FC<{summary: SyncSummary}> = ({summary}) => (
+  <View style={styles.statPair}>
+    <View style={styles.stat}>
+      <Text style={styles.statNum}>{summary.sites}</Text>
+      <Text style={styles.statCap}>
+        {summary.sites === 1 ? 'site blocked' : 'sites blocked'}
+      </Text>
+    </View>
+    {summary.blockedApps > 0 && (
+      <View style={styles.stat}>
+        <Text style={styles.statNum}>{summary.blockedApps}</Text>
+        <Text style={styles.statCap}>
+          {summary.blockedApps === 1 ? 'app blocked' : 'apps blocked'}
+        </Text>
+      </View>
+    )}
+  </View>
+);
 
 /**
  * Collapses filter status + sync + registration into the one answer the top
@@ -213,11 +244,15 @@ export const HomeScreen: React.FC = () => {
   const hero = deriveHero(filterStatus.state, filterSync.state, registration.state);
   const accountEmail =
     account.state.kind === 'signedIn' ? account.state.email : undefined;
-  const connected = registration.state.kind === 'registered';
-  const rulesValue =
-    filterSync.state.kind === 'success'
-      ? countLabel(filterSync.state.summary.sites, 'site', 'sites')
-      : '—';
+  const syncSuccess =
+    filterSync.state.kind === 'success' ? filterSync.state : null;
+  const showStatPair = hero.word === 'Protected' && syncSuccess !== null;
+  const rulesValue = syncSuccess
+    ? countLabel(syncSuccess.summary.sites, 'site', 'sites')
+    : '—';
+  const footerText = syncSuccess
+    ? `Synced automatically · ${formatSyncTime(syncSuccess.syncedAtMs)}`
+    : 'This iPhone syncs automatically.';
 
   return (
     <SafeAreaView style={styles.root}>
@@ -239,7 +274,10 @@ export const HomeScreen: React.FC = () => {
               <Text style={[styles.stateWord, {color: heroWordColor(hero)}]}>
                 {hero.word}
               </Text>
-              {hero.substance !== '' && (
+              {showStatPair && syncSuccess && (
+                <StatPair summary={syncSuccess.summary} />
+              )}
+              {!showStatPair && hero.substance !== '' && (
                 <Text style={styles.substance}>{hero.substance}</Text>
               )}
             </View>
@@ -257,15 +295,9 @@ export const HomeScreen: React.FC = () => {
                 <Pressable
                   style={({pressed}) => [styles.row, pressed && styles.pressedDim]}
                   onPress={() => setShowAccount(true)}>
-                  <View
-                    style={[
-                      styles.dot,
-                      {backgroundColor: connected ? colors.success : colors.warning},
-                    ]}
-                  />
                   <Text style={styles.rowLabel}>Account</Text>
                   <Text style={styles.rowValue} numberOfLines={1}>
-                    {accountEmail ?? 'Signed in'}
+                    {displayEmail(accountEmail)}
                   </Text>
                   <Text style={styles.chevron}>›</Text>
                 </Pressable>
@@ -279,9 +311,7 @@ export const HomeScreen: React.FC = () => {
               </Pressable>
             </View>
 
-            <Text style={styles.footerWhisper}>
-              This iPhone syncs automatically.
-            </Text>
+            <Text style={styles.footerWhisper}>{footerText}</Text>
           </ScrollView>
         )}
       </ErrorBoundary>
@@ -360,30 +390,53 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
-    paddingVertical: spacing.lg,
+    gap: spacing.sm,
+    paddingVertical: spacing.lg + 2,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.separator,
   },
-  dot: {
-    width: 7,
-    height: 7,
-    borderRadius: 4,
-  },
   rowLabel: {
-    ...typography.body,
+    fontSize: 16,
+    fontWeight: '500',
     color: colors.label,
   },
   rowValue: {
-    ...typography.subhead,
-    fontSize: 14,
-    color: colors.labelSecondary,
+    fontSize: 15,
+    fontWeight: '400',
+    // A step darker than labelSecondary so values don't read washed-out
+    // next to the labels (iteration-02 mock).
+    color: '#556058',
     marginLeft: 'auto',
-    maxWidth: 170,
+    maxWidth: 190,
     fontVariant: ['tabular-nums'],
   },
   chevron: {
-    ...typography.body,
+    fontSize: 17,
+    fontWeight: '400',
+    color: '#C4BFB0',
+  },
+  statPair: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: spacing.xxl + spacing.md,
+    marginTop: spacing.xs,
+  },
+  stat: {
+    alignItems: 'center',
+  },
+  statNum: {
+    fontSize: 26,
+    fontWeight: '700',
+    letterSpacing: -0.5,
+    color: colors.label,
+    fontVariant: ['tabular-nums'],
+  },
+  statCap: {
+    marginTop: 2,
+    fontSize: 11,
+    fontWeight: '600',
+    letterSpacing: 0.9,
+    textTransform: 'uppercase',
     color: colors.neutral,
   },
   footerWhisper: {
