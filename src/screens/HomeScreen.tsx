@@ -162,9 +162,10 @@ function deriveHero(
   }
   if (filterKind === 'active') {
     return {
-      // "Quiet", not "Protected" — this is a calm app, not a security app.
-      // The noise is blocked; what you have now is quiet.
-      word: 'Quiet',
+      // The good state IS the brand: the wordmark itself sits under the
+      // settled rings (rendered in the serif wordmark face — see stateWord
+      // selection in the JSX). Attention states keep plain state words.
+      word: 'GetBored',
       color: colors.success,
       variant: 'closed',
       substance: substanceLine(sync, registration),
@@ -255,7 +256,7 @@ export const HomeScreen: React.FC = () => {
     account.state.kind === 'signedIn' ? account.state.email : undefined;
   const syncSuccess =
     filterSync.state.kind === 'success' ? filterSync.state : null;
-  const showStatPair = hero.word === 'Quiet' && syncSuccess !== null;
+  const showStatPair = hero.word === 'GetBored' && syncSuccess !== null;
   const rulesValue = syncSuccess
     ? countLabel(syncSuccess.summary.sites, 'site', 'sites')
     : '—';
@@ -276,11 +277,13 @@ export const HomeScreen: React.FC = () => {
             refreshControl={
               <RefreshControl refreshing={pulling} onRefresh={onPullRefresh} />
             }>
-            <Text style={styles.wordmark}>GetBored</Text>
-
             <View style={styles.hero}>
               <StillWaterRings size={120} color={hero.color} variant={hero.variant} />
-              <Text style={[styles.stateWord, {color: heroWordColor(hero)}]}>
+              <Text
+                style={[
+                  hero.word === 'GetBored' ? styles.brandWord : styles.stateWord,
+                  {color: heroWordColor(hero)},
+                ]}>
                 {hero.word}
               </Text>
               {showStatPair && syncSuccess && (
@@ -361,19 +364,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xl,
     paddingBottom: spacing.xxl,
   },
-  wordmark: {
-    ...typography.wordmark,
-    color: colors.label,
-    paddingTop: spacing.md,
-  },
   hero: {
     alignItems: 'center',
-    paddingTop: spacing.xxl + spacing.md,
+    paddingTop: spacing.xxl * 2,
     paddingBottom: spacing.xxl,
     gap: spacing.lg,
   },
   stateWord: {
     ...typography.hero,
+    marginTop: spacing.sm,
+  },
+  /** The good state renders the brand itself, in the serif wordmark face. */
+  brandWord: {
+    ...typography.wordmarkLarge,
+    fontSize: 38,
     marginTop: spacing.sm,
   },
   substance: {
