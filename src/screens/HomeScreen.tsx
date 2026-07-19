@@ -19,7 +19,7 @@ import {DeviceRegistrationState} from '../hooks/useDeviceRegistration';
 import {FilterListSyncState} from '../hooks/useFilterListSync';
 import {FilterStatusState, useFilterStatus} from '../hooks/useFilterStatus';
 import {SyncSummary} from '../native/types';
-import {colors, radius, spacing, typography} from '../theme';
+import {colors, hardShadow, spacing, typography} from '../theme';
 import {ActiveRulesScreen} from './ActiveRulesScreen';
 
 // ─── Hero derivation ───────────────────────────────────────────────────────
@@ -103,7 +103,7 @@ const StatPair: React.FC<{summary: SyncSummary; onPress: () => void}> = ({
       </Text>
     </View>
     {summary.blockedApps > 0 && (
-      <View style={styles.stat}>
+      <View style={[styles.stat, styles.statAfter]}>
         <Text style={styles.statNum}>{summary.blockedApps}</Text>
         <Text style={styles.statCap}>
           {summary.blockedApps === 1 ? 'app blocked' : 'apps blocked'}
@@ -163,8 +163,7 @@ function deriveHero(
   if (filterKind === 'active') {
     return {
       // The good state IS the brand: the wordmark itself sits under the
-      // settled rings (rendered in the serif wordmark face — see stateWord
-      // selection in the JSX). Attention states keep plain state words.
+      // settled rings. Attention states keep plain state words.
       word: 'GetBored',
       color: colors.success,
       variant: 'closed',
@@ -180,6 +179,39 @@ function deriveHero(
     showEnable: false,
   };
 }
+
+function heroEyebrowFor(hero: Hero): string {
+  if (hero.word === 'GetBored') {
+    return 'This iPhone · quiet';
+  }
+  if (hero.word === 'Paused') {
+    return 'This iPhone · attention';
+  }
+  return 'This iPhone · status';
+}
+
+// ─── Shared brand masthead ──────────────────────────────────────────────────
+
+const BrandMasthead: React.FC = () => (
+  <View style={styles.brandMasthead}>
+    <View>
+      <View style={styles.brandWordmarkRow}>
+        <Text style={styles.brandWordmark}>Get</Text>
+        <Text style={[styles.brandWordmark, styles.brandWordmarkAccent]}>
+          Bored.
+        </Text>
+      </View>
+      <Text style={styles.brandTagline}>
+        Bored minds{`\n`}go interesting places.
+      </Text>
+    </View>
+    <StillWaterRings
+      size={72}
+      color={colors.surface}
+      variant="closed"
+    />
+  </View>
+);
 
 // ─── Welcome (signed out / deleting) ───────────────────────────────────────
 
@@ -200,28 +232,29 @@ const Welcome: React.FC<WelcomeProps> = ({account, onSignIn}) => {
 
   return (
     <View style={styles.welcome}>
-      <StillWaterRings size={140} color={colors.info} variant="closed" />
-      <Text style={styles.welcomeWordmark}>GetBored</Text>
-      <Text style={styles.welcomeTagline}>{tagline}</Text>
-      {account.kind === 'error' && (
-        <Text style={styles.welcomeError}>{account.message}</Text>
-      )}
-      <Pressable
-        disabled={busy}
-        onPress={onSignIn}
-        style={({pressed}) => [
-          styles.appleButton,
-          (pressed || busy) && styles.pressedDim,
-        ]}>
-        {busy ? (
-          <ActivityIndicator color="#FFFFFF" />
-        ) : (
-          <Text style={styles.appleButtonText}>Sign in with Apple</Text>
+      <BrandMasthead />
+      <View style={styles.welcomeBody}>
+        <Text style={styles.welcomeTagline}>{tagline}</Text>
+        {account.kind === 'error' && (
+          <Text style={styles.welcomeError}>{account.message}</Text>
         )}
-      </Pressable>
-      <Text style={styles.welcomeLegal}>
-        One account. Rules managed from your admin.
-      </Text>
+        <Pressable
+          disabled={busy}
+          onPress={onSignIn}
+          style={({pressed}) => [
+            styles.appleButton,
+            (pressed || busy) && styles.pressedDim,
+          ]}>
+          {busy ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : (
+            <Text style={styles.appleButtonText}>Sign in with Apple</Text>
+          )}
+        </Pressable>
+        <Text style={styles.welcomeLegal}>
+          One account. Rules managed from your admin.
+        </Text>
+      </View>
     </View>
   );
 };
@@ -251,7 +284,11 @@ export const HomeScreen: React.FC = () => {
   const accountAbsent = account.state.kind === 'unavailable';
   const showMain = signedIn || accountAbsent;
 
-  const hero = deriveHero(filterStatus.state, filterSync.state, registration.state);
+  const hero = deriveHero(
+    filterStatus.state,
+    filterSync.state,
+    registration.state,
+  );
   const accountEmail =
     account.state.kind === 'signedIn' ? account.state.email : undefined;
   const syncSuccess =
@@ -263,6 +300,8 @@ export const HomeScreen: React.FC = () => {
   const footerText = syncSuccess
     ? `Synced automatically · ${formatSyncTime(syncSuccess.syncedAtMs)}`
     : 'This iPhone syncs automatically.';
+  const heroEyebrow = heroEyebrowFor(hero);
+  const showWarningTicket = hero.word === 'Paused' && hero.substance !== '';
 
   return (
     <SafeAreaView style={styles.root}>
@@ -277,30 +316,46 @@ export const HomeScreen: React.FC = () => {
             refreshControl={
               <RefreshControl refreshing={pulling} onRefresh={onPullRefresh} />
             }>
-            <View style={styles.hero}>
-              <StillWaterRings size={120} color={hero.color} variant={hero.variant} />
-              <Text
-                style={[
-                  hero.word === 'GetBored' ? styles.brandWord : styles.stateWord,
-                  {color: heroWordColor(hero)},
-                ]}>
-                {hero.word}
-              </Text>
-              {showStatPair && syncSuccess && (
-                <StatPair
-                  summary={syncSuccess.summary}
-                  onPress={() => setShowRules(true)}
+            <BrandMasthead />
+            {!showStatPair && (
+              <View style={styles.hero}>
+                <StillWaterRings
+                  size={112}
+                  color={hero.color}
+                  variant={hero.variant}
                 />
-              )}
-              {!showStatPair && hero.substance !== '' && (
-                <Text style={styles.substance}>{hero.substance}</Text>
-              )}
-            </View>
+                <View style={styles.heroCopy}>
+                  <Text style={styles.heroEyebrow}>{heroEyebrow}</Text>
+                  <Text style={[styles.stateWord, {color: heroWordColor(hero)}]}>
+                    {hero.word}
+                  </Text>
+                  {!showWarningTicket && hero.substance !== '' && (
+                    <Text style={styles.substance}>{hero.substance}</Text>
+                  )}
+                </View>
+              </View>
+            )}
+
+            {showStatPair && syncSuccess && (
+              <StatPair
+                summary={syncSuccess.summary}
+                onPress={() => setShowRules(true)}
+              />
+            )}
+
+            {showWarningTicket && (
+              <View style={styles.warningTicket}>
+                <Text style={styles.warningTicketText}>{hero.substance}</Text>
+              </View>
+            )}
 
             {hero.showEnable && (
               <Pressable
                 onPress={enable}
-                style={({pressed}) => [styles.cta, pressed && styles.pressedDim]}>
+                style={({pressed}) => [
+                  styles.cta,
+                  pressed && styles.pressedDim,
+                ]}>
                 <Text style={styles.ctaText}>Turn Filtering On</Text>
               </Pressable>
             )}
@@ -308,7 +363,10 @@ export const HomeScreen: React.FC = () => {
             <View style={styles.rows}>
               {signedIn && (
                 <Pressable
-                  style={({pressed}) => [styles.row, pressed && styles.pressedDim]}
+                  style={({pressed}) => [
+                    styles.row,
+                    pressed && styles.pressedDim,
+                  ]}
                   onPress={() => setShowAccount(true)}>
                   <Text style={styles.rowLabel}>Account</Text>
                   <Text style={styles.rowValue} numberOfLines={1}>
@@ -318,7 +376,10 @@ export const HomeScreen: React.FC = () => {
                 </Pressable>
               )}
               <Pressable
-                style={({pressed}) => [styles.row, pressed && styles.pressedDim]}
+                style={({pressed}) => [
+                  styles.row,
+                  pressed && styles.pressedDim,
+                ]}
                 onPress={() => setShowRules(true)}>
                 <Text style={styles.rowLabel}>Active rules</Text>
                 <Text style={styles.rowValue}>{rulesValue}</Text>
@@ -349,7 +410,7 @@ export const HomeScreen: React.FC = () => {
 
 function heroWordColor(hero: Hero): string {
   if (hero.word === 'Paused') {
-    return '#8A5C14';
+    return colors.warning;
   }
   return colors.label;
 }
@@ -365,43 +426,66 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xxl,
   },
   hero: {
+    flexDirection: 'row',
     alignItems: 'center',
-    paddingTop: spacing.xxl * 2,
-    paddingBottom: spacing.xxl,
+    paddingTop: spacing.xxl + spacing.sm,
+    paddingBottom: spacing.xl,
     gap: spacing.lg,
+    borderBottomWidth: 2,
+    borderBottomColor: colors.label,
+  },
+  heroCopy: {
+    flex: 1,
+  },
+  heroEyebrow: {
+    ...typography.eyebrow,
+    color: colors.label,
   },
   stateWord: {
     ...typography.hero,
     marginTop: spacing.sm,
   },
-  /** The good state renders the brand itself, in the serif wordmark face. */
-  brandWord: {
-    ...typography.wordmarkLarge,
-    fontSize: 38,
-    marginTop: spacing.sm,
-  },
   substance: {
     ...typography.subhead,
-    fontSize: 14,
+    fontSize: 12,
+    lineHeight: 17,
     color: colors.labelSecondary,
     fontVariant: ['tabular-nums'],
-    textAlign: 'center',
+    marginTop: spacing.sm,
   },
   cta: {
-    backgroundColor: colors.info,
-    borderRadius: radius.md + 2,
+    ...hardShadow,
+    backgroundColor: colors.sun,
+    borderWidth: 1,
+    borderColor: colors.label,
+    borderRadius: 0,
     alignItems: 'center',
-    paddingVertical: spacing.lg,
+    justifyContent: 'center',
+    minHeight: 49,
     marginBottom: spacing.xl,
   },
   ctaText: {
-    ...typography.body,
-    fontSize: 16,
-    color: colors.background,
+    ...typography.eyebrow,
+    color: colors.label,
+  },
+  warningTicket: {
+    backgroundColor: colors.surface,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.signal,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    marginTop: spacing.lg,
+    marginBottom: spacing.lg,
+  },
+  warningTicketText: {
+    ...typography.subhead,
+    color: colors.label,
+    lineHeight: 18,
   },
   rows: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.separator,
+    borderTopWidth: 1,
+    borderTopColor: colors.label,
+    marginTop: spacing.xl,
   },
   row: {
     flexDirection: 'row',
@@ -412,8 +496,9 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.separator,
   },
   rowLabel: {
+    fontFamily: typography.display.fontFamily,
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: '600',
     color: colors.label,
   },
   rowValue: {
@@ -421,7 +506,7 @@ const styles = StyleSheet.create({
     fontWeight: '400',
     // A step darker than labelSecondary so values don't read washed-out
     // next to the labels (iteration-02 mock).
-    color: '#556058',
+    color: colors.labelSecondary,
     marginLeft: 'auto',
     maxWidth: 190,
     fontVariant: ['tabular-nums'],
@@ -429,35 +514,43 @@ const styles = StyleSheet.create({
   chevron: {
     fontSize: 17,
     fontWeight: '400',
-    color: '#C4BFB0',
+    color: colors.labelSecondary,
   },
   statPair: {
+    ...hardShadow,
     flexDirection: 'row',
-    justifyContent: 'center',
-    gap: spacing.xxl + spacing.md,
-    marginTop: spacing.xs,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.label,
+    marginTop: spacing.lg,
   },
   stat: {
+    flex: 1,
     alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 76,
+    paddingVertical: spacing.md,
+  },
+  statAfter: {
+    borderLeftWidth: 1,
+    borderLeftColor: colors.label,
   },
   statNum: {
-    fontSize: 26,
-    fontWeight: '700',
-    letterSpacing: -0.5,
+    fontFamily: typography.display.fontFamily,
+    fontSize: 29,
+    fontWeight: '500',
+    letterSpacing: -0.8,
     color: colors.label,
     fontVariant: ['tabular-nums'],
   },
   statCap: {
     marginTop: 2,
-    fontSize: 11,
-    fontWeight: '600',
-    letterSpacing: 0.9,
-    textTransform: 'uppercase',
-    color: colors.neutral,
+    ...typography.eyebrow,
+    fontSize: 10,
+    color: colors.labelSecondary,
   },
   footerWhisper: {
-    ...typography.caption,
-    fontWeight: '400',
+    ...typography.microFooter,
     color: colors.neutral,
     textAlign: 'center',
     marginTop: 'auto',
@@ -467,22 +560,53 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
 
+  // Brand masthead shared by the signed-out and signed-in home states.
+  brandMasthead: {
+    backgroundColor: colors.label,
+    borderBottomWidth: 3,
+    borderBottomColor: colors.sun,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    minHeight: 124,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.lg,
+    marginHorizontal: -spacing.xl,
+  },
+  brandWordmark: {
+    ...typography.wordmarkLarge,
+    color: colors.surface,
+  },
+  brandWordmarkRow: {
+    alignItems: 'baseline',
+    flexDirection: 'row',
+    gap: 4,
+  },
+  brandWordmarkAccent: {
+    color: colors.sun,
+    transform: [{translateY: 3}, {rotate: '-2deg'}],
+  },
+  brandTagline: {
+    ...typography.microFooter,
+    color: colors.surface,
+    lineHeight: 16,
+    marginTop: spacing.md,
+  },
+
   // Welcome
   welcome: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
     paddingHorizontal: spacing.xl,
-    paddingBottom: spacing.xxl * 2,
   },
-  welcomeWordmark: {
-    ...typography.wordmarkLarge,
-    color: colors.label,
-    marginTop: spacing.xl,
+  welcomeBody: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingBottom: spacing.xxl,
   },
   welcomeTagline: {
-    ...typography.subhead,
-    fontSize: 15,
+    fontFamily: typography.display.fontFamily,
+    fontSize: 18,
+    fontStyle: 'italic',
     lineHeight: 22,
     color: colors.labelSecondary,
     textAlign: 'center',
@@ -497,8 +621,10 @@ const styles = StyleSheet.create({
   appleButton: {
     alignSelf: 'stretch',
     alignItems: 'center',
-    backgroundColor: '#0B0B0B',
-    borderRadius: radius.md + 2,
+    justifyContent: 'center',
+    minHeight: 50,
+    backgroundColor: '#0E1211',
+    borderRadius: 0,
     paddingVertical: spacing.lg,
     marginTop: spacing.xl,
   },
@@ -508,8 +634,8 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   welcomeLegal: {
-    ...typography.caption,
-    fontWeight: '400',
+    ...typography.microFooter,
+    fontSize: 10,
     color: colors.neutral,
     marginTop: spacing.md,
   },

@@ -12,7 +12,7 @@ import {
 
 import {useActiveRules} from '../hooks/useActiveRules';
 import {ActiveRules} from '../native/types';
-import {colors, spacing, typography, withAlpha} from '../theme';
+import {colors, spacing, typography} from '../theme';
 
 const INITIAL_VISIBLE = 8;
 
@@ -60,8 +60,8 @@ function modeLine(mode: ActiveRules['mode']): string {
 // ─── Rule row ──────────────────────────────────────────────────────────────
 
 /**
- * A rule as a tangible object: serif monogram in a pine-tinted circle,
- * name at 17pt. The monogram gives sparse lists physical presence — one
+ * A rule as a tangible object: serif monogram in a square ink frame,
+ * paired with a compact serif name. The monogram gives sparse lists presence — one
  * rule reads as one calm object, not one lonely text line.
  */
 const RuleRow: React.FC<{name: string}> = ({name}) => (
@@ -133,14 +133,16 @@ const RulesContent: React.FC<{rules: ActiveRules}> = ({rules}) => {
 
   return (
     <>
-      <Text style={styles.titleSub}>{modeLine(rules.mode)}</Text>
       <RulesGroup caption="Sites" items={rules.entries} />
       <RulesGroup caption="Path exceptions" items={rules.exceptions} />
       <RulesGroup
         caption="Allowed apps"
         items={rules.allowedApps.map(appDisplayName)}
       />
-      <RulesGroup caption="Apps" items={rules.blockedApps.map(appDisplayName)} />
+      <RulesGroup
+        caption="Apps"
+        items={rules.blockedApps.map(appDisplayName)}
+      />
     </>
   );
 };
@@ -187,10 +189,17 @@ export const ActiveRulesScreen: React.FC<Props> = ({visible, onClose}) => {
         <ScrollView contentContainerStyle={styles.scroll}>
           <View style={styles.navRow}>
             <Pressable onPress={onClose} hitSlop={12}>
-              <Text style={styles.backText}>‹ Back</Text>
+              <Text style={styles.backText}>← Home</Text>
             </Pressable>
+            <Text style={styles.readOnly}>Read only</Text>
           </View>
-          <Text style={styles.bigTitle}>Your rules</Text>
+          <View style={styles.titleBlock}>
+            <Text style={styles.eyebrow}>Active on this iPhone</Text>
+            <Text style={styles.bigTitle}>Your rules</Text>
+            {state.kind === 'ready' && (
+              <Text style={styles.titleSub}>{modeLine(state.rules.mode)}</Text>
+            )}
+          </View>
 
           {state.kind === 'loading' && (
             <ActivityIndicator style={styles.loader} color={colors.info} />
@@ -234,22 +243,41 @@ const styles = StyleSheet.create({
   },
   navRow: {
     flexDirection: 'row',
-    paddingTop: spacing.md,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    minHeight: 48,
+    paddingTop: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.separator,
   },
   backText: {
-    ...typography.body,
-    color: colors.info,
+    ...typography.eyebrow,
+    color: colors.label,
+  },
+  readOnly: {
+    ...typography.eyebrow,
+    color: colors.label,
+  },
+  titleBlock: {
+    marginTop: spacing.lg,
+    paddingBottom: spacing.lg,
+    borderBottomWidth: 2,
+    borderBottomColor: colors.label,
+  },
+  eyebrow: {
+    ...typography.eyebrow,
+    color: colors.label,
   },
   bigTitle: {
-    ...typography.wordmarkLarge,
-    fontSize: 32,
+    ...typography.display,
+    fontSize: 36,
     color: colors.label,
-    marginTop: spacing.xl,
+    marginTop: spacing.sm,
   },
   titleSub: {
     ...typography.subhead,
-    fontSize: 13.5,
-    lineHeight: 19,
+    fontSize: 12,
+    lineHeight: 17,
     color: colors.labelSecondary,
     marginTop: spacing.xs + 2,
   },
@@ -280,59 +308,60 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: spacing.xs,
+    paddingBottom: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.label,
   },
   groupCaptionText: {
-    fontSize: 11,
-    fontWeight: '600',
-    letterSpacing: 0.9,
-    textTransform: 'uppercase',
-    color: colors.neutral,
+    ...typography.eyebrow,
+    color: colors.label,
   },
   groupCaptionCount: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: colors.neutral,
+    ...typography.eyebrow,
+    color: colors.labelSecondary,
     fontVariant: ['tabular-nums'],
   },
   rule: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md + 2,
-    paddingVertical: spacing.md + 1,
+    gap: spacing.md,
+    minHeight: 52,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.separator,
   },
   monogram: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 28,
+    height: 28,
+    borderWidth: 1,
+    borderColor: colors.label,
+    borderRadius: 0,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: withAlpha(colors.info, 0.1),
+    backgroundColor: colors.surface,
   },
   monogramText: {
-    fontFamily: 'Georgia',
-    fontSize: 19,
-    fontWeight: '600',
-    color: colors.info,
+    fontFamily: typography.eyebrow.fontFamily,
+    fontSize: 10,
+    fontWeight: '700',
+    color: colors.label,
   },
   ruleName: {
-    fontSize: 17,
-    fontWeight: '500',
+    fontFamily: typography.display.fontFamily,
+    fontSize: 16,
+    fontWeight: '600',
     color: colors.label,
     flexShrink: 1,
   },
   showMore: {
     paddingVertical: spacing.md,
-    paddingLeft: 44 + spacing.md + 2,
+    paddingLeft: 28 + spacing.md,
   },
   showMoreText: {
-    fontSize: 15,
-    fontWeight: '500',
-    color: colors.info,
+    ...typography.eyebrow,
+    color: colors.label,
   },
   footer: {
-    ...typography.caption,
-    fontWeight: '400',
+    ...typography.microFooter,
     color: colors.neutral,
     textAlign: 'center',
     marginTop: 'auto',

@@ -1,12 +1,5 @@
 import React from 'react';
-import {
-  Alert,
-  Modal,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import {Alert, Modal, Pressable, StyleSheet, Text, View} from 'react-native';
 
 import {DeviceRegistrationState} from '../hooks/useDeviceRegistration';
 import {colors, spacing, typography} from '../theme';
@@ -77,11 +70,29 @@ export const AccountSheet: React.FC<Props> = ({
     animationType="fade"
     onRequestClose={onClose}>
     <View style={styles.backdropFill}>
-      <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+      <Pressable
+        accessible={false}
+        style={StyleSheet.absoluteFill}
+        onPress={onClose}
+      />
       <View style={styles.panel}>
         <View style={styles.grabber} />
-        <Text style={styles.title}>Account</Text>
-        <Text style={styles.subtitle}>Signed in with Apple</Text>
+        <View style={styles.sheetHeader}>
+          <View>
+            <Text style={styles.title}>Account</Text>
+            <Text style={styles.subtitle}>Signed in with Apple</Text>
+          </View>
+          <Pressable
+            accessibilityLabel="Close account"
+            accessibilityRole="button"
+            onPress={onClose}
+            style={({pressed}) => [
+              styles.closeButton,
+              pressed && styles.pressed,
+            ]}>
+            <Text style={styles.closeButtonText}>×</Text>
+          </Pressable>
+        </View>
 
         <View style={styles.factRows}>
           <View style={styles.row}>
@@ -131,12 +142,14 @@ const styles = StyleSheet.create({
   backdropFill: {
     flex: 1,
     justifyContent: 'flex-end',
-    backgroundColor: 'rgba(19, 26, 21, 0.42)',
+    backgroundColor: 'rgba(23, 52, 47, 0.42)',
   },
   panel: {
-    backgroundColor: colors.surface,
-    borderTopLeftRadius: 22,
-    borderTopRightRadius: 22,
+    backgroundColor: colors.background,
+    borderTopWidth: 2,
+    borderTopColor: colors.label,
+    borderTopLeftRadius: 12,
+    borderTopRightRadius: 12,
     paddingHorizontal: spacing.xl,
     paddingTop: spacing.sm,
     paddingBottom: spacing.xxl + spacing.md,
@@ -146,20 +159,38 @@ const styles = StyleSheet.create({
     width: 36,
     height: 5,
     borderRadius: 3,
-    backgroundColor: '#D8D4C7',
+    backgroundColor: colors.separator,
     marginBottom: spacing.lg,
   },
+  sheetHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    marginBottom: spacing.md,
+  },
   title: {
-    fontSize: 20,
-    fontWeight: '800',
-    letterSpacing: -0.3,
+    ...typography.display,
+    fontSize: 28,
     color: colors.label,
   },
   subtitle: {
     ...typography.subhead,
     color: colors.labelSecondary,
     marginTop: 2,
-    marginBottom: spacing.md,
+  },
+  closeButton: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: colors.label,
+    borderRadius: 22,
+  },
+  closeButtonText: {
+    fontSize: 20,
+    fontWeight: '400',
+    color: colors.label,
   },
   factRows: {
     borderTopWidth: StyleSheet.hairlineWidth,
@@ -175,7 +206,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: spacing.md,
-    paddingVertical: spacing.lg,
+    minHeight: 54,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.separator,
   },
@@ -186,25 +217,28 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   rowLabel: {
-    fontSize: 16,
-    fontWeight: '500',
+    fontFamily: typography.display.fontFamily,
+    fontSize: 15,
+    fontWeight: '600',
     color: colors.label,
   },
   rowValue: {
     fontSize: 15,
     fontWeight: '400',
-    color: '#556058',
+    color: colors.labelSecondary,
     flexShrink: 1,
     fontVariant: ['tabular-nums'],
   },
   signOutLabel: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: colors.info,
+    fontFamily: typography.display.fontFamily,
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.label,
   },
   deleteLabel: {
-    fontSize: 16,
-    fontWeight: '500',
+    fontFamily: typography.display.fontFamily,
+    fontSize: 15,
+    fontWeight: '600',
     color: colors.danger,
   },
 });

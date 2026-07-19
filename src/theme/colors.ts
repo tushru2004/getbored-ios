@@ -1,8 +1,8 @@
 import {ColorValue} from 'react-native';
 
 /**
- * "Still Water" palette. Warm paper ground with a single pine accent; green
- * exists only as the protected state, amber only as the attention state.
+ * "Still Water" palette. Warm paper ground, pine ink, and restrained
+ * yellow/coral accents shared with the desktop admin identity.
  * Deliberately NOT the stock iOS palette — no #007AFF, no systemGroupedGray.
  *
  * All values are plain hex so `withAlpha` and string-typed consumers work.
@@ -10,20 +10,25 @@ import {ColorValue} from 'react-native';
  * app renders the light identity in both appearances.
  */
 export const colors = {
-  background: '#F6F4EF',
-  surface: '#FBFAF6',
-  separator: '#E6E2D7',
-  label: '#13291F',
-  labelSecondary: '#6B7267',
+  /** Shared with the admin app's warm paper / pine-ink identity. */
+  background: '#F1ECDF',
+  surface: '#FFFDF6',
+  separator: '#A8AFA1',
+  label: '#17342F',
+  labelSecondary: '#52655E',
 
-  /** Protected-state green (also the closed rings). */
-  success: '#2E7D5B',
-  /** Attention amber (paused filter, account warnings). */
-  warning: '#B7791F',
+  /** Protected state settles into the same pine ink as the admin. */
+  success: '#17342F',
+  /** Coral is reserved for large attention states, rings, and rules. */
+  warning: '#E85C3F',
   danger: '#A63A2E',
-  /** The one brand accent: pine. Buttons, links, the welcome mark. */
-  info: '#1E5C48',
-  neutral: '#A5A294',
+  info: '#17342F',
+  neutral: '#6F776F',
+
+  /** Desktop-family accents. */
+  sun: '#F2C84B',
+  signal: '#E85C3F',
+  water: '#A8C9BD',
 } as const;
 
 export type ColorToken = keyof typeof colors;
