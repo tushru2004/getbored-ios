@@ -155,7 +155,9 @@ function deriveHero(
   }
   if (filterKind === 'active') {
     return {
-      word: 'Protected',
+      // "Quiet", not "Protected" — this is a calm app, not a security app.
+      // The noise is blocked; what you have now is quiet.
+      word: 'Quiet',
       color: colors.success,
       variant: 'closed',
       substance: substanceLine(sync, registration),
@@ -246,7 +248,7 @@ export const HomeScreen: React.FC = () => {
     account.state.kind === 'signedIn' ? account.state.email : undefined;
   const syncSuccess =
     filterSync.state.kind === 'success' ? filterSync.state : null;
-  const showStatPair = hero.word === 'Protected' && syncSuccess !== null;
+  const showStatPair = hero.word === 'Quiet' && syncSuccess !== null;
   const rulesValue = syncSuccess
     ? countLabel(syncSuccess.summary.sites, 'site', 'sites')
     : '—';
