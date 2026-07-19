@@ -3,7 +3,6 @@ import {
   Alert,
   Modal,
   Pressable,
-  SafeAreaView,
   StyleSheet,
   Text,
   View,
@@ -21,11 +20,17 @@ type Props = {
   onDeleteAccount: () => void;
 };
 
+/**
+ * "Connected · iOS 18.7.9" — the OS version is human-relevant; the raw
+ * hardware identifier ("iPhone11,8") is diagnostic detail that stays in
+ * the admin, so it's stripped out of the free-text model field here.
+ */
 function deviceLine(registration: DeviceRegistrationState): string {
   if (registration.kind === 'registered') {
     const model = registration.registration.model;
-    if (model) {
-      return `Connected · ${model}`;
+    const iosPart = model?.split(' · ').find(part => part.startsWith('iOS'));
+    if (iosPart) {
+      return `Connected · ${iosPart}`;
     }
     return 'Connected';
   }
@@ -51,9 +56,12 @@ function confirmDeleteAccount(onConfirmed: () => void) {
 }
 
 /**
- * The account pageSheet, one level below the home screen: identity, device
- * status, Sign Out, and the App Review 5.1.1(v) Delete Account flow. On the
- * home screen these were noise; in a sheet they're where you'd look.
+ * The account HALF-sheet: a bottom-anchored panel sized to its content over
+ * a dimmed home screen (RN's stock pageSheet can't do detents, so this is a
+ * transparent Modal + backdrop + panel). Facts first (full email — this is
+ * the one place the raw relay address belongs — and device status), then a
+ * visibly separate actions group: Sign Out in the accent, Delete Account in
+ * red per App Review 5.1.1(v).
  */
 export const AccountSheet: React.FC<Props> = ({
   visible,
@@ -65,89 +73,100 @@ export const AccountSheet: React.FC<Props> = ({
 }) => (
   <Modal
     visible={visible}
-    animationType="slide"
-    presentationStyle="pageSheet"
+    transparent
+    animationType="fade"
     onRequestClose={onClose}>
-    <SafeAreaView style={styles.root}>
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.title}>Account</Text>
-          <Text style={styles.subtitle}>Signed in with Apple</Text>
-        </View>
-        <Pressable onPress={onClose} hitSlop={12}>
-          <Text style={styles.done}>Done</Text>
-        </Pressable>
-      </View>
+    <View style={styles.backdropFill}>
+      <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+      <View style={styles.panel}>
+        <View style={styles.grabber} />
+        <Text style={styles.title}>Account</Text>
+        <Text style={styles.subtitle}>Signed in with Apple</Text>
 
-      <View style={styles.rows}>
-        <View style={styles.row}>
-          <Text style={styles.label}>Email</Text>
-          <Text style={styles.value} numberOfLines={1}>
-            {email ?? '—'}
-          </Text>
+        <View style={styles.factRows}>
+          <View style={styles.row}>
+            <Text style={styles.rowLabel}>Email</Text>
+            <Text style={styles.rowValue} numberOfLines={1}>
+              {email ?? '—'}
+            </Text>
+          </View>
+          <View style={[styles.row, styles.lastRow]}>
+            <Text style={styles.rowLabel}>This iPhone</Text>
+            <Text style={styles.rowValue} numberOfLines={1}>
+              {deviceLine(registration)}
+            </Text>
+          </View>
         </View>
-        <View style={styles.row}>
-          <Text style={styles.label}>This iPhone</Text>
-          <Text style={styles.value} numberOfLines={1}>
-            {deviceLine(registration)}
-          </Text>
-        </View>
-        <Pressable
-          style={({pressed}) => [styles.row, pressed && styles.pressed]}
-          onPress={() => {
-            onClose();
-            onSignOut();
-          }}>
-          <Text style={styles.label}>Sign Out</Text>
-        </Pressable>
-        <Pressable
-          style={({pressed}) => [
-            styles.row,
-            styles.lastRow,
-            pressed && styles.pressed,
-          ]}
-          onPress={() =>
-            confirmDeleteAccount(() => {
+
+        <View style={styles.actionRows}>
+          <Pressable
+            style={({pressed}) => [styles.row, pressed && styles.pressed]}
+            onPress={() => {
               onClose();
-              onDeleteAccount();
-            })
-          }>
-          <Text style={styles.deleteLabel}>Delete Account…</Text>
-        </Pressable>
+              onSignOut();
+            }}>
+            <Text style={styles.signOutLabel}>Sign Out</Text>
+          </Pressable>
+          <Pressable
+            style={({pressed}) => [
+              styles.row,
+              styles.lastRow,
+              pressed && styles.pressed,
+            ]}
+            onPress={() =>
+              confirmDeleteAccount(() => {
+                onClose();
+                onDeleteAccount();
+              })
+            }>
+            <Text style={styles.deleteLabel}>Delete Account…</Text>
+          </Pressable>
+        </View>
       </View>
-    </SafeAreaView>
+    </View>
   </Modal>
 );
 
 const styles = StyleSheet.create({
-  root: {
+  backdropFill: {
     flex: 1,
-    backgroundColor: colors.surface,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(19, 26, 21, 0.42)',
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
+  panel: {
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: 22,
+    borderTopRightRadius: 22,
     paddingHorizontal: spacing.xl,
-    paddingTop: spacing.xl,
-    paddingBottom: spacing.lg,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.xxl + spacing.md,
+  },
+  grabber: {
+    alignSelf: 'center',
+    width: 36,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: '#D8D4C7',
+    marginBottom: spacing.lg,
   },
   title: {
-    ...typography.title,
+    fontSize: 20,
+    fontWeight: '800',
+    letterSpacing: -0.3,
     color: colors.label,
   },
   subtitle: {
     ...typography.subhead,
     color: colors.labelSecondary,
-    marginTop: spacing.xs,
+    marginTop: 2,
+    marginBottom: spacing.md,
   },
-  done: {
-    ...typography.body,
-    color: colors.info,
-    paddingTop: spacing.sm,
+  factRows: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.separator,
   },
-  rows: {
-    marginHorizontal: spacing.xl,
+  actionRows: {
+    marginTop: spacing.lg,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.separator,
   },
@@ -166,17 +185,26 @@ const styles = StyleSheet.create({
   pressed: {
     opacity: 0.6,
   },
-  label: {
-    ...typography.body,
+  rowLabel: {
+    fontSize: 16,
+    fontWeight: '500',
     color: colors.label,
   },
-  deleteLabel: {
-    ...typography.body,
-    color: colors.danger,
-  },
-  value: {
-    ...typography.subhead,
-    color: colors.labelSecondary,
+  rowValue: {
+    fontSize: 15,
+    fontWeight: '400',
+    color: '#556058',
     flexShrink: 1,
+    fontVariant: ['tabular-nums'],
+  },
+  signOutLabel: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: colors.info,
+  },
+  deleteLabel: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: colors.danger,
   },
 });

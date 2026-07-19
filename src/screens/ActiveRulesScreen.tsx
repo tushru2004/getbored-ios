@@ -12,79 +12,72 @@ import {
 
 import {useActiveRules} from '../hooks/useActiveRules';
 import {ActiveRules} from '../native/types';
-import {colors, radius, spacing, typography, withAlpha} from '../theme';
+import {colors, spacing, typography} from '../theme';
 
 const INITIAL_VISIBLE = 5;
 
-// ─── Mode badge ────────────────────────────────────────────────────────────
+// ─── App names ─────────────────────────────────────────────────────────────
 
-type ModeConfig = {
-  label: string;
-  description: string;
-  badgeColor: string;
+/** Humans see "Instagram", not "com.burbn.instagram". The raw bundle id
+ * stays visible in the web admin, where identification matters. */
+const KNOWN_APP_NAMES: Record<string, string> = {
+  'com.burbn.instagram': 'Instagram',
+  'com.zhiliaoapp.musically': 'TikTok',
+  'com.google.ios.youtube': 'YouTube',
+  'com.atebits.Tweetie2': 'X',
+  'com.reddit.Reddit': 'Reddit',
+  'com.toyopagroup.picaboo': 'Snapchat',
+  'com.facebook.Facebook': 'Facebook',
+  'net.whatsapp.WhatsApp': 'WhatsApp',
+  'com.netflix.Netflix': 'Netflix',
+  'com.hammerandchisel.discord': 'Discord',
+  'ph.telegra.Telegraph': 'Telegram',
+  'com.linkedin.LinkedIn': 'LinkedIn',
+  'com.duowan.amazing': 'Twitch',
+  'tv.twitch': 'Twitch',
 };
 
-function getModeConfig(mode: ActiveRules['mode']): ModeConfig {
-  if (mode === 'whiteList') {
-    return {
-      label: 'Allow-only',
-      description: 'Only the sites listed below can be reached. Everything else is blocked.',
-      badgeColor: colors.success,
-    };
+function appDisplayName(bundleID: string): string {
+  const known = KNOWN_APP_NAMES[bundleID];
+  if (known) {
+    return known;
   }
-  return {
-    label: 'Block mode',
-    description: 'The sites listed below are blocked. Everything else is allowed.',
-    badgeColor: colors.danger,
-  };
+  // Fallback: last dot-component, capitalized ("com.example.somegame" →
+  // "Somegame"). Imperfect, but better than a reverse-DNS string.
+  const last = bundleID.split('.').pop() ?? bundleID;
+  return last.charAt(0).toUpperCase() + last.slice(1);
 }
 
-const ModeCard: React.FC<{mode: ActiveRules['mode']}> = ({mode}) => {
-  const config = getModeConfig(mode);
-  const badgeText = mode === 'whiteList' ? 'ALLOW' : 'BLOCK';
-  return (
-    <View style={styles.modeCard}>
-      <View style={styles.modeRow}>
-        <Text style={styles.modeLabel}>{config.label}</Text>
-        <View style={[styles.modeBadge, {backgroundColor: withAlpha(config.badgeColor, 0.15)}]}>
-          <Text style={[styles.modeBadgeText, {color: config.badgeColor}]}>
-            {badgeText}
-          </Text>
-        </View>
-      </View>
-      <Text style={styles.modeDescription}>{config.description}</Text>
-    </View>
-  );
-};
+// ─── Mode line ─────────────────────────────────────────────────────────────
+
+/** One quiet sentence states the mode once — no card, no badge, and no
+ * per-row pills repeating it. */
+function modeLine(mode: ActiveRules['mode']): string {
+  if (mode === 'whiteList') {
+    return 'Allowing only the sites below · everything else is blocked';
+  }
+  return 'Blocking the sites below · everything else is allowed';
+}
 
 // ─── Section ───────────────────────────────────────────────────────────────
 
 type SectionProps = {
   title: string;
   items: string[];
-  badge: string;
-  badgeColor: string;
-  emptyLabel: string;
 };
 
 /**
- * A collapsible domain/path list with a "Show N more" expander.
- *
- *   items
- *       │
- *       ├── length === 0 → emptyLabel
- *       └── otherwise     → render `visible`
- *               │
- *               ├── showAll        → all items
- *               └── !showAll       → first INITIAL_VISIBLE (×5)
- *                       │
- *                       └── hiddenCount > 0 → "Show {hiddenCount} more" → setShowAll(true)
- *
- * Note: hiddenCount is `length - INITIAL_VISIBLE`, so the expander only appears
- * when the list actually overflows the initial window.
+ * A plain hairline list with a "Show N more" expander. Renders NOTHING when
+ * empty — sections that would only announce absence don't earn screen space;
+ * callers simply skip them.
  */
-const RulesSection: React.FC<SectionProps> = ({title, items, badge, badgeColor, emptyLabel}) => {
+const RulesSection: React.FC<SectionProps> = ({title, items}) => {
   const [showAll, setShowAll] = useState(false);
+
+  if (items.length === 0) {
+    return null;
+  }
+
   const visible = showAll ? items : items.slice(0, INITIAL_VISIBLE);
   const hiddenCount = items.length - INITIAL_VISIBLE;
 
@@ -94,117 +87,56 @@ const RulesSection: React.FC<SectionProps> = ({title, items, badge, badgeColor, 
         <Text style={styles.sectionTitle}>{title}</Text>
         <Text style={styles.sectionCount}>{items.length}</Text>
       </View>
-
-      <View style={styles.sectionBody}>
-        {items.length === 0 ? (
-          <Text style={styles.emptyText}>{emptyLabel}</Text>
-        ) : (
-          <>
-            {visible.map(item => (
-              <View key={item} style={styles.row}>
-                <Text style={styles.rowDomain} numberOfLines={1}>{item}</Text>
-                <View style={[styles.rowBadge, {backgroundColor: withAlpha(badgeColor, 0.12)}]}>
-                  <Text style={[styles.rowBadgeText, {color: badgeColor}]}>{badge}</Text>
-                </View>
-              </View>
-            ))}
-            {!showAll && hiddenCount > 0 && (
-              <Pressable onPress={() => setShowAll(true)} style={styles.showMore}>
-                <Text style={styles.showMoreText}>Show {hiddenCount} more</Text>
-              </Pressable>
-            )}
-          </>
+      <View style={styles.sectionRows}>
+        {visible.map(item => (
+          <View key={item} style={styles.row}>
+            <Text style={styles.rowText} numberOfLines={1}>
+              {item}
+            </Text>
+          </View>
+        ))}
+        {!showAll && hiddenCount > 0 && (
+          <Pressable onPress={() => setShowAll(true)} style={styles.row}>
+            <Text style={styles.showMoreText}>Show {hiddenCount} more</Text>
+          </Pressable>
         )}
       </View>
     </View>
   );
 };
 
-// ─── Allowed Apps section ──────────────────────────────────────────────────
-
-const AllowedAppsSection: React.FC<{apps: string[]}> = ({apps}) => (
-  <View style={styles.section}>
-    <View style={styles.sectionHeader}>
-      <Text style={styles.sectionTitle}>ALLOWED APPS</Text>
-      <Text style={styles.sectionCount}>{apps.length}</Text>
-    </View>
-    <View style={styles.sectionBody}>
-      {apps.length === 0 ? (
-        <Text style={styles.emptyText}>No app overrides configured.</Text>
-      ) : (
-        apps.map(bundleID => (
-          <View key={bundleID} style={styles.row}>
-            <Text style={styles.rowDomain} numberOfLines={1}>{bundleID}</Text>
-          </View>
-        ))
-      )}
-    </View>
-  </View>
-);
-
-// ─── Blocked Apps section ──────────────────────────────────────────────────
-
-const BlockedAppsSection: React.FC<{apps: string[]}> = ({apps}) => (
-  <View style={styles.section}>
-    <View style={styles.sectionHeader}>
-      <Text style={styles.sectionTitle}>BLOCKED APPS</Text>
-      <Text style={styles.sectionCount}>{apps.length}</Text>
-    </View>
-    <View style={styles.sectionBody}>
-      {apps.length === 0 ? (
-        <Text style={styles.emptyText}>No apps blocked.</Text>
-      ) : (
-        apps.map(bundleID => (
-          <View key={bundleID} style={styles.row}>
-            <Text style={styles.rowDomain} numberOfLines={1}>{bundleID}</Text>
-          </View>
-        ))
-      )}
-    </View>
-  </View>
-);
-
 // ─── Loaded content ────────────────────────────────────────────────────────
 
-/**
- * Renders a loaded ActiveRules snapshot. The site-entries section is the only
- * part whose framing depends on mode — in `whiteList` (allow-only) the same
- * `rules.entries` list is presented as ALLOWED (green), otherwise as BLOCKED
- * (red). Path exceptions and the app sections are mode-independent.
- *
- *   rules.mode === 'whiteList'
- *       ├── true  → title 'ALLOWED SITES', badge 'ALLOW',   green
- *       └── false → title 'BLOCKED SITES', badge 'BLOCKED', red
- */
 const RulesContent: React.FC<{rules: ActiveRules}> = ({rules}) => {
   const isAllowOnly = rules.mode === 'whiteList';
-  const entriesTitle = isAllowOnly ? 'ALLOWED SITES' : 'BLOCKED SITES';
-  const entriesBadge = isAllowOnly ? 'ALLOW' : 'BLOCKED';
-  const entriesBadgeColor = isAllowOnly ? colors.success : colors.danger;
+  const entriesTitle = isAllowOnly ? 'Allowed sites' : 'Blocked sites';
+  const hasAnything =
+    rules.entries.length > 0 ||
+    rules.exceptions.length > 0 ||
+    rules.allowedApps.length > 0 ||
+    rules.blockedApps.length > 0;
+
+  if (!hasAnything) {
+    return (
+      <Text style={styles.emptyState}>
+        No rules yet · assign a list in your admin
+      </Text>
+    );
+  }
 
   return (
     <>
-      <ModeCard mode={rules.mode} />
-
+      <Text style={styles.modeLine}>{modeLine(rules.mode)}</Text>
+      <RulesSection title={entriesTitle} items={rules.entries} />
+      <RulesSection title="Path exceptions" items={rules.exceptions} />
       <RulesSection
-        title={entriesTitle}
-        items={rules.entries}
-        badge={entriesBadge}
-        badgeColor={entriesBadgeColor}
-        emptyLabel="No sites configured yet."
+        title="Allowed apps"
+        items={rules.allowedApps.map(appDisplayName)}
       />
-
       <RulesSection
-        title="PATH EXCEPTIONS"
-        items={rules.exceptions}
-        badge="EXCEPTION"
-        badgeColor={colors.warning}
-        emptyLabel="No path exceptions configured."
+        title="Blocked apps"
+        items={rules.blockedApps.map(appDisplayName)}
       />
-
-      <AllowedAppsSection apps={rules.allowedApps} />
-
-      <BlockedAppsSection apps={rules.blockedApps} />
     </>
   );
 };
@@ -279,7 +211,7 @@ export const ActiveRulesScreen: React.FC<Props> = ({visible, onClose}) => {
 
           {state.kind === 'ready' && <RulesContent rules={state.rules} />}
 
-          <Text style={styles.footer}>Read-only · the rules you've set for yourself</Text>
+          <Text style={styles.footer}>Read-only · synced from your account</Text>
         </ScrollView>
       </SafeAreaView>
     </Modal>
@@ -322,6 +254,7 @@ const styles = StyleSheet.create({
     color: colors.info,
   },
   scroll: {
+    paddingHorizontal: spacing.xl,
     paddingBottom: spacing.xxl,
   },
   loader: {
@@ -330,116 +263,72 @@ const styles = StyleSheet.create({
   errorText: {
     ...typography.subhead,
     color: colors.danger,
-    margin: spacing.lg,
+    marginTop: spacing.lg,
   },
   noticeText: {
     ...typography.subhead,
     color: colors.labelSecondary,
-    margin: spacing.lg,
-  },
-
-  // Mode card
-  modeCard: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
-    marginHorizontal: spacing.lg,
     marginTop: spacing.lg,
-    padding: spacing.md,
   },
-  modeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  modeLabel: {
-    ...typography.headline,
-    color: colors.label,
-  },
-  modeBadge: {
-    borderRadius: radius.pill,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-  },
-  modeBadgeText: {
-    ...typography.caption,
-  },
-  modeDescription: {
+  modeLine: {
     ...typography.subhead,
+    fontSize: 14,
     color: colors.labelSecondary,
-    marginTop: spacing.xs,
+    marginTop: spacing.lg,
   },
-
-  // Section
+  emptyState: {
+    ...typography.subhead,
+    fontSize: 14,
+    color: colors.labelSecondary,
+    textAlign: 'center',
+    marginTop: spacing.xxl * 2,
+  },
   section: {
-    marginHorizontal: spacing.lg,
     marginTop: spacing.xl,
   },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: spacing.sm,
+    marginBottom: spacing.xs,
   },
   sectionTitle: {
-    ...typography.caption,
-    color: colors.labelSecondary,
-    letterSpacing: 0.5,
+    fontSize: 11,
+    fontWeight: '600',
+    letterSpacing: 0.9,
+    textTransform: 'uppercase',
+    color: colors.neutral,
   },
   sectionCount: {
-    ...typography.caption,
-    color: colors.labelSecondary,
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.neutral,
+    fontVariant: ['tabular-nums'],
   },
-  sectionBody: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
-    overflow: 'hidden',
+  sectionRows: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.separator,
   },
-
-  // Row
   row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    paddingVertical: spacing.md + 2,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.separator,
   },
-  rowDomain: {
-    ...typography.subhead,
+  rowText: {
+    fontSize: 15,
+    fontWeight: '400',
     color: colors.label,
-    flex: 1,
-    marginRight: spacing.sm,
-  },
-  rowBadge: {
-    borderRadius: radius.pill,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-  },
-  rowBadgeText: {
-    fontSize: 10,
-    fontWeight: '700',
-  },
-  emptyText: {
-    ...typography.subhead,
-    color: colors.labelSecondary,
-    padding: spacing.md,
-  },
-  showMore: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
   },
   showMoreText: {
-    ...typography.subhead,
+    fontSize: 15,
+    fontWeight: '500',
     color: colors.info,
   },
-
-  // Footer
   footer: {
     ...typography.caption,
-    color: colors.labelSecondary,
+    fontWeight: '400',
+    color: colors.neutral,
     textAlign: 'center',
-    marginTop: spacing.xl,
-    paddingHorizontal: spacing.lg,
+    marginTop: spacing.xxl,
   },
 });
