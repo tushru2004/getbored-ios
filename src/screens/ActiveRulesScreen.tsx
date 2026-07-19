@@ -12,9 +12,9 @@ import {
 
 import {useActiveRules} from '../hooks/useActiveRules';
 import {ActiveRules} from '../native/types';
-import {colors, spacing, typography} from '../theme';
+import {colors, spacing, typography, withAlpha} from '../theme';
 
-const INITIAL_VISIBLE = 5;
+const INITIAL_VISIBLE = 8;
 
 // ─── App names ─────────────────────────────────────────────────────────────
 
@@ -33,7 +33,6 @@ const KNOWN_APP_NAMES: Record<string, string> = {
   'com.hammerandchisel.discord': 'Discord',
   'ph.telegra.Telegraph': 'Telegram',
   'com.linkedin.LinkedIn': 'LinkedIn',
-  'com.duowan.amazing': 'Twitch',
   'tv.twitch': 'Twitch',
 };
 
@@ -50,28 +49,44 @@ function appDisplayName(bundleID: string): string {
 
 // ─── Mode line ─────────────────────────────────────────────────────────────
 
-/** One quiet sentence states the mode once — no card, no badge, and no
- * per-row pills repeating it. */
+/** One quiet sentence states the mode once, as the title's subtitle. */
 function modeLine(mode: ActiveRules['mode']): string {
   if (mode === 'whiteList') {
-    return 'Allowing only the sites below · everything else is blocked';
+    return 'Allowing only the items below · everything else is blocked';
   }
-  return 'Blocking the sites below · everything else is allowed';
+  return 'Blocking the items below · everything else is allowed';
 }
 
-// ─── Section ───────────────────────────────────────────────────────────────
+// ─── Rule row ──────────────────────────────────────────────────────────────
 
-type SectionProps = {
-  title: string;
+/**
+ * A rule as a tangible object: serif monogram in a pine-tinted circle,
+ * name at 17pt. The monogram gives sparse lists physical presence — one
+ * rule reads as one calm object, not one lonely text line.
+ */
+const RuleRow: React.FC<{name: string}> = ({name}) => (
+  <View style={styles.rule}>
+    <View style={styles.monogram}>
+      <Text style={styles.monogramText}>{name.charAt(0).toUpperCase()}</Text>
+    </View>
+    <Text style={styles.ruleName} numberOfLines={1}>
+      {name}
+    </Text>
+  </View>
+);
+
+// ─── Group ─────────────────────────────────────────────────────────────────
+
+type GroupProps = {
+  caption: string;
   items: string[];
 };
 
 /**
- * A plain hairline list with a "Show N more" expander. Renders NOTHING when
- * empty — sections that would only announce absence don't earn screen space;
- * callers simply skip them.
+ * A captioned group of monogram rows with a "Show N more" expander.
+ * Renders NOTHING when empty — absence doesn't earn screen space.
  */
-const RulesSection: React.FC<SectionProps> = ({title, items}) => {
+const RulesGroup: React.FC<GroupProps> = ({caption, items}) => {
   const [showAll, setShowAll] = useState(false);
 
   if (items.length === 0) {
@@ -82,25 +97,19 @@ const RulesSection: React.FC<SectionProps> = ({title, items}) => {
   const hiddenCount = items.length - INITIAL_VISIBLE;
 
   return (
-    <View style={styles.section}>
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>{title}</Text>
-        <Text style={styles.sectionCount}>{items.length}</Text>
+    <View style={styles.group}>
+      <View style={styles.groupCaption}>
+        <Text style={styles.groupCaptionText}>{caption}</Text>
+        <Text style={styles.groupCaptionCount}>{items.length}</Text>
       </View>
-      <View style={styles.sectionRows}>
-        {visible.map(item => (
-          <View key={item} style={styles.row}>
-            <Text style={styles.rowText} numberOfLines={1}>
-              {item}
-            </Text>
-          </View>
-        ))}
-        {!showAll && hiddenCount > 0 && (
-          <Pressable onPress={() => setShowAll(true)} style={styles.row}>
-            <Text style={styles.showMoreText}>Show {hiddenCount} more</Text>
-          </Pressable>
-        )}
-      </View>
+      {visible.map(item => (
+        <RuleRow key={item} name={item} />
+      ))}
+      {!showAll && hiddenCount > 0 && (
+        <Pressable onPress={() => setShowAll(true)} style={styles.showMore}>
+          <Text style={styles.showMoreText}>Show {hiddenCount} more</Text>
+        </Pressable>
+      )}
     </View>
   );
 };
@@ -108,8 +117,6 @@ const RulesSection: React.FC<SectionProps> = ({title, items}) => {
 // ─── Loaded content ────────────────────────────────────────────────────────
 
 const RulesContent: React.FC<{rules: ActiveRules}> = ({rules}) => {
-  const isAllowOnly = rules.mode === 'whiteList';
-  const entriesTitle = isAllowOnly ? 'Allowed sites' : 'Blocked sites';
   const hasAnything =
     rules.entries.length > 0 ||
     rules.exceptions.length > 0 ||
@@ -126,17 +133,14 @@ const RulesContent: React.FC<{rules: ActiveRules}> = ({rules}) => {
 
   return (
     <>
-      <Text style={styles.modeLine}>{modeLine(rules.mode)}</Text>
-      <RulesSection title={entriesTitle} items={rules.entries} />
-      <RulesSection title="Path exceptions" items={rules.exceptions} />
-      <RulesSection
-        title="Allowed apps"
+      <Text style={styles.titleSub}>{modeLine(rules.mode)}</Text>
+      <RulesGroup caption="Sites" items={rules.entries} />
+      <RulesGroup caption="Path exceptions" items={rules.exceptions} />
+      <RulesGroup
+        caption="Allowed apps"
         items={rules.allowedApps.map(appDisplayName)}
       />
-      <RulesSection
-        title="Blocked apps"
-        items={rules.blockedApps.map(appDisplayName)}
-      />
+      <RulesGroup caption="Apps" items={rules.blockedApps.map(appDisplayName)} />
     </>
   );
 };
@@ -149,14 +153,14 @@ type Props = {
 };
 
 /**
- * Read-only modal listing the device's active filter rules.
+ * Read-only modal listing the device's active filter rules, in the brand's
+ * voice: serif "Your rules" title, mode as its subtitle, monogram rows in
+ * captioned groups. No Reload control — rules re-fetch on every open, and
+ * the home screen's auto/pull-to-refresh sync keeps them current.
  *
  *   visible prop toggles
  *       │
- *       └── useEffect: visible === true → reload()   ← re-fetches on every open,
- *                                                       so the sheet never shows
- *                                                       stale rules from a prior open
- *       (reload also fired manually by the nav-bar "Reload" button)
+ *       └── useEffect: visible === true → reload()
  *
  *   useActiveRules().state drives the body:
  *       │
@@ -180,27 +184,23 @@ export const ActiveRulesScreen: React.FC<Props> = ({visible, onClose}) => {
       presentationStyle="pageSheet"
       onRequestClose={onClose}>
       <SafeAreaView style={styles.root}>
-        <View style={styles.navBar}>
-          <Pressable onPress={onClose} style={styles.backButton} hitSlop={12}>
-            <Text style={styles.backText}>‹ Back</Text>
-          </Pressable>
-          <Text style={styles.navTitle}>Active Rules</Text>
-          <Pressable onPress={reload} style={styles.reloadButton} hitSlop={12}>
-            <Text style={styles.reloadText}>Reload</Text>
-          </Pressable>
-        </View>
-
         <ScrollView contentContainerStyle={styles.scroll}>
+          <View style={styles.navRow}>
+            <Pressable onPress={onClose} hitSlop={12}>
+              <Text style={styles.backText}>‹ Back</Text>
+            </Pressable>
+          </View>
+          <Text style={styles.bigTitle}>Your rules</Text>
+
           {state.kind === 'loading' && (
             <ActivityIndicator style={styles.loader} color={colors.info} />
           )}
-
           {state.kind === 'error' && (
             <Text style={styles.errorText}>{state.message}</Text>
           )}
           {state.kind === 'signedOut' && (
             <Text style={styles.noticeText}>
-              Sign in again to view your active rules.
+              Sign in again to view your rules.
             </Text>
           )}
           {state.kind === 'subscriptionRequired' && (
@@ -211,7 +211,9 @@ export const ActiveRulesScreen: React.FC<Props> = ({visible, onClose}) => {
 
           {state.kind === 'ready' && <RulesContent rules={state.rules} />}
 
-          <Text style={styles.footer}>Read-only · synced from your account</Text>
+          <Text style={styles.footer}>
+            Synced from your account · read-only
+          </Text>
         </ScrollView>
       </SafeAreaView>
     </Modal>
@@ -225,37 +227,31 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  navBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.separator,
+  scroll: {
+    flexGrow: 1,
+    paddingHorizontal: spacing.xl,
+    paddingBottom: spacing.xxl,
   },
-  backButton: {
-    minWidth: 60,
+  navRow: {
+    flexDirection: 'row',
+    paddingTop: spacing.md,
   },
   backText: {
     ...typography.body,
     color: colors.info,
   },
-  navTitle: {
-    ...typography.headline,
+  bigTitle: {
+    ...typography.wordmarkLarge,
+    fontSize: 32,
     color: colors.label,
+    marginTop: spacing.xl,
   },
-  reloadButton: {
-    minWidth: 60,
-    alignItems: 'flex-end',
-  },
-  reloadText: {
-    ...typography.body,
-    color: colors.info,
-  },
-  scroll: {
-    paddingHorizontal: spacing.xl,
-    paddingBottom: spacing.xxl,
+  titleSub: {
+    ...typography.subhead,
+    fontSize: 13.5,
+    lineHeight: 19,
+    color: colors.labelSecondary,
+    marginTop: spacing.xs + 2,
   },
   loader: {
     marginTop: spacing.xxl,
@@ -270,12 +266,6 @@ const styles = StyleSheet.create({
     color: colors.labelSecondary,
     marginTop: spacing.lg,
   },
-  modeLine: {
-    ...typography.subhead,
-    fontSize: 14,
-    color: colors.labelSecondary,
-    marginTop: spacing.lg,
-  },
   emptyState: {
     ...typography.subhead,
     fontSize: 14,
@@ -283,41 +273,57 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: spacing.xxl * 2,
   },
-  section: {
+  group: {
     marginTop: spacing.xl,
   },
-  sectionHeader: {
+  groupCaption: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: spacing.xs,
   },
-  sectionTitle: {
+  groupCaptionText: {
     fontSize: 11,
     fontWeight: '600',
     letterSpacing: 0.9,
     textTransform: 'uppercase',
     color: colors.neutral,
   },
-  sectionCount: {
+  groupCaptionCount: {
     fontSize: 11,
     fontWeight: '600',
     color: colors.neutral,
     fontVariant: ['tabular-nums'],
   },
-  sectionRows: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.separator,
+  rule: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md + 2,
+    paddingVertical: spacing.md + 1,
   },
-  row: {
-    paddingVertical: spacing.md + 2,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.separator,
+  monogram: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: withAlpha(colors.info, 0.1),
   },
-  rowText: {
-    fontSize: 15,
-    fontWeight: '400',
+  monogramText: {
+    fontFamily: 'Georgia',
+    fontSize: 19,
+    fontWeight: '600',
+    color: colors.info,
+  },
+  ruleName: {
+    fontSize: 17,
+    fontWeight: '500',
     color: colors.label,
+    flexShrink: 1,
+  },
+  showMore: {
+    paddingVertical: spacing.md,
+    paddingLeft: 44 + spacing.md + 2,
   },
   showMoreText: {
     fontSize: 15,
@@ -329,6 +335,7 @@ const styles = StyleSheet.create({
     fontWeight: '400',
     color: colors.neutral,
     textAlign: 'center',
-    marginTop: spacing.xxl,
+    marginTop: 'auto',
+    paddingTop: spacing.xxl,
   },
 });
