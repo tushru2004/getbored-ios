@@ -5,6 +5,8 @@ const NATIVE_ERROR_CODES = [
   'SERVER',
   'CANCELLED',
   'NOT_REGISTERED',
+  'INVALID_CODE',
+  'RATE_LIMITED',
 ] as const;
 
 export type NativeErrorCode = (typeof NATIVE_ERROR_CODES)[number];

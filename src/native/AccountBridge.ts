@@ -7,6 +7,7 @@ type NativeAccount = {
   signIn: () => Promise<SignInResult>;
   signOut: () => Promise<void>;
   currentAccount: () => Promise<AccountSummary>;
+  redeemActivationCode: (code: string) => Promise<void>;
   deleteAccount: () => Promise<void>;
 };
 
@@ -36,6 +37,11 @@ export const AccountBridge = {
   async currentAccount(): Promise<AccountSummary> {
     if (!native) throw new NativeModuleUnavailableError('Account');
     return native.currentAccount();
+  },
+
+  async redeemActivationCode(code: string): Promise<void> {
+    if (!native) throw new NativeModuleUnavailableError('Account');
+    return native.redeemActivationCode(code);
   },
 
   async deleteAccount(): Promise<void> {

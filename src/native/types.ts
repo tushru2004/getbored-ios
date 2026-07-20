@@ -46,6 +46,8 @@ export type ActiveRules = {
 export type AccountSummary = {
   signedIn: boolean;
   userId?: string;
+  /** Live backend entitlement. Absent only when account enrichment failed. */
+  plan?: string;
   /** Best email for display: contactEmail if set, else the Apple identity
    * email (possibly an @privaterelay.appleid.com address). Absent when the
    * enrichment call fails or the account has no stored email. */

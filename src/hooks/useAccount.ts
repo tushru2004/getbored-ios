@@ -8,6 +8,7 @@ export type AccountState =
   | {kind: 'checking'}
   | {kind: 'signedOut'}
   | {kind: 'signingIn'}
+  | {kind: 'needsActivation'; userId?: string; email?: string}
   | {kind: 'signedIn'; userId?: string; email?: string}
   | {kind: 'deleting'}
   | {kind: 'error'; message: string};
@@ -17,6 +18,7 @@ export type UseAccount = {
   signIn: () => Promise<void>;
   signOut: () => Promise<void>;
   deleteAccount: () => Promise<void>;
+  redeemActivationCode: (code: string) => Promise<void>;
   refresh: (showChecking?: boolean) => Promise<void>;
 };
 
@@ -75,15 +77,24 @@ export function useAccount(): UseAccount {
     try {
       const summary = await AccountBridge.currentAccount();
       if (summary.signedIn) {
-        setState(previous => ({
-          kind: 'signedIn',
-          userId:
-            summary.userId ??
-            (previous.kind === 'signedIn' ? previous.userId : undefined),
-          email:
-            summary.email ??
-            (previous.kind === 'signedIn' ? previous.email : undefined),
-        }));
+        setState(previous => {
+          const previousUserId =
+            previous.kind === 'signedIn' || previous.kind === 'needsActivation'
+              ? previous.userId
+              : undefined;
+          const previousEmail =
+            previous.kind === 'signedIn' || previous.kind === 'needsActivation'
+              ? previous.email
+              : undefined;
+          const accountDetails = {
+            userId: summary.userId ?? previousUserId,
+            email: summary.email ?? previousEmail,
+          };
+          if (summary.plan !== undefined && summary.plan !== 'active') {
+            return {kind: 'needsActivation', ...accountDetails};
+          }
+          return {kind: 'signedIn', ...accountDetails};
+        });
       } else {
         setState({kind: 'signedOut'});
       }
@@ -119,6 +130,14 @@ export function useAccount(): UseAccount {
     }
   }, []);
 
+  const redeemActivationCode = useCallback(
+    async (code: string) => {
+      await AccountBridge.redeemActivationCode(code);
+      await refresh();
+    },
+    [refresh],
+  );
+
   /**
    * Permanent account deletion (App Review 5.1.1(v)). Native clears the
    * session, the server device id, and the applied rules on success, so
@@ -146,5 +165,12 @@ export function useAccount(): UseAccount {
     refresh();
   }, [refresh]);
 
-  return {state, signIn, signOut, deleteAccount, refresh};
+  return {
+    state,
+    signIn,
+    signOut,
+    deleteAccount,
+    redeemActivationCode,
+    refresh,
+  };
 }

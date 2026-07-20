@@ -205,6 +205,38 @@ final class AccountModule: NSObject {
         }
     }
 
+    // MARK: - redeemActivationCode
+
+    /// Redeems a one-time activation code against the signed-in account.
+    /// The backend owns validation and atomically flips the live entitlement;
+    /// this bridge deliberately never stores the submitted code.
+    @objc func redeemActivationCode(_ code: String,
+                                    resolver resolve: @escaping RCTPromiseResolveBlock,
+                                    rejecter reject: @escaping RCTPromiseRejectBlock) {
+        guard let body = try? JSONEncoder().encode(ActivationCodeRequest(code: code)) else {
+            reject("SERVER", "Failed to encode the activation request", nil)
+            return
+        }
+
+        APIClient.shared.send(
+            .post,
+            path: "/api/activation/redeem",
+            jsonBody: body,
+            authenticated: true
+        ) { result in
+            switch result {
+            case .success:
+                resolve(nil)
+            case .failure(.server(let status)) where status == 400:
+                reject("INVALID_CODE", "That activation code is invalid or unavailable.", nil)
+            case .failure(.server(let status)) where status == 429:
+                reject("RATE_LIMITED", "Too many attempts. Try again later.", nil)
+            case .failure(let error):
+                Self.rejectSignIn(reject, dueTo: error)
+            }
+        }
+    }
+
     // MARK: - currentAccount
 
     /// Reports sign-in state to JS. Keychain presence of a session token is
@@ -240,6 +272,7 @@ final class AccountModule: NSObject {
             switch result {
             case .success(let me):
                 var payload: [String: Any] = ["signedIn": true, "userId": me.userId]
+                payload["plan"] = me.plan
                 if let email = me.contactEmail ?? me.identityEmail {
                     payload["email"] = email
                 }
@@ -440,4 +473,9 @@ private struct MeResponse: Decodable {
     let userId: String
     let contactEmail: String?
     let identityEmail: String?
+    let plan: String
+}
+
+private struct ActivationCodeRequest: Encodable {
+    let code: String
 }

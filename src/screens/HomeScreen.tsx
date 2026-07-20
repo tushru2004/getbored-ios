@@ -21,6 +21,7 @@ import {FilterStatusState, useFilterStatus} from '../hooks/useFilterStatus';
 import {SyncSummary} from '../native/types';
 import {colors, hardShadow, spacing, typography} from '../theme';
 import {ActiveRulesScreen} from './ActiveRulesScreen';
+import {ActivationScreen} from './ActivationScreen';
 
 // ─── Hero derivation ───────────────────────────────────────────────────────
 
@@ -282,6 +283,7 @@ export const HomeScreen: React.FC = () => {
   }, [sync, refreshStatus]);
 
   const signedIn = account.state.kind === 'signedIn';
+  const needsActivation = account.state.kind === 'needsActivation';
   const accountAbsent = account.state.kind === 'unavailable';
   const showMain = signedIn || accountAbsent;
 
@@ -291,7 +293,9 @@ export const HomeScreen: React.FC = () => {
     registration.state,
   );
   const accountEmail =
-    account.state.kind === 'signedIn' ? account.state.email : undefined;
+    account.state.kind === 'signedIn' || account.state.kind === 'needsActivation'
+      ? account.state.email
+      : undefined;
   const syncSuccess =
     filterSync.state.kind === 'success' ? filterSync.state : null;
   const showStatPair = hero.word === 'GetBored' && syncSuccess !== null;
@@ -315,7 +319,15 @@ export const HomeScreen: React.FC = () => {
     <SafeAreaView style={styles.root}>
       <ErrorBoundary>
         {!showMain && (
-          <Welcome account={account.state} onSignIn={account.signIn} />
+          needsActivation ? (
+            <ActivationScreen
+              accountLabel={accountEmail}
+              onActivate={account.redeemActivationCode}
+              onSignOut={account.signOut}
+            />
+          ) : (
+            <Welcome account={account.state} onSignIn={account.signIn} />
+          )
         )}
 
         {showMain && (
