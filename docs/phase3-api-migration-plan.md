@@ -2,7 +2,7 @@
 
 Status: PLAN (2026-07-17). Implements against the Kotlin/Ktor backend from
 `getbored-mac-ios-admin` (issue tushru2004/GetBored#157). Targets staging
-(`admin.staging.getbored.online`) during development; production promote at
+(`dashboard.staging.getbored.online`) during development; production promote at
 the end.
 
 ## Why the surface is small

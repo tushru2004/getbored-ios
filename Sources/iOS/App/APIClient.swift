@@ -7,9 +7,9 @@ import Foundation
 /// staging backend; RELEASE builds (App Store / TestFlight) talk to production.
 enum APIEnvironment {
     #if DEBUG
-    static let baseURL = URL(string: "https://admin.staging.getbored.online")!
+    static let baseURL = URL(string: "https://dashboard.staging.getbored.online")!
     #else
-    static let baseURL = URL(string: "https://admin.getbored.online")!
+    static let baseURL = URL(string: "https://dashboard.getbored.online")!
     #endif
 }
 
