@@ -17,7 +17,7 @@ export type UseAccount = {
   signIn: () => Promise<void>;
   signOut: () => Promise<void>;
   deleteAccount: () => Promise<void>;
-  refresh: () => Promise<void>;
+  refresh: (showChecking?: boolean) => Promise<void>;
 };
 
 /**
@@ -64,24 +64,33 @@ export function useAccount(): UseAccount {
     AccountBridge.isAvailable ? {kind: 'checking'} : {kind: 'unavailable'},
   );
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (showChecking = true) => {
     if (!AccountBridge.isAvailable) {
       setState({kind: 'unavailable'});
       return;
     }
-    setState({kind: 'checking'});
+    if (showChecking) {
+      setState({kind: 'checking'});
+    }
     try {
       const summary = await AccountBridge.currentAccount();
       if (summary.signedIn) {
-        setState({
+        setState(previous => ({
           kind: 'signedIn',
-          userId: summary.userId,
-          email: summary.email,
-        });
+          userId:
+            summary.userId ??
+            (previous.kind === 'signedIn' ? previous.userId : undefined),
+          email:
+            summary.email ??
+            (previous.kind === 'signedIn' ? previous.email : undefined),
+        }));
       } else {
         setState({kind: 'signedOut'});
       }
     } catch (e: unknown) {
+      if (!showChecking) {
+        return;
+      }
       const message = e instanceof Error ? e.message : String(e);
       setState({kind: 'error', message});
     }

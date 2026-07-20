@@ -269,6 +269,7 @@ export const HomeScreen: React.FC = () => {
   const [pulling, setPulling] = useState(false);
 
   const {sync} = filterSync;
+  const {refresh: refreshAccount} = account;
   const {refresh: refreshStatus, enable} = filterStatus;
 
   const onPullRefresh = useCallback(async () => {
@@ -302,6 +303,13 @@ export const HomeScreen: React.FC = () => {
     : 'This iPhone syncs automatically.';
   const heroEyebrow = heroEyebrowFor(hero);
   const showWarningTicket = hero.word === 'Paused' && hero.substance !== '';
+  const openAccount = useCallback(() => {
+    setShowAccount(true);
+    // Keep the existing signed-in UI in place while retrying the optional
+    // `/api/me` enrichment. A transient launch-time failure should not leave
+    // the account sheet showing a blank email for the rest of the session.
+    refreshAccount(false);
+  }, [refreshAccount]);
 
   return (
     <SafeAreaView style={styles.root}>
@@ -367,7 +375,7 @@ export const HomeScreen: React.FC = () => {
                     styles.row,
                     pressed && styles.pressedDim,
                   ]}
-                  onPress={() => setShowAccount(true)}>
+                  onPress={openAccount}>
                   <Text style={styles.rowLabel}>Account</Text>
                   <Text style={styles.rowValue} numberOfLines={1}>
                     {displayEmail(accountEmail)}

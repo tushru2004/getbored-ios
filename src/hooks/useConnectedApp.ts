@@ -1,4 +1,4 @@
-import {useEffect, useRef} from 'react';
+import {useEffect, useRef, useState} from 'react';
 import {AppState} from 'react-native';
 
 import {useAccount, UseAccount} from './useAccount';
@@ -51,18 +51,32 @@ export function useConnectedApp(): ConnectedApp {
   const syncIdle = filterSync.state.kind === 'idle';
   const {register, refresh: refreshRegistration} = registration;
   const {sync} = filterSync;
+  const [registrationCheckedForSession, setRegistrationCheckedForSession] =
+    useState(false);
 
-  // On every signed-out → signed-in transition, re-check the device's server
-  // registration instead of trusting the cached machine state. Matters after
-  // account deletion or a sign-out/sign-in cycle: the old 'registered' state
-  // is stale (the server row may be gone), and refreshing lands the machine
-  // back in 'idle', which re-triggers auto-connect below.
-  const wasSignedIn = useRef(false);
+  // On every signed-out → signed-in transition, finish a fresh server check
+  // before auto-registration is allowed. Without this gate, an `idle` result
+  // left over from the signed-out mount can start register() in the same
+  // render as refreshRegistration(); whichever request finishes last then
+  // wins, allowing a stale "not connected" result to overwrite a successful
+  // registration and sync.
   useEffect(() => {
-    if (signedIn && !wasSignedIn.current) {
-      refreshRegistration();
+    if (!signedIn) {
+      setRegistrationCheckedForSession(false);
+      return;
     }
-    wasSignedIn.current = signedIn;
+
+    let cancelled = false;
+    setRegistrationCheckedForSession(false);
+    refreshRegistration().finally(() => {
+      if (!cancelled) {
+        setRegistrationCheckedForSession(true);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
   }, [signedIn, refreshRegistration]);
 
   // Auto-connect the device after sign-in. The ref limits this to one
@@ -74,11 +88,20 @@ export function useConnectedApp(): ConnectedApp {
       autoRegisterArmed.current = true;
       return;
     }
-    if (registrationIdle && autoRegisterArmed.current) {
+    if (
+      registrationCheckedForSession &&
+      registrationIdle &&
+      autoRegisterArmed.current
+    ) {
       autoRegisterArmed.current = false;
       register();
     }
-  }, [signedIn, registrationIdle, register]);
+  }, [
+    signedIn,
+    registrationCheckedForSession,
+    registrationIdle,
+    register,
+  ]);
 
   // Sync when the device BECOMES connected (fresh registration — including
   // the auto-connect above), and once per session when it already was
