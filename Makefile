@@ -17,7 +17,7 @@ export JAVA_HOME
 # Port for kill-port (defaults to Metro)
 PORT            ?= 8081
 
-.PHONY: all build build-release build-device install install-only preflight swift-test clean kmp kmp-clean kill-port agents-api-wake agents-wake-api agents-api-wake-kill agents-wake-api-kill
+.PHONY: all build build-release build-device install install-only install-release preflight preflight-release swift-test clean kmp kmp-clean kill-port agents-api-wake agents-wake-api agents-api-wake-kill agents-wake-api-kill
 
 all: build
 
@@ -58,6 +58,10 @@ build-release:
 preflight:
 	./scripts/preflight-check.sh $(APP_PATH)
 
+# Preflight guard for the Release (App Store configuration) build.
+preflight-release:
+	./scripts/preflight-check.sh $(RELEASE_APP)
+
 # Build + install on XR (mirrors monorepo build-ios-on-air)
 install: build-device preflight
 	-xcrun devicectl device uninstall app --device $(DEVICE_UDID) $(BUNDLE_ID) 2>/dev/null
@@ -78,6 +82,19 @@ install-only: preflight
 		echo "install attempt $$((attempt - 1)) failed, retrying in 3s..."; \
 		sleep 3; \
 	done
+
+# Build Release + install on the 13 mini. The Release configuration points
+# the app at PRODUCTION (dashboard.getbored.online) — use this to smoke-test
+# the real prod flow on-device before archiving to TestFlight.
+install-release: build-release preflight-release
+	-xcrun devicectl device uninstall app --device $(PROD_DEVICE_UDID) $(BUNDLE_ID) 2>/dev/null
+	@attempt=1; until xcrun devicectl device install app --device $(PROD_DEVICE_UDID) $(RELEASE_APP); do \
+		attempt=$$((attempt + 1)); \
+		if [ $$attempt -gt 3 ]; then echo "install failed after 3 attempts"; exit 1; fi; \
+		echo "install attempt $$((attempt - 1)) failed, retrying in 3s..."; \
+		sleep 3; \
+	done
+	@echo "GetBored (Release/prod) installed on 13 mini ($(PROD_DEVICE_UDID))"
 
 # Kill whatever is listening on PORT (e.g. a stale Metro): make kill-port PORT=8081
 kill-port:
