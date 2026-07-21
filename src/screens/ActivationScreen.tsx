@@ -53,6 +53,9 @@ export const ActivationScreen: React.FC<Props> = ({
     }
   }
 
+  const isCodeEmpty = code.trim() === '';
+  const signedInSuffix = accountLabel ? ` Signed in as ${accountLabel}.` : '';
+
   return (
     <View style={styles.root}>
       <View style={styles.masthead}>
@@ -73,7 +76,7 @@ export const ActivationScreen: React.FC<Props> = ({
         <Text style={styles.title}>Activate your account.</Text>
         <Text style={styles.copy}>
           Enter the one-time code you received from GetBored.
-          {accountLabel ? ` Signed in as ${accountLabel}.` : ''}
+          {signedInSuffix}
         </Text>
 
         <Text style={styles.fieldLabel}>Activation code</Text>
@@ -93,11 +96,11 @@ export const ActivationScreen: React.FC<Props> = ({
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
         <Pressable
-          disabled={pending || code.trim() === ''}
+          disabled={pending || isCodeEmpty}
           onPress={activate}
           style={({pressed}) => [
             styles.activateButton,
-            (pressed || pending || code.trim() === '') && styles.dimmed,
+            (pressed || pending || isCodeEmpty) && styles.dimmed,
           ]}>
           {pending ? (
             <ActivityIndicator color={colors.surface} />

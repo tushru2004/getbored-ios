@@ -174,11 +174,15 @@ class IOSRuleStore {
 
     // MARK: - Filter List Snapshot
 
-    /// Atomically overwrites the full filter policy with a merged snapshot from CloudKit.
+    /// Atomically overwrites the full filter policy with a server-merged snapshot.
+    ///
+    /// The merge (whitelist-wins, ordered-unique across a device's assigned lists)
+    /// happens server-side now; `syncFilterLists` fetches the already-merged result
+    /// from `GET /api/policy` and hands it straight to this writer.
     ///
     /// Call flow:
     ///
-    ///   syncFilterLists resolves assigned+active FilterLists from CloudKit
+    ///   syncFilterLists fetches this device's merged policy from GET /api/policy
     ///           │
     ///           ▼
     ///   applyFilterListSnapshot(mode:entries:exceptions:allowedApps:blockedApps:)
@@ -237,7 +241,7 @@ class IOSRuleStore {
     ///
     /// v1 ships BLOCK MODE ONLY — the parent-child Safari whitelist machinery
     /// (allowedSafariParent, the two Safari extensions, the App-Proxy provider) was removed
-    /// from this build. A CloudKit-synced FilterList (or a stale UserDefaults value written
+    /// from this build. A server-synced FilterList (or a stale UserDefaults value written
     /// before the block-mode-only cutover) can still carry `mode == .whiteList` — that is a
     /// valid raw value, so the plain `FilterMode(rawValue:)` decode below does not catch it.
     /// Letting it reach the decision core would either exercise removed machinery or, worse,

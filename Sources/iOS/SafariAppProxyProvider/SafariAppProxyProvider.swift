@@ -582,13 +582,14 @@ final class SafariAppProxyProvider: NEAppProxyProvider {
             let mergedChildren = contextStore.mergedChildren(for: active.parentDomain)
             activeChildren = Array(mergedChildren).sorted()
         }
+        let activeContextAgeSeconds = active.map { Date().timeIntervalSince($0.receivedAt) } ?? 0
         let decision = KMPDecisionCoreAdapter.safariRelayDecision(
             endpoint: endpoint,
             using: loadedFilterRules(),
             systemAllowedSuffixes: systemAllowedSuffixes,
             activeParent: active?.parentDomain,
             activeChildren: activeChildren,
-            activeContextAge: active.map { Date().timeIntervalSince($0.receivedAt) } ?? 0,
+            activeContextAge: activeContextAgeSeconds,
             activeContextMaxAge: activeContextMaxAge,
             activeContextRefreshMinAge: activeContextRefreshMinAge
         )

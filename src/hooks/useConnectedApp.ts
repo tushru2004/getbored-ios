@@ -16,29 +16,39 @@ export type ConnectedApp = {
 
 /**
  * The single owner of account / registration / sync state for the home
- * screen, plus the orchestration that used to be three manual taps:
+ * screen, plus the orchestration that used to be three manual taps. Four
+ * effects run in sequence off the account/registration state machines:
  *
- *   signed in? ──── no ──→ nothing runs; cards below the sign-in card are
- *       │                   hidden by HomeScreen anyway
- *      yes
+ *   signed in? ──── no ──→ every effect early-returns and re-arms its
+ *       │                   guards for the next sign-in; HomeScreen hides
+ *      yes                  the signed-in UI anyway
  *       │
- *       ├── device not connected yet (registration 'idle')
+ *       ├── [effect 1] on signed-out → signed-in transition
+ *       │       └──→ refreshRegistration(), THEN flip
+ *       │            registrationCheckedForSession = true — a fresh server
+ *       │            check must finish before auto-register is allowed, or a
+ *       │            stale 'idle' left over from the signed-out mount could
+ *       │            race register() and overwrite a good registration
+ *       │
+ *       ├── [effect 2] registrationChecked + registration 'idle' + armed ref
  *       │       └──→ register() automatically, once per sign-in — the
- *       │            "Connect This Device" button remains only as a manual
+ *       │            manual "Connect This Device" button remains only as a
  *       │            retry for the failure states
  *       │
- *       ├── device connected + no sync attempted yet (sync 'idle')
- *       │       └──→ sync() automatically (fresh rules on every cold start)
+ *       ├── [effect 3] device connected ('registered')
+ *       │       └──→ sync() when it JUST became registered (fresh connect,
+ *       │            including effect 2's auto-register) OR when it was
+ *       │            already registered at launch and sync is still 'idle'
  *       │
- *       └── app returns to foreground ('active')
+ *       └── [effect 4] app returns to foreground ('active') while connected
  *               └──→ sync() again — an admin may have re-assigned lists
  *                    while the app was backgrounded; this also keeps the
  *                    server's "last seen" honest
  *
  * Loop safety: every automatic call is gated on the corresponding state
- * machine being in 'idle'. A failed attempt lands in an error/notice state,
- * not 'idle', so autos never retry on their own — retrying stays a human
- * decision via the cards' buttons.
+ * machine being in 'idle' (or a one-shot ref). A failed attempt lands in an
+ * error/notice state, not 'idle', so autos never retry on their own —
+ * retrying stays a human decision via the cards' buttons.
  */
 export function useConnectedApp(): ConnectedApp {
   const account = useAccount();
@@ -106,6 +116,13 @@ export function useConnectedApp(): ConnectedApp {
   // Sync when the device BECOMES connected (fresh registration — including
   // the auto-connect above), and once per session when it already was
   // connected at launch (sync still 'idle').
+  //
+  //   registered edge / state
+  //       │
+  //       ├── registered flips false → true (becameRegistered) → sync()
+  //       │       (covers effect 2's auto-register and manual reconnect)
+  //       └── already registered at launch AND sync still 'idle'  → sync()
+  //               (cold start where the device was connected last run)
   const wasRegistered = useRef(false);
   useEffect(() => {
     const becameRegistered = registered && !wasRegistered.current;

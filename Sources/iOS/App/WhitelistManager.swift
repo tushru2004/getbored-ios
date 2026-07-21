@@ -70,7 +70,9 @@ class WhitelistManager {
         defaults?.synchronize()
     }
 
-    /// Convenience for syncing from CloudKit / external sources.
+    /// Convenience for replacing the whole whitelist in one call from an
+    /// external source. (CloudKit sync is gone — the app now pulls policy via
+    /// the REST API; see `FilterStatusModule`.)
     func setWhitelistURLs(_ urls: [String]) {
         logger.info("setWhitelistURLs: \(urls.count) entries")
         let items = urls.map { WhitelistItem(url: $0, title: $0) }

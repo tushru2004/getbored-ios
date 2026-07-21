@@ -1,6 +1,17 @@
 import Foundation
 import Security
 
+/// DEAD CODE — deliberately kept, not called anywhere (verified: no reader or
+/// writer outside this file's own usage examples).
+///
+/// This was the CloudKit-era per-device registration ID store. The app has
+/// since migrated to the REST API, where the backend mints and owns the device
+/// id — stored via `KeychainStore.Item.serverDeviceID` — so nothing reads or
+/// writes this type anymore (see `FilterStatusModule`, which notes it "no
+/// longer reads" this). It is retained as the reference `KeychainStore` was
+/// modeled on, and as a ready second Keychain namespace if a future flow needs
+/// one. Do not wire it back in without confirming it is still the shape you want.
+///
 /// Keychain storage for the per-device CloudKit registration ID.
 ///
 /// iOS Keychain items in the `kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly`

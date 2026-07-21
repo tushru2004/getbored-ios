@@ -349,6 +349,11 @@ public enum KMPDecisionCoreAdapter {
         #endif
     }
 
+    /// SNI vs HTTP asymmetry: `extractSNI` hands Kotlin the raw first-512 bytes,
+    /// but the HTTP extractors ASCII-decode that prefix first (HTTP headers are
+    /// ASCII text) and bail with nil when the bytes are not ASCII — non-ASCII
+    /// means this isn't a plaintext HTTP request worth parsing. Same shape in
+    /// `extractHTTPFullURL` below.
     public static func extractHTTPHost(from data: Data) -> String? {
         guard let ascii = String(data: data.prefix(512), encoding: .ascii) else { return nil }
         #if canImport(GetBoredSharedCore)
@@ -367,6 +372,11 @@ public enum KMPDecisionCoreAdapter {
         #endif
     }
 
+    /// Resolve the human-readable domain for a blocked flow. Swift hands Kotlin the
+    /// three raw signals it collected off the `NEFilterFlow` (URL host, socket
+    /// endpoint, source app); Kotlin's `BlockedHostResolutionPolicy` runs the
+    /// cascade and picks the display domain + resolution source. The Swift caller
+    /// (`BlockHandler.resolveBlockedHost`) documents the cascade priority order.
     public static func resolveBlockedHost(
         rawURLHost: String?,
         rawEndpoint: String?,
@@ -389,6 +399,32 @@ public enum KMPDecisionCoreAdapter {
         #endif
     }
 
+    /// The Safari App Proxy relay decision — the one bridging call behind every
+    /// outbound Safari flow. Swift assembles the inputs (rule snapshot + the live
+    /// active-context window); Kotlin returns BOTH the verdict and a set of
+    /// side-effect flags that the Swift caller (`SafariAppProxyProvider.shouldRelayFlow`)
+    /// then executes. The flags exist because Swift owns all App-Group storage —
+    /// Kotlin decides *whether* to refresh context / save an observation, Swift does it.
+    ///
+    /// Call flow:
+    ///
+    ///   SafariAppProxyProvider.shouldRelayFlow(endpoint:)
+    ///           │
+    ///           ▼
+    ///   assemble PolicySnapshot (kotlinPolicySnapshot) + active-context scalars
+    ///           │
+    ///           ▼
+    ///   SafariAppProxyPolicy().relayDecision(...)          ← Kotlin owns the verdict
+    ///           │
+    ///           └── returns Kotlin decision struct
+    ///                   │
+    ///                   ▼
+    ///           map into Swift SafariRelayDecision (parentChildKind via parentChildKind(from:))
+    ///                   │
+    ///                   ├── shouldRelay                → caller returns this to iOS (relay vs drop)
+    ///                   ├── shouldRefreshActiveContext / refreshEvent → caller re-saves context
+    ///                   ├── shouldSaveFlowObservation  → caller persists the observation
+    ///                   └── primaryEvent / outcomeEvent → caller appends to the spike event log
     public static func safariRelayDecision(
         endpoint: String,
         using loadedFilterRules: LoadedFilterRules,
@@ -428,6 +464,11 @@ public enum KMPDecisionCoreAdapter {
 
     // MARK: - Parent-Child Store Policy
 
+    /// Kotlin normalizes + validates the raw page-context fields; a nil return
+    /// means "reject, write nothing". Swift only maps the accepted result back to
+    /// its own struct. `activePageContextFromLegacyPayloadJSON` and
+    /// `normalizedFlowObservation` below follow the identical
+    /// normalize → nil-guard → map shape.
     public static func normalizedActivePageContext(
         parentDomain: String?,
         childDomains: [String],
@@ -752,6 +793,16 @@ public enum KMPDecisionCoreAdapter {
     #endif
 
     #if canImport(GetBoredSharedCore)
+    /// The shared Swift→Kotlin policy assembly point. Every decision call
+    /// (classifyHost, shouldAllowApp, isAppBlocked, safariRelayDecision, …) funnels
+    /// its `LoadedFilterRules` through here to build the Kotlin `PolicySnapshot`.
+    ///
+    /// Two inputs are supplied HERE rather than by the caller:
+    ///   - `ownAppBundlePrefixes`: always `[GetBoredIdentifiers.bundlePrefix]` — this
+    ///     is what makes GetBored's own traffic un-droppable in `shouldAllowApp`.
+    ///   - `systemAllowedSuffixes`: passed `[]` by the per-app allow/block checks (an
+    ///     app verdict does not depend on the system host list) and populated only by
+    ///     the host-classification / Safari-relay callers.
     private static func kotlinPolicySnapshot(
         from loadedFilterRules: LoadedFilterRules,
         systemAllowedSuffixes: [String]

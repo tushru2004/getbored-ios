@@ -35,17 +35,25 @@ class BlockHandler: NEFilterControlProvider {
     /// Called by iOS AFTER the DP makes a verdict.
     /// This is how we log blocks that the DP handled directly.
     ///
-    /// Decision tree:
-    ///   report.action == .drop?
-    ///     NO  → ignore (we only care about blocks)
-    ///     YES → resolve hostname from flow metadata
-    ///           → log locally via IOSActivityLogger
-    ///
     /// Hostname resolution cascade (in resolveBlockedHost):
     ///   1. flow.url.host         → e.g. "instagram.com" (browser flows)
     ///   2. socket endpoint       → e.g. "api.tiktok.com" (non-browser)
     ///   3. reverse DNS of IP     → e.g. "142.250.80.14" → "google.com"
     ///   4. fallback to sourceApp → e.g. "app:com.unknown.app"
+    ///
+    /// Call flow:
+    ///
+    ///   iOS delivers post-verdict report → handle(report)
+    ///           │
+    ///           ├── report.action != .drop → return  (we only log blocks)
+    ///           │
+    ///           └── report.action == .drop
+    ///                   │
+    ///                   ▼
+    ///               resolveBlockedHost(from: flow, sourceApp:)  ← runs the cascade above
+    ///                   │
+    ///                   ▼
+    ///               IOSActivityLogger.shared.log(blocked: true, …)  ← local-only block log
     override func handle(_ report: NEFilterReport) {
         let action = report.action
         guard action == .drop else { return }
@@ -91,14 +99,18 @@ class BlockHandler: NEFilterControlProvider {
     ///   .needRules() routes the flow to CP where we CAN log.
     ///   .drop() would block silently with no logging.
     ///
-    /// Decision tree:
-    ///   DP returns .needRules()
-    ///     → iOS delivers flow to CP's handleNewFlow()
-    ///       → Is the app now in the allowed list? (race condition safety)
-    ///         YES → allow the flow (parent added app between DP and CP)
-    ///         NO  → extract hostname from flow
-    ///              → log locally via IOSActivityLogger
-    ///              → drop the flow
+    /// Call flow:
+    ///
+    ///   DP returns .needRules() → iOS delivers flow to CP handleNewFlow(flow)
+    ///           │
+    ///           ├── extract host: flow.url.host ?? socket endpoint ?? "unknown"
+    ///           │
+    ///           ├── sourceApp is now in the allowed list? (DP→CP race safety)
+    ///           │       └── YES → completionHandler(.allow)  ← parent added app between DP and CP
+    ///           │
+    ///           └── NO (still blocked)
+    ///                   ├── IOSActivityLogger.shared.log(blocked: true, …)  ← the whole reason CP exists
+    ///                   └── completionHandler(.drop)
     override func handleNewFlow(_ flow: NEFilterFlow, completionHandler: @escaping (NEFilterControlVerdict) -> Void) {
 
         let sourceApp = flow.sourceAppIdentifier

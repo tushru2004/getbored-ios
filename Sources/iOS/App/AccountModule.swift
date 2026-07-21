@@ -8,10 +8,18 @@ import GetBoredCore
 /// Native Sign in with Apple bridge, exposed to JS as `NativeModules.Account`
 /// (see the `RCT_EXTERN_MODULE(Account, ...)` declaration in AccountModule.m).
 ///
-/// Backs the REST API migration's account flows: sign in, sign out, and a
-/// cheap "am I signed in" check. All three methods key off the presence of a
-/// Keychain-stored session token (`KeychainStore.Item.sessionToken`) —
-/// there is no separate local "account" model to keep in sync.
+/// Backs the REST API migration's account flows:
+///   - signIn                — native Sign in with Apple sheet (diagram below)
+///   - signInWithWebAccount  — "use a different Apple Account" web flow
+///   - signOut               — best-effort server revoke, always clears the local token
+///   - deleteAccount         — permanent account deletion (App Review 5.1.1(v))
+///   - redeemActivationCode  — redeem a one-time entitlement code
+///   - currentAccount        — cheap "am I signed in" check, optionally enriched from /api/me
+///
+/// Sign-in state is the presence of a Keychain-stored session token
+/// (`KeychainStore.Item.sessionToken`): signIn/signInWithWebAccount write it,
+/// signOut/deleteAccount clear it, currentAccount reads it. There is no
+/// separate local "account" model to keep in sync.
 ///
 /// Call flow for signIn (the only multi-step method):
 ///
@@ -332,6 +340,21 @@ final class AccountModule: NSObject {
     /// Redeems a one-time activation code against the signed-in account.
     /// The backend owns validation and atomically flips the live entitlement;
     /// this bridge deliberately never stores the submitted code.
+    ///
+    /// Call flow:
+    ///
+    ///   JS calls redeemActivationCode(code)
+    ///           │
+    ///           ├── JSONEncoder().encode(ActivationCodeRequest) fails → reject("SERVER")
+    ///           │
+    ///           ▼
+    ///   POST /api/activation/redeem (authenticated) via APIClient
+    ///           │
+    ///           ├── .success               → resolve(nil)
+    ///           ├── .failure(.server(400)) → reject("INVALID_CODE")   ← bad / already-used code
+    ///           ├── .failure(.server(429)) → reject("RATE_LIMITED")   ← too many attempts
+    ///           └── .failure(other)        → rejectSignIn(...) maps to
+    ///                                         NETWORK / SIGNED_OUT / SUBSCRIPTION_REQUIRED / SERVER
     @objc func redeemActivationCode(_ code: String,
                                     resolver resolve: @escaping RCTPromiseResolveBlock,
                                     rejecter reject: @escaping RCTPromiseRejectBlock) {
@@ -376,8 +399,9 @@ final class AccountModule: NSObject {
     ///           └── token present
     ///                   ▼
     ///           GET /api/me (authenticated: true)
-    ///                   ├── .success → resolve(["signedIn": true, "userId": ...])
-    ///                   └── .failure → resolve(["signedIn": true])   ← never reject
+    ///                   ├── .success → resolve(["signedIn": true, "userId", "plan",
+    ///                   │                        + "email" when contactEmail ?? identityEmail present])
+    ///                   └── .failure → resolve(["signedIn": true])   ← never reject; enrichment omitted
     @objc func currentAccount(_ resolve: @escaping RCTPromiseResolveBlock,
                              rejecter reject: @escaping RCTPromiseRejectBlock) {
         guard KeychainStore.read(.sessionToken) != nil else {

@@ -51,6 +51,17 @@ function formatSyncTime(syncedAtMs: number): string {
  * The quiet line under the state word, in precedence order. A successful
  * sync returns '' — its counts render as the stat pair instead, and its
  * timestamp lives in the footer whisper.
+ *
+ * Only reached from deriveHero's 'active' filter branch. Registration
+ * outranks sync so the one-time "Connecting…" is never masked by a stale
+ * sync line:
+ *
+ *   registration 'saving'      → "Connecting this iPhone…"
+ *   sync 'syncing'             → "Syncing…"
+ *   sync 'success'             → ''  (stat pair + footer carry the detail)
+ *   sync 'notRegistered'       → "Waiting to connect…"
+ *   sync 'error'               → sync.message
+ *   anything else (idle, …)    → ''
  */
 function substanceLine(
   sync: FilterListSyncState,
@@ -93,31 +104,51 @@ function displayEmail(email?: string): string {
 const StatPair: React.FC<{summary: SyncSummary; onPress: () => void}> = ({
   summary,
   onPress,
-}) => (
-  <Pressable
-    onPress={onPress}
-    style={({pressed}) => [styles.statPair, pressed && styles.pressedDim]}>
-    <View style={styles.stat}>
-      <Text style={styles.statNum}>{summary.sites}</Text>
-      <Text style={styles.statCap}>
-        {summary.sites === 1 ? 'site blocked' : 'sites blocked'}
-      </Text>
-    </View>
-    {summary.blockedApps > 0 && (
-      <View style={[styles.stat, styles.statAfter]}>
-        <Text style={styles.statNum}>{summary.blockedApps}</Text>
-        <Text style={styles.statCap}>
-          {summary.blockedApps === 1 ? 'app blocked' : 'apps blocked'}
-        </Text>
+}) => {
+  const sitesCaption = summary.sites === 1 ? 'site blocked' : 'sites blocked';
+  const appsCaption =
+    summary.blockedApps === 1 ? 'app blocked' : 'apps blocked';
+  const hasBlockedApps = summary.blockedApps > 0;
+
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({pressed}) => [styles.statPair, pressed && styles.pressedDim]}>
+      <View style={styles.stat}>
+        <Text style={styles.statNum}>{summary.sites}</Text>
+        <Text style={styles.statCap}>{sitesCaption}</Text>
       </View>
-    )}
-  </Pressable>
-);
+      {hasBlockedApps && (
+        <View style={[styles.stat, styles.statAfter]}>
+          <Text style={styles.statNum}>{summary.blockedApps}</Text>
+          <Text style={styles.statCap}>{appsCaption}</Text>
+        </View>
+      )}
+    </Pressable>
+  );
+};
 
 /**
  * Collapses filter status + sync + registration into the one answer the top
  * half of the screen exists to give. Subscription lapse and a disabled
  * filter both read as "Paused" — in both cases the truth is: not filtering.
+ *
+ * Precedence (first match wins — a subscription lapse outranks everything,
+ * then filter loading/error, then the filter's own kind):
+ *
+ *   deriveHero(filter, sync, registration)
+ *       │
+ *       ├── sync 'subscriptionRequired'      → "Paused"    (warning, no Enable)
+ *       ├── filter 'loading'                 → "Checking…" (neutral)
+ *       ├── filter 'error'                   → "Unknown"   (neutral, filter.message)
+ *       └── filter 'ready' → filter.status.filter.kind
+ *               │
+ *               ├── 'inactive'  → "Paused"   (warning, showEnable = true)
+ *               ├── 'active'    → "GetBored" (success; substance = substanceLine(...))
+ *               └── otherwise   → "Checking…"(neutral fallback)
+ *
+ * Only the 'inactive' branch sets showEnable — it's the one Paused state the
+ * user can fix in-app; a subscription lapse is fixed off-device.
  */
 function deriveHero(
   filter: FilterStatusState,
@@ -276,6 +307,42 @@ const Welcome: React.FC<WelcomeProps> = ({
 
 // ─── Home ──────────────────────────────────────────────────────────────────
 
+/**
+ * The app's single screen. useConnectedApp owns account/registration/sync and
+ * runs the auto-connect/auto-sync orchestration; this component only reads that
+ * state to decide which of three top-level views to show, and hosts the two
+ * modals.
+ *
+ * Top-level gating (showMain = signedIn OR account feature unavailable):
+ *
+ *   account.state.kind
+ *       │
+ *       ├── 'signedIn' | 'unavailable' → main dashboard (ScrollView below)
+ *       ├── 'needsActivation'          → <ActivationScreen>  (redeem a code)
+ *       └── anything else (signedOut / checking / signingIn / deleting / error)
+ *               └──→ <Welcome> — two sign-in flavors:
+ *                       ├── onSignIn                → account.signIn()
+ *                       │       (native device Apple ID sheet)
+ *                       └── onSignInWithDifferentAccount
+ *                               → account.signInWithDifferentAccount()
+ *                                 (web flow, any Apple ID)
+ *
+ * Main dashboard:
+ *
+ *   pull-to-refresh (RefreshControl) → onPullRefresh()
+ *       └──→ Promise.all([sync(), refreshStatus()])  ← 'pulling' guards the spinner
+ *
+ *   deriveHero(...) picks the hero; showStatPair (active + last sync succeeded)
+ *   swaps the rings/word block for the tappable StatPair → opens the rules modal.
+ *
+ * Modals (rendered always, toggled by local state; both live OUTSIDE the
+ * showMain branch so a sign-out mid-sheet still animates them closed):
+ *
+ *   showAccount ── openAccount() also calls refreshAccount(false) to retry the
+ *       │          optional /api/me enrichment without flashing 'checking'
+ *       └──→ <AccountSheet>  (sign out / delete account)
+ *   showRules ──→ <ActiveRulesScreen>  (read-only rules list)
+ */
 export const HomeScreen: React.FC = () => {
   const {account, registration, filterSync} = useConnectedApp();
   const filterStatus = useFilterStatus();

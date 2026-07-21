@@ -91,7 +91,7 @@ class FlowInspector: NEFilterDataProvider {
     ///
     ///   classifyHost(host)
     ///           │
-    ///           ├── loadFilterRules()              ← re-read every call; CloudKit sync can change it anytime
+    ///           ├── loadFilterRules()              ← re-read every call; a server policy sync can change it anytime
     ///           │                                     (.whiteList is already coerced to .blockSpecific here)
     ///           ├── currentMode = rules.filterMode ← side effect: cache mode for telemetry/logging
     ///           │
@@ -102,7 +102,8 @@ class FlowInspector: NEFilterDataProvider {
     ///           KMPDecisionCoreAdapter.classifyHost(host, rules, systemAllowedSuffixes, allowedParent)
     ///                   → (decision.blocked, decision.reason)
     private func classifyHost(_ host: String) -> (blocked: Bool, reason: String) {
-        // Always re-read the mode — it could change at any time via CloudKit sync
+        // Always re-read the mode — it could change at any time when the app
+        // applies a fresh server policy snapshot (GET /api/policy → applyFilterListSnapshot).
         let loadedFilterRules = IOSRuleStore.shared.loadFilterRules()
         currentMode = loadedFilterRules.filterMode.rawValue
         let allowedParent = loadedFilterRules.filterMode == .whiteList
@@ -240,8 +241,8 @@ class FlowInspector: NEFilterDataProvider {
     /// SAFETY-CRITICAL ORDERING: the allow gate (own-app / Apple-system / parent-whitelisted) is
     /// evaluated FIRST and returns .allow() immediately. Only flows that nothing allowed reach the
     /// isAppBlocked .drop() check. Never reorder allow-before-drop — it is load-bearing:
-    ///   - Own-app traffic must never be dropped, or GetBored loses its own network + CloudKit
-    ///     control channel and can no longer be managed/recovered remotely.
+    ///   - Own-app traffic must never be dropped, or GetBored loses its own network + server
+    ///     API control channel and can no longer be managed/recovered remotely.
     ///   - Apple system domains must never be dropped (breaks iCloud, App Store, cert validation).
     ///   - A parent-whitelisted app is explicit parent intent and outranks any overlap with the
     ///     admin blocked-apps list.

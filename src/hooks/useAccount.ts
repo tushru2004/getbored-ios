@@ -44,21 +44,40 @@ export type UseAccount = {
  *                   ▼
  *                 AccountBridge.currentAccount()  ← async
  *                   │
- *                   ├── {signedIn: true, userId}  → setState({signedIn, userId})
- *                   ├── {signedIn: false}         → setState({signedOut})
- *                   └── rejects                    → setState({error, message})
+ *                   ├── {signedIn: true, plan !== 'active'} → setState({needsActivation, userId, email})
+ *                   ├── {signedIn: true, plan active/unknown} → setState({signedIn, userId, email})
+ *                   ├── {signedIn: false}                    → setState({signedOut})
+ *                   └── rejects (only when showChecking)     → setState({error, message})
+ *                          └── refresh(false) swallows the reject and keeps
+ *                              the current state (background re-enrichment)
  *
- *   signIn()  ← "Sign in with Apple" press
+ *   signIn() / signInWithDifferentAccount()  ← the two Welcome buttons
+ *     │                                         both delegate to runSignIn():
+ *     ▼
+ *   runSignIn(start)
  *     │
  *     ▼
  *   setState({signingIn})
  *     │
  *     ▼
- *   AccountBridge.signIn()  ← native Sign in with Apple sheet
+ *   start()  ← AccountBridge.signIn()            (device Apple ID sheet)
+ *     │       or AccountBridge.signInWithWebAccount() (web flow, any Apple ID)
  *     │
  *     ├── resolves            → refresh()            ← re-check via currentAccount()
  *     ├── rejects, CANCELLED  → setState({signedOut}) ← sheet dismissed; no error UI
  *     └── rejects, otherwise  → setState({error, message})
+ *
+ *   redeemActivationCode(code)  ← ActivationScreen "Activate" press
+ *     │
+ *     ▼
+ *   AccountBridge.redeemActivationCode(code)  ← rejects propagate to caller
+ *     │                                          (ActivationScreen shows the error)
+ *     └── resolves → refresh()  ← plan is now active → lands on {signedIn}
+ *
+ *   deleteAccount()  ← Account sheet "Delete Account" (see method doc below)
+ *     │
+ *     └── setState({deleting}) → native deleteAccount() → {signedOut} on
+ *         success or SIGNED_OUT; other rejects → {error, message}
  *
  *   signOut()  ← always lands on {signedOut}, even if the native call
  *                unexpectedly throws (it's contracted to never reject)

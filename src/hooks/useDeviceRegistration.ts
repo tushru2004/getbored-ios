@@ -34,6 +34,36 @@ function classifyFailure(e: unknown): DeviceRegistrationState {
   return {kind: 'error', message};
 }
 
+/**
+ * Tracks whether THIS iPhone has a server-side device registration, and
+ * exposes the two writes (refresh = re-check, register = create) that
+ * useConnectedApp orchestrates automatically.
+ *
+ * Call flow:
+ *
+ *   mount → refresh(false)  ← silent background check
+ *
+ *   refresh(showErrors = false)
+ *       │
+ *       ▼
+ *   setState({checking}) → currentDeviceRegistration()
+ *       │
+ *       ├── isRegistered + registration present → setState({registered, registration})
+ *       ├── otherwise                            → setState({idle})
+ *       └── rejects → classifyFailure(e)
+ *               ├── SIGNED_OUT / SUBSCRIPTION_REQUIRED → that calm state (always shown)
+ *               └── generic error
+ *                       ├── showErrors === false → setState({idle})  ← swallow, mount default
+ *                       └── showErrors === true  → setState({error, message})
+ *
+ *   register()  ← auto-connect (useConnectedApp) or manual retry button
+ *       │
+ *       ▼
+ *   setState({saving}) → registerDevice()
+ *       │
+ *       ├── resolves → setState({registered, registration})
+ *       └── rejects  → classifyFailure(e)  ← calm state or {error, message}
+ */
 export function useDeviceRegistration(): UseDeviceRegistration {
   const [state, setState] = useState<DeviceRegistrationState>({
     kind: 'checking',
