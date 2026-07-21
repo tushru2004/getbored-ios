@@ -16,6 +16,8 @@ export type AccountState =
 export type UseAccount = {
   state: AccountState;
   signIn: () => Promise<void>;
+  /** Web-flow sign-in: accepts any Apple ID, not just the device's. */
+  signInWithDifferentAccount: () => Promise<void>;
   signOut: () => Promise<void>;
   deleteAccount: () => Promise<void>;
   redeemActivationCode: (code: string) => Promise<void>;
@@ -107,20 +109,38 @@ export function useAccount(): UseAccount {
     }
   }, []);
 
-  const signIn = useCallback(async () => {
-    setState({kind: 'signingIn'});
-    try {
-      await AccountBridge.signIn();
-      await refresh();
-    } catch (e: unknown) {
-      if (nativeErrorCode(e) === 'CANCELLED') {
-        setState({kind: 'signedOut'});
-        return;
+  /**
+   * Shared by both sign-in flavors: same lifecycle, same error handling —
+   * only the native entry point differs (device-account sheet vs the web
+   * flow that accepts any Apple ID).
+   */
+  const runSignIn = useCallback(
+    async (start: () => Promise<unknown>) => {
+      setState({kind: 'signingIn'});
+      try {
+        await start();
+        await refresh();
+      } catch (e: unknown) {
+        if (nativeErrorCode(e) === 'CANCELLED') {
+          setState({kind: 'signedOut'});
+          return;
+        }
+        const message = e instanceof Error ? e.message : String(e);
+        setState({kind: 'error', message});
       }
-      const message = e instanceof Error ? e.message : String(e);
-      setState({kind: 'error', message});
-    }
-  }, [refresh]);
+    },
+    [refresh],
+  );
+
+  const signIn = useCallback(
+    () => runSignIn(() => AccountBridge.signIn()),
+    [runSignIn],
+  );
+
+  const signInWithDifferentAccount = useCallback(
+    () => runSignIn(() => AccountBridge.signInWithWebAccount()),
+    [runSignIn],
+  );
 
   const signOut = useCallback(async () => {
     try {
@@ -168,6 +188,7 @@ export function useAccount(): UseAccount {
   return {
     state,
     signIn,
+    signInWithDifferentAccount,
     signOut,
     deleteAccount,
     redeemActivationCode,

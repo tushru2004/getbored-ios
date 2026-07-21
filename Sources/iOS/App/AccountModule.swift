@@ -78,6 +78,12 @@ final class AccountModule: NSObject {
         pendingController = nil
     }
 
+    /// Strong reference to the in-flight web sign-in session ("Use a
+    /// different Apple Account"). Same deallocation pitfall as
+    /// `pendingController`: `start()` returns immediately and the session
+    /// must outlive it until the completion handler fires.
+    private var pendingWebSession: ASWebAuthenticationSession?
+
     // MARK: - signIn
 
     /// Entry point for the Sign in with Apple button. Hops to the main queue
@@ -139,6 +145,122 @@ final class AccountModule: NSObject {
         case .decoding(let underlying):
             reject("SERVER", "Failed to decode the server's response", underlying)
         }
+    }
+
+    // MARK: - signInWithWebAccount
+
+    /// "Use a different Apple Account": Apple's WEB authorize flow inside an
+    /// `ASWebAuthenticationSession`, because the native sheet above is locked
+    /// to the device's iCloud account and offers no way to enter other
+    /// credentials. The heavy lifting lives on the backend
+    /// (`/auth/apple/web/start` → Apple → `/auth/apple/web/callback`); this
+    /// method just hosts the browser sheet and catches the final redirect.
+    ///
+    /// Call flow:
+    ///
+    ///   JS calls signInWithWebAccount()
+    ///           │
+    ///           ▼ (main queue — the sheet presents from UI)
+    ///   ASWebAuthenticationSession(url: <api>/auth/apple/web/start,
+    ///                              callbackURLScheme: "getbored")
+    ///           │   prefersEphemeralWebBrowserSession = true
+    ///           │     └── no shared cookies: ALWAYS asks for credentials,
+    ///           │         which is the entire point of this flow
+    ///           ▼
+    ///   backend 302 → appleid.apple.com (user signs in with any Apple ID)
+    ///           → backend callback verifies + mints session
+    ///           → 302 getbored://apple-auth#sessionToken=…&userId=…
+    ///           │
+    ///           ├── fragment has sessionToken → KeychainStore.write → resolve({userId})
+    ///           ├── fragment has error=cancelled → reject(CANCELLED)
+    ///           ├── fragment has error=…         → reject(SERVER)
+    ///           └── session error .canceledLogin → reject(CANCELLED)
+    @objc func signInWithWebAccount(_ resolve: @escaping RCTPromiseResolveBlock,
+                                    rejecter reject: @escaping RCTPromiseRejectBlock) {
+        DispatchQueue.main.async {
+            self.beginWebSignIn(resolve: resolve, reject: reject)
+        }
+    }
+
+    private func beginWebSignIn(resolve: @escaping RCTPromiseResolveBlock,
+                                reject: @escaping RCTPromiseRejectBlock) {
+        guard pendingWebSession == nil else {
+            reject("SERVER", "A sign-in is already in progress", nil)
+            return
+        }
+
+        let startURL = APIEnvironment.baseURL.appendingPathComponent("auth/apple/web/start")
+        let session = ASWebAuthenticationSession(
+            url: startURL,
+            callbackURLScheme: "getbored"
+        ) { [weak self] callbackURL, error in
+            DispatchQueue.main.async {
+                self?.pendingWebSession = nil
+                Self.finishWebSignIn(
+                    callbackURL: callbackURL,
+                    error: error,
+                    resolve: resolve,
+                    reject: reject
+                )
+            }
+        }
+        session.prefersEphemeralWebBrowserSession = true
+        session.presentationContextProvider = self
+        pendingWebSession = session
+
+        if !session.start() {
+            pendingWebSession = nil
+            reject("SERVER", "Unable to present the sign-in window", nil)
+        }
+    }
+
+    private static func finishWebSignIn(callbackURL: URL?,
+                                        error: Error?,
+                                        resolve: RCTPromiseResolveBlock,
+                                        reject: RCTPromiseRejectBlock) {
+        if let error {
+            let sessionError = error as? ASWebAuthenticationSessionError
+            if sessionError?.code == .canceledLogin {
+                reject("CANCELLED", "The user canceled Sign in with Apple", error)
+                return
+            }
+            reject("SERVER", error.localizedDescription, error)
+            return
+        }
+
+        guard let callbackURL,
+              let fragment = URLComponents(url: callbackURL, resolvingAgainstBaseURL: false)?.fragment
+        else {
+            reject("SERVER", "Sign in returned no result", nil)
+            return
+        }
+
+        // Fragment is `key=value&key=value`; every value the backend sends
+        // (JWT, UUID, error slug) is URL-safe, so no percent-decoding pass.
+        var values: [String: String] = [:]
+        for pair in fragment.split(separator: "&") {
+            let parts = pair.split(separator: "=", maxSplits: 1).map(String.init)
+            if parts.count == 2 {
+                values[parts[0]] = parts[1]
+            }
+        }
+
+        if let flowError = values["error"] {
+            if flowError == "cancelled" {
+                reject("CANCELLED", "The user canceled Sign in with Apple", nil)
+            } else {
+                reject("SERVER", "Sign in failed on the server", nil)
+            }
+            return
+        }
+
+        guard let sessionToken = values["sessionToken"], let userId = values["userId"] else {
+            reject("SERVER", "Sign in returned an incomplete result", nil)
+            return
+        }
+
+        KeychainStore.write(sessionToken, for: .sessionToken)
+        resolve(["userId": userId])
     }
 
     // MARK: - signOut
@@ -428,6 +550,20 @@ extension AccountModule: ASAuthorizationControllerPresentationContextProviding {
         // has finished launching and RCTAppDelegate has assigned its window.
         // A fresh UIWindow satisfies the non-optional return type without
         // crashing if it somehow does.
+        return UIWindow()
+    }
+}
+
+// MARK: - ASWebAuthenticationPresentationContextProviding
+
+extension AccountModule: ASWebAuthenticationPresentationContextProviding {
+
+    /// Same key-window anchor as the native sheet above (see that method's
+    /// doc comment for the `UIWindow??` flattening).
+    func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
+        if let window = UIApplication.shared.delegate?.window ?? nil {
+            return window
+        }
         return UIWindow()
     }
 }

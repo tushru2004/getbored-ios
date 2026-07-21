@@ -219,9 +219,14 @@ const BrandMasthead: React.FC = () => (
 type WelcomeProps = {
   account: AccountState;
   onSignIn: () => void;
+  onSignInWithDifferentAccount: () => void;
 };
 
-const Welcome: React.FC<WelcomeProps> = ({account, onSignIn}) => {
+const Welcome: React.FC<WelcomeProps> = ({
+  account,
+  onSignIn,
+  onSignInWithDifferentAccount,
+}) => {
   const busy =
     account.kind === 'checking' ||
     account.kind === 'signingIn' ||
@@ -251,6 +256,15 @@ const Welcome: React.FC<WelcomeProps> = ({account, onSignIn}) => {
           ) : (
             <Text style={styles.appleButtonText}>Sign in with Apple</Text>
           )}
+        </Pressable>
+        <Pressable
+          disabled={busy}
+          onPress={onSignInWithDifferentAccount}
+          hitSlop={8}
+          style={({pressed}) => pressed && styles.pressedDim}>
+          <Text style={styles.differentAccountLink}>
+            Use a different Apple Account
+          </Text>
         </Pressable>
         <Text style={styles.welcomeLegal}>
           One account. Rules managed from your admin.
@@ -326,7 +340,11 @@ export const HomeScreen: React.FC = () => {
               onSignOut={account.signOut}
             />
           ) : (
-            <Welcome account={account.state} onSignIn={account.signIn} />
+            <Welcome
+              account={account.state}
+              onSignIn={account.signIn}
+              onSignInWithDifferentAccount={account.signInWithDifferentAccount}
+            />
           )
         )}
 
@@ -647,6 +665,14 @@ const styles = StyleSheet.create({
     borderRadius: 0,
     paddingVertical: spacing.lg,
     marginTop: spacing.xl,
+  },
+  differentAccountLink: {
+    ...typography.subhead,
+    fontSize: 14,
+    color: colors.label,
+    textAlign: 'center',
+    textDecorationLine: 'underline',
+    marginTop: spacing.lg,
   },
   appleButtonText: {
     ...typography.body,

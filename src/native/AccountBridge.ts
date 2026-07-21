@@ -5,6 +5,7 @@ import {AccountSummary, SignInResult} from './types';
 
 type NativeAccount = {
   signIn: () => Promise<SignInResult>;
+  signInWithWebAccount: () => Promise<SignInResult>;
   signOut: () => Promise<void>;
   currentAccount: () => Promise<AccountSummary>;
   redeemActivationCode: (code: string) => Promise<void>;
@@ -27,6 +28,12 @@ export const AccountBridge = {
   async signIn(): Promise<SignInResult> {
     if (!native) throw new NativeModuleUnavailableError('Account');
     return native.signIn();
+  },
+
+  /** Web-flow sign-in — accepts any Apple ID, not just the device's. */
+  async signInWithWebAccount(): Promise<SignInResult> {
+    if (!native) throw new NativeModuleUnavailableError('Account');
+    return native.signInWithWebAccount();
   },
 
   async signOut(): Promise<void> {
