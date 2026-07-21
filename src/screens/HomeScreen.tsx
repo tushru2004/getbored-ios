@@ -250,14 +250,9 @@ const BrandMasthead: React.FC = () => (
 type WelcomeProps = {
   account: AccountState;
   onSignIn: () => void;
-  onSignInWithDifferentAccount: () => void;
 };
 
-const Welcome: React.FC<WelcomeProps> = ({
-  account,
-  onSignIn,
-  onSignInWithDifferentAccount,
-}) => {
+const Welcome: React.FC<WelcomeProps> = ({account, onSignIn}) => {
   const busy =
     account.kind === 'checking' ||
     account.kind === 'signingIn' ||
@@ -288,18 +283,6 @@ const Welcome: React.FC<WelcomeProps> = ({
             <Text style={styles.appleButtonText}>Sign in with Apple</Text>
           )}
         </Pressable>
-        <Pressable
-          disabled={busy}
-          onPress={onSignInWithDifferentAccount}
-          hitSlop={8}
-          style={({pressed}) => pressed && styles.pressedDim}>
-          <Text style={styles.differentAccountLink}>
-            Use a different Apple Account
-          </Text>
-        </Pressable>
-        <Text style={styles.welcomeLegal}>
-          One account. Rules managed from your admin.
-        </Text>
       </View>
     </View>
   );
@@ -320,12 +303,13 @@ const Welcome: React.FC<WelcomeProps> = ({
  *       ├── 'signedIn' | 'unavailable' → main dashboard (ScrollView below)
  *       ├── 'needsActivation'          → <ActivationScreen>  (redeem a code)
  *       └── anything else (signedOut / checking / signingIn / deleting / error)
- *               └──→ <Welcome> — two sign-in flavors:
- *                       ├── onSignIn                → account.signIn()
- *                       │       (native device Apple ID sheet)
- *                       └── onSignInWithDifferentAccount
- *                               → account.signInWithDifferentAccount()
- *                                 (web flow, any Apple ID)
+ *               └──→ <Welcome> — one "Sign in with Apple" button →
+ *                       account.signInWithDifferentAccount() (the web flow).
+ *                       We deliberately use the web flow, not the native
+ *                       sheet: the native sheet is locked to the device's
+ *                       iCloud account, whereas the web flow lets the user
+ *                       enter ANY Apple ID. account.signIn() (native) is kept
+ *                       on the hook but no longer wired to any button.
  *
  * Main dashboard:
  *
@@ -409,8 +393,7 @@ export const HomeScreen: React.FC = () => {
           ) : (
             <Welcome
               account={account.state}
-              onSignIn={account.signIn}
-              onSignInWithDifferentAccount={account.signInWithDifferentAccount}
+              onSignIn={account.signInWithDifferentAccount}
             />
           )
         )}
@@ -733,23 +716,9 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.lg,
     marginTop: spacing.xl,
   },
-  differentAccountLink: {
-    ...typography.subhead,
-    fontSize: 14,
-    color: colors.label,
-    textAlign: 'center',
-    textDecorationLine: 'underline',
-    marginTop: spacing.lg,
-  },
   appleButtonText: {
     ...typography.body,
     fontSize: 16,
     color: '#FFFFFF',
-  },
-  welcomeLegal: {
-    ...typography.microFooter,
-    fontSize: 10,
-    color: colors.neutral,
-    marginTop: spacing.md,
   },
 });
