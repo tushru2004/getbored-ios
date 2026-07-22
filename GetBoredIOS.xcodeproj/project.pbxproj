@@ -72,6 +72,8 @@
 		KCSTORE01000000000000001 /* KeychainStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = KCSTORE00000000000000001 /* KeychainStore.swift */; };
 		APICLI010000000000000001 /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = APICLI000000000000000001 /* APIClient.swift */; };
 		ACCTSW010000000000000001 /* AccountModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACCTSW000000000000000001 /* AccountModule.swift */; };
+		DIAGSW010000000000000001 /* DiagnosticsModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = DIAGSW000000000000000001 /* DiagnosticsModule.swift */; };
+		DIAGOBJC0100000000000001 /* DiagnosticsModule.m in Sources */ = {isa = PBXBuildFile; fileRef = DIAGOBJC0000000000000001 /* DiagnosticsModule.m */; };
 		ACCTOBJC0100000000000001 /* AccountModule.m in Sources */ = {isa = PBXBuildFile; fileRef = ACCTOBJC0000000000000001 /* AccountModule.m */; };
 /* End PBXBuildFile section */
 
@@ -206,6 +208,8 @@
 		KCSTORE00000000000000001 /* KeychainStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = KeychainStore.swift; path = Sources/iOS/App/KeychainStore.swift; sourceTree = SOURCE_ROOT; };
 		APICLI000000000000000001 /* APIClient.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = APIClient.swift; path = Sources/iOS/App/APIClient.swift; sourceTree = SOURCE_ROOT; };
 		ACCTSW000000000000000001 /* AccountModule.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AccountModule.swift; path = Sources/iOS/App/AccountModule.swift; sourceTree = SOURCE_ROOT; };
+		DIAGSW000000000000000001 /* DiagnosticsModule.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DiagnosticsModule.swift; path = Sources/iOS/App/DiagnosticsModule.swift; sourceTree = SOURCE_ROOT; };
+		DIAGOBJC0000000000000001 /* DiagnosticsModule.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = DiagnosticsModule.m; path = Sources/iOS/App/DiagnosticsModule.m; sourceTree = SOURCE_ROOT; };
 		ACCTOBJC0000000000000001 /* AccountModule.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = AccountModule.m; path = Sources/iOS/App/AccountModule.m; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
@@ -470,6 +474,8 @@
 				KCSTORE00000000000000001 /* KeychainStore.swift */,
 				APICLI000000000000000001 /* APIClient.swift */,
 				ACCTSW000000000000000001 /* AccountModule.swift */,
+				DIAGSW000000000000000001 /* DiagnosticsModule.swift */,
+				DIAGOBJC0000000000000001 /* DiagnosticsModule.m */,
 				ACCTOBJC0000000000000001 /* AccountModule.m */,
 				00E54D0F98645FFEB51C88D6 /* Assets.xcassets */,
 			);
@@ -1027,6 +1033,8 @@
 				KCSTORE01000000000000001 /* KeychainStore.swift in Sources */,
 				APICLI010000000000000001 /* APIClient.swift in Sources */,
 				ACCTSW010000000000000001 /* AccountModule.swift in Sources */,
+				DIAGSW010000000000000001 /* DiagnosticsModule.swift in Sources */,
+				DIAGOBJC0100000000000001 /* DiagnosticsModule.m in Sources */,
 				ACCTOBJC0100000000000001 /* AccountModule.m in Sources */,
 				6D69476B2FBBC214009321E3 /* FilterStatusModule.swift in Sources */,
 			);
@@ -1168,6 +1176,9 @@
 		1A0000012 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CURRENT_PROJECT_VERSION = 6;
+				MARKETING_VERSION = 1.0;
+				VERSIONING_SYSTEM = "apple-generic";
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_CXX_LANGUAGE_STANDARD = "c++20";
@@ -1226,6 +1237,9 @@
 		1A0000013 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CURRENT_PROJECT_VERSION = 6;
+				MARKETING_VERSION = 1.0;
+				VERSIONING_SYSTEM = "apple-generic";
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_CXX_LANGUAGE_STANDARD = "c++20";
@@ -1328,6 +1342,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
 				PRODUCT_BUNDLE_IDENTIFIER = com.getbored.filter;
 				PRODUCT_NAME = GetBored;
 				SDKROOT = iphoneos;
@@ -1426,6 +1441,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
 				PRODUCT_BUNDLE_IDENTIFIER = com.getbored.filter;
 				PRODUCT_NAME = GetBored;
 				SDKROOT = iphoneos;

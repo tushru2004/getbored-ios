@@ -1,5 +1,6 @@
 import {useCallback, useEffect, useRef, useState} from 'react';
 
+import {DiagnosticsBridge} from '../native/DiagnosticsBridge';
 import {FilterStatusBridge} from '../native/FilterStatusBridge';
 import {StatusViewModel} from '../native/types';
 
@@ -15,6 +16,12 @@ export type UseFilterStatus = {
   refresh: () => void;
   /** In-app filter enable ("Turn Filtering On"); reloads status after. */
   enable: () => Promise<void>;
+  /**
+   * The last enable() failure, held OUTSIDE the polled `state` so the
+   * status poll can't overwrite it a few seconds later (the bug where the
+   * error flashed and vanished). Cleared when the user retries enable().
+   */
+  enableError: string | null;
 };
 
 /**
@@ -39,15 +46,20 @@ export type UseFilterStatus = {
  *
  *   enable()  ← "Turn Filtering On" press
  *       │
+ *       ├── enableError = null   ← retry clears the previous failure
  *       ▼
  *   FilterStatusBridge.enableFilter()
- *       ├── rejects  → setState({error, message}), stop
+ *       ├── rejects  → enableError = message  ← sticky: the poll can't clear it
+ *       │             DiagnosticsBridge.reportRecentLogs('enable-filter-failed')
+ *       │                 ← fire-and-forget: ships the last minutes of native
+ *       │                   logs (incl. the NEFilterManager error) to the server
  *       └── resolves → load()  ← reflect the now-active filter immediately
  *
  * `refresh` is just `load` exposed for pull-to-refresh.
  */
 export function useFilterStatus(): UseFilterStatus {
   const [state, setState] = useState<FilterStatusState>({kind: 'loading'});
+  const [enableError, setEnableError] = useState<string | null>(null);
   const mountedRef = useRef(true);
 
   const load = useCallback(async () => {
@@ -71,15 +83,17 @@ export function useFilterStatus(): UseFilterStatus {
   }, [load]);
 
   const enable = useCallback(async () => {
+    if (mountedRef.current) setEnableError(null);
     try {
       await FilterStatusBridge.enableFilter();
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : String(e);
-      if (mountedRef.current) setState({kind: 'error', message});
+      if (mountedRef.current) setEnableError(message);
+      DiagnosticsBridge.reportRecentLogs('enable-filter-failed');
       return;
     }
     await load();
   }, [load]);
 
-  return {state, refresh: load, enable};
+  return {state, refresh: load, enable, enableError};
 }

@@ -14,6 +14,8 @@ final class AppDelegate: RCTAppDelegate {
     ) -> Bool {
         self.moduleName = "GetBoredIOS"
         self.initialProps = [:]
+        // Crash/hang diagnostics via MetricKit — see MetricKitReporter.
+        MetricKitReporter.shared.start()
         return super.application(application, didFinishLaunchingWithOptions: launchOptions)
     }
 

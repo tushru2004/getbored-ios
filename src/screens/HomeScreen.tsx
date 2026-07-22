@@ -335,7 +335,7 @@ export const HomeScreen: React.FC = () => {
 
   const {sync} = filterSync;
   const {refresh: refreshAccount} = account;
-  const {refresh: refreshStatus, enable} = filterStatus;
+  const {refresh: refreshStatus, enable, enableError} = filterStatus;
 
   const onPullRefresh = useCallback(async () => {
     setPulling(true);
@@ -370,7 +370,12 @@ export const HomeScreen: React.FC = () => {
     ? `Synced automatically · ${formatSyncTime(syncSuccess.syncedAtMs)}`
     : 'This iPhone syncs automatically.';
   const heroEyebrow = heroEyebrowFor(hero);
-  const showWarningTicket = hero.word === 'Paused' && hero.substance !== '';
+  // A failed "Turn Filtering On" outranks the generic Paused copy: the
+  // ticket shows WHY it failed, and stays until the user retries (the
+  // status poll can't clear it — see useFilterStatus.enableError).
+  const warningText = enableError ?? hero.substance;
+  const showWarningTicket =
+    enableError !== null || (hero.word === 'Paused' && hero.substance !== '');
   const openAccount = useCallback(() => {
     setShowAccount(true);
     // Keep the existing signed-in UI in place while retrying the optional
@@ -432,7 +437,7 @@ export const HomeScreen: React.FC = () => {
 
             {showWarningTicket && (
               <View style={styles.warningTicket}>
-                <Text style={styles.warningTicketText}>{hero.substance}</Text>
+                <Text style={styles.warningTicketText}>{warningText}</Text>
               </View>
             )}
 
