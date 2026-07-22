@@ -18,8 +18,9 @@ import GetBoredCore
 ///
 /// Sign-in state is the presence of a Keychain-stored session token
 /// (`KeychainStore.Item.sessionToken`): signIn/signInWithWebAccount write it,
-/// signOut/deleteAccount clear it, currentAccount reads it. There is no
-/// separate local "account" model to keep in sync.
+/// signOut/deleteAccount clear it, and currentAccount reads it (and clears
+/// it too when the server rejects it outright — see currentAccount below).
+/// There is no separate local "account" model to keep in sync.
 ///
 /// Call flow for signIn (the only multi-step method):
 ///
@@ -384,10 +385,15 @@ final class AccountModule: NSObject {
 
     // MARK: - currentAccount
 
-    /// Reports sign-in state to JS. Keychain presence of a session token is
-    /// the source of truth: a missing token always means signed out, and a
-    /// present token always means signed in, regardless of what `/api/me`
-    /// does or doesn't return.
+    /// Reports sign-in state to JS. Keychain presence of a session token
+    /// answers "signed in" — with one exception: a token the server rejects
+    /// outright (401) is dead weight, and keeping it would strand the user
+    /// in a permanent "signed in but nothing works" shell (expired 30-day
+    /// session, token minted against a different environment). That token
+    /// is deleted here and the user is reported signed out, exactly as if
+    /// they had tapped Sign Out. Transient failures (offline, 5xx) must NOT
+    /// sign the user out — a network blip is not a revoked session — so
+    /// they keep the token and merely omit the enrichment fields.
     ///
     /// Call flow:
     ///
@@ -401,7 +407,11 @@ final class AccountModule: NSObject {
     ///           GET /api/me (authenticated: true)
     ///                   ├── .success → resolve(["signedIn": true, "userId", "plan",
     ///                   │                        + "email" when contactEmail ?? identityEmail present])
-    ///                   └── .failure → resolve(["signedIn": true])   ← never reject; enrichment omitted
+    ///                   ├── .failure(.signedOut)   ← server said 401: token expired/foreign
+    ///                   │       └── KeychainStore.delete(.sessionToken)
+    ///                   │           resolve(["signedIn": false])
+    ///                   └── .failure(anything else) → resolve(["signedIn": true])
+    ///                           ← offline/5xx: never reject; enrichment omitted
     @objc func currentAccount(_ resolve: @escaping RCTPromiseResolveBlock,
                              rejecter reject: @escaping RCTPromiseRejectBlock) {
         guard KeychainStore.read(.sessionToken) != nil else {
@@ -423,6 +433,13 @@ final class AccountModule: NSObject {
                     payload["email"] = email
                 }
                 resolve(payload)
+            case .failure(.signedOut):
+                // The server rejected the token itself (expired, revoked, or
+                // minted for another environment). Holding onto it would show
+                // a zombie "signed in" state forever; discard it like signOut
+                // does and let the welcome screen offer a fresh sign-in.
+                KeychainStore.delete(.sessionToken)
+                resolve(["signedIn": false])
             case .failure:
                 // Keychain presence already answered "signedIn" above; a
                 // failed enrichment call just means userId/email are omitted.
