@@ -257,16 +257,15 @@ const Welcome: React.FC<WelcomeProps> = ({account, onSignIn}) => {
     account.kind === 'checking' ||
     account.kind === 'signingIn' ||
     account.kind === 'deleting';
-  const tagline =
-    account.kind === 'deleting'
-      ? 'Deleting your account…'
-      : 'Block the noise.\nKeep the calm.';
+  const isDeleting = account.kind === 'deleting';
 
   return (
     <View style={styles.welcome}>
       <BrandMasthead />
       <View style={styles.welcomeBody}>
-        <Text style={styles.welcomeTagline}>{tagline}</Text>
+        {isDeleting && (
+          <Text style={styles.welcomeTagline}>Deleting your account…</Text>
+        )}
         {account.kind === 'error' && (
           <Text style={styles.welcomeError}>{account.message}</Text>
         )}

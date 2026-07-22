@@ -126,7 +126,7 @@ const RulesContent: React.FC<{rules: ActiveRules}> = ({rules}) => {
   if (!hasAnything) {
     return (
       <Text style={styles.emptyState}>
-        No rules yet · assign a list in your admin
+        No rules yet · assign a list in your admin portal
       </Text>
     );
   }
@@ -166,9 +166,11 @@ type Props = {
  *
  *   useActiveRules().state drives the body:
  *       │
- *       ├── 'loading' → ActivityIndicator
- *       ├── 'error'   → error message
- *       └── 'ready'   → <RulesContent rules={state.rules} />
+ *       ├── 'loading'              → ActivityIndicator
+ *       ├── 'error'                → error message
+ *       ├── 'signedOut'            → "Sign in again to view your rules." notice
+ *       ├── 'subscriptionRequired' → "Filtering has stopped…" notice
+ *       └── 'ready'                → <RulesContent rules={state.rules} />
  */
 export const ActiveRulesScreen: React.FC<Props> = ({visible, onClose}) => {
   const {state, reload} = useActiveRules();
@@ -191,7 +193,6 @@ export const ActiveRulesScreen: React.FC<Props> = ({visible, onClose}) => {
             <Pressable onPress={onClose} hitSlop={12}>
               <Text style={styles.backText}>← Home</Text>
             </Pressable>
-            <Text style={styles.readOnly}>Read only</Text>
           </View>
           <View style={styles.titleBlock}>
             <Text style={styles.eyebrow}>Active on this iPhone</Text>
@@ -221,7 +222,7 @@ export const ActiveRulesScreen: React.FC<Props> = ({visible, onClose}) => {
           {state.kind === 'ready' && <RulesContent rules={state.rules} />}
 
           <Text style={styles.footer}>
-            Synced from your account · read-only
+            Synced from your account
           </Text>
         </ScrollView>
       </SafeAreaView>
@@ -251,10 +252,6 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.separator,
   },
   backText: {
-    ...typography.eyebrow,
-    color: colors.label,
-  },
-  readOnly: {
     ...typography.eyebrow,
     color: colors.label,
   },
