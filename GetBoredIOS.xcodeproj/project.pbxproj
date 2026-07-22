@@ -69,7 +69,6 @@
 		SPMBUILDFILE000000000005 /* GetBoredCore in Frameworks */ = {isa = PBXBuildFile; productRef = SPMPROD00000000000000005 /* GetBoredCore */; };
 		SPMBUILDFILE000000000006 /* GetBoredCore in Frameworks */ = {isa = PBXBuildFile; productRef = SPMPROD00000000000000006 /* GetBoredCore */; };
 		SPMBUILDFILE000000000007 /* GetBoredCore in Frameworks */ = {isa = PBXBuildFile; productRef = SPMPROD00000000000000007 /* GetBoredCore */; };
-		KCDID010000000000000001 /* KeychainDeviceID.swift in Sources */ = {isa = PBXBuildFile; fileRef = KCDID000000000000000001 /* KeychainDeviceID.swift */; };
 		WLITEM001000000000000001 /* WhitelistItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = WLITEM000000000000000001 /* WhitelistItem.swift */; };
 		WLMGR001000000000000001 /* WhitelistManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = WLMGR000000000000000001 /* WhitelistManager.swift */; };
 		KCSTORE01000000000000001 /* KeychainStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = KCSTORE00000000000000001 /* KeychainStore.swift */; };
@@ -206,7 +205,6 @@
 		FC7C9C45648F8CA624EEC1E0 /* SafariServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = SafariServices.framework; sourceTree = "<group>"; };
 		SCRE0001SCRE00000001SCRE /* Sources/iOS/SafariChildRegistrationExtension/SafariChildRegistrationExtension.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; path = Sources/iOS/SafariChildRegistrationExtension/SafariChildRegistrationExtension.entitlements; sourceTree = SOURCE_ROOT; };
 		SCRE0002SCRE00000002SCRE /* Sources/iOS/SafariChildRegistrationExtension/Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Sources/iOS/SafariChildRegistrationExtension/Info.plist; sourceTree = SOURCE_ROOT; };
-		KCDID000000000000000001 /* KeychainDeviceID.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = KeychainDeviceID.swift; path = Sources/iOS/App/KeychainDeviceID.swift; sourceTree = SOURCE_ROOT; };
 		WLITEM000000000000000001 /* WhitelistItem.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = WhitelistItem.swift; path = Sources/iOS/App/WhitelistItem.swift; sourceTree = SOURCE_ROOT; };
 		WLMGR000000000000000001 /* WhitelistManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = WhitelistManager.swift; path = Sources/iOS/App/WhitelistManager.swift; sourceTree = SOURCE_ROOT; };
 		KCSTORE00000000000000001 /* KeychainStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = KeychainStore.swift; path = Sources/iOS/App/KeychainStore.swift; sourceTree = SOURCE_ROOT; };
@@ -473,7 +471,6 @@
 				18C22B6A3A1A2710A8A8CCDE /* Info.plist */,
 				3EF61BF872CC93A5034A0241 /* GetBored iOS.entitlements */,
 				F1A2B3C4D5E6F7089012ABCD /* FilterListModels.swift */,
-				KCDID000000000000000001 /* KeychainDeviceID.swift */,
 				WLITEM000000000000000001 /* WhitelistItem.swift */,
 				WLMGR000000000000000001 /* WhitelistManager.swift */,
 				KCSTORE00000000000000001 /* KeychainStore.swift */,
@@ -1033,7 +1030,6 @@
 				3866DA922000B43E04EFB167 /* IOSRuleStore.swift in Sources */,
 				A1B2C3D4E5F60718293A4B5D /* KMPDecisionCoreAdapter.swift in Sources */,
 				F5E6F7089012ABCDF1A2B3C4 /* FilterListModels.swift in Sources */,
-				KCDID010000000000000001 /* KeychainDeviceID.swift in Sources */,
 				WLITEM001000000000000001 /* WhitelistItem.swift in Sources */,
 				WLMGR001000000000000001 /* WhitelistManager.swift in Sources */,
 				KCSTORE01000000000000001 /* KeychainStore.swift in Sources */,

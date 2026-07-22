@@ -6,12 +6,11 @@ import GetBoredCore
 
 /// React Native bridge for filter status, device registration, and policy sync.
 ///
-/// Post-Phase-3: this module talks to the GetBored REST API (`APIClient`) and
-/// the Keychain (`KeychainStore`) instead of CloudKit. Two identifiers matter:
-/// the session token (are we signed in?) and the server-minted device id (has
-/// THIS install registered?). Both live in the Keychain; neither is CloudKit's
-/// per-device UUID from the old `KeychainDeviceID`, which this file no longer
-/// reads — the server mints and owns the device id now.
+/// This module talks to the GetBored REST API (`APIClient`) and the Keychain
+/// (`KeychainStore`). Two identifiers matter: the session token (are we
+/// signed in?) and the server-minted device id (has THIS install
+/// registered?). Both live in the Keychain; the server mints and owns the
+/// device id.
 @objc(FilterStatus)
 final class FilterStatusModule: NSObject {
 
@@ -393,8 +392,8 @@ final class FilterStatusModule: NSObject {
 
     /// Builds the `DeviceInput` sent on every register/re-register call. The
     /// API only has three free-text fields — `name`, `model`, `appVersion` —
-    /// so system details that used to have their own CloudKit fields (system
-    /// version, debug/production build configuration) are folded into `model`
+    /// so system details without fields of their own (system version,
+    /// debug/production build configuration) are folded into `model`
     /// (see `modelDescription()`) instead of being dropped.
     private func currentDeviceInput() -> DeviceInput {
         DeviceInput(

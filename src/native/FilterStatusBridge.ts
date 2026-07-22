@@ -53,8 +53,8 @@ const parseFilter = (raw: RawStatus): FilterStatus => {
 
 /**
  * Maps the native `signedIn` flag onto the AccountStatus union (session
- * presence in the Keychain — a plain boolean now that the async CloudKit
- * account check is gone, so there's no `checking` state to represent here).
+ * presence in the Keychain — a plain boolean with no async account check,
+ * so there's no `checking` state to represent here).
  *
  *   raw.signedIn
  *       │

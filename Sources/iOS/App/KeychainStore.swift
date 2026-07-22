@@ -10,10 +10,8 @@ import Security
 /// This keeps API credentials genuinely unique to THIS physical device while
 /// surviving the `UserDefaults` wipe that happens during reinstall.
 ///
-/// Modeled on `KeychainDeviceID` (the CloudKit-era per-device ID store, kept
-/// as-is): the same read/delete-then-add patterns, generalized to a small set
-/// of named `Item`s stored under one shared Keychain service instead of a
-/// single fixed account.
+/// Uses the standard read and delete-then-add Keychain patterns, generalized
+/// to a small set of named `Item`s stored under one shared Keychain service.
 ///
 /// Usage:
 ///
