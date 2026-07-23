@@ -1,0 +1,366 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GetBored iOS — Profile Gate</title>
+  <style>
+    :root {
+      --ink: #153b35;
+      --paper: #f5efe1;
+      --surface: #fffdf7;
+      --sun: #f6c94d;
+      --signal: #f45d43;
+      --quiet: #5f716c;
+      --line: #cfd3c8;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at 20% 10%, rgba(246, 201, 77, .15), transparent 26rem),
+        #e9e7e0;
+      color: var(--ink);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    main {
+      width: min(1180px, calc(100% - 40px));
+      margin: 0 auto;
+      padding: 34px 0 48px;
+    }
+
+    h1 {
+      margin: 0;
+      font-family: Georgia, 'Times New Roman', serif;
+      font-size: clamp(28px, 3vw, 44px);
+      font-weight: 600;
+      letter-spacing: -.03em;
+    }
+
+    .intro {
+      margin: 9px 0 28px;
+      color: #596762;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    .flow {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 30px;
+      color: #66736f;
+      font-size: 11px;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+
+    .flow b { color: var(--ink); }
+    .flow span { color: #9aa39f; }
+
+    .comparison {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 52px;
+      align-items: start;
+    }
+
+    .case-label {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin: 0 0 12px;
+      font-size: 12px;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+
+    .case-label strong { color: var(--ink); }
+    .case-label span { color: #74817d; }
+
+    .phone {
+      width: 100%;
+      max-width: 430px;
+      min-height: 760px;
+      margin: 0 auto;
+      overflow: hidden;
+      border: 8px solid #111715;
+      border-radius: 48px;
+      background: var(--paper);
+      box-shadow: 0 24px 50px rgba(21, 59, 53, .18);
+    }
+
+    .statusbar {
+      height: 46px;
+      padding: 18px 24px 0;
+      display: flex;
+      justify-content: space-between;
+      color: #111;
+      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .masthead {
+      min-height: 142px;
+      padding: 25px 25px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      color: var(--surface);
+      background: var(--ink);
+      border-bottom: 4px solid var(--sun);
+    }
+
+    .brand {
+      font-family: Georgia, 'Times New Roman', serif;
+      font-size: 37px;
+      letter-spacing: -.04em;
+    }
+
+    .brand b { color: var(--sun); font-weight: 600; }
+
+    .tagline {
+      margin-top: 18px;
+      font-size: 11px;
+      line-height: 1.45;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+
+    .target {
+      position: relative;
+      width: 70px;
+      aspect-ratio: 1;
+      border: 3px solid rgba(255,255,255,.28);
+      border-radius: 50%;
+    }
+
+    .target::before,
+    .target::after {
+      content: '';
+      position: absolute;
+      inset: 11px;
+      border: 3px solid rgba(255,255,255,.48);
+      border-radius: 50%;
+    }
+
+    .target::after {
+      inset: 25px;
+      border: 0;
+      background: var(--surface);
+    }
+
+    .content { padding: 46px 25px 24px; }
+
+    .hero {
+      display: grid;
+      grid-template-columns: 112px 1fr;
+      gap: 24px;
+      align-items: center;
+      padding-bottom: 34px;
+      border-bottom: 2px solid var(--ink);
+    }
+
+    .rings {
+      position: relative;
+      width: 112px;
+      aspect-ratio: 1;
+      border: 3px solid currentColor;
+      border-radius: 50%;
+      opacity: .55;
+    }
+
+    .rings::before,
+    .rings::after {
+      content: '';
+      position: absolute;
+      border: 3px solid currentColor;
+      border-radius: 50%;
+    }
+
+    .rings::before { inset: 15px; }
+    .rings::after { inset: 34px; background: currentColor; }
+
+    .rings.active { color: var(--ink); }
+    .rings.missing { color: var(--signal); }
+    .rings.missing::after {
+      background: transparent;
+      border-style: dashed;
+    }
+
+    .eyebrow {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .13em;
+      text-transform: uppercase;
+    }
+
+    .state {
+      margin-top: 9px;
+      font-family: Georgia, 'Times New Roman', serif;
+      font-size: 44px;
+      line-height: .98;
+      letter-spacing: -.035em;
+    }
+
+    .state.signal { color: var(--signal); }
+
+    .ticket {
+      margin-top: 20px;
+      padding: 17px 17px 17px 19px;
+      background: var(--surface);
+      border-left: 5px solid var(--signal);
+      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+      font-size: 14px;
+      line-height: 1.45;
+    }
+
+    .button {
+      margin-top: 20px;
+      padding: 17px;
+      text-align: center;
+      border: 2px solid var(--ink);
+      background: var(--sun);
+      box-shadow: 5px 6px 0 var(--ink);
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+    }
+
+    .rows {
+      margin-top: 38px;
+      border-top: 2px solid var(--ink);
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 1fr auto 12px;
+      gap: 10px;
+      padding: 23px 0;
+      align-items: center;
+      border-bottom: 1px solid var(--line);
+      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+
+    .row strong {
+      font-family: Georgia, 'Times New Roman', serif;
+      font-size: 19px;
+    }
+
+    .row span { color: var(--quiet); }
+
+    .profile-only {
+      min-height: 540px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 12px 20px 0;
+    }
+
+    .profile-only .eyebrow { margin-top: 24px; }
+
+    .profile-copy {
+      max-width: 290px;
+      margin: 16px auto 0;
+      color: var(--quiet);
+      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .profile-only .button { width: 100%; margin-top: 28px; }
+
+    .signout {
+      margin-top: 21px;
+      color: var(--quiet);
+      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+      font-size: 14px;
+    }
+
+    .note {
+      margin-top: 30px;
+      padding: 15px 18px;
+      border: 1px solid rgba(21, 59, 53, .18);
+      background: rgba(255,255,255,.5);
+      color: #596762;
+      font-size: 12px;
+      line-height: 1.55;
+    }
+
+    @media (max-width: 850px) {
+      .comparison { grid-template-columns: 1fr; }
+      .phone { max-width: 420px; }
+      .flow { flex-wrap: wrap; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Protection gate after activation</h1>
+    <p class="intro">The account is already signed in and activated in both states. If protection is missing, the customer downloads the account-specific profile and completes Apple’s installation flow in Settings.</p>
+    <div class="flow"><b>Sign in</b><span>→</span><b>Activation</b><span>→</span><b>Profile check</b><span>→</span><b>Main app</b></div>
+
+    <section class="comparison">
+      <article>
+        <p class="case-label"><strong>Profile exists</strong><span>Main app</span></p>
+        <div class="phone" aria-label="Profile exists mock">
+          <div class="statusbar"><span>6:13</span><span>● Wi-Fi ▰</span></div>
+          <header class="masthead">
+            <div>
+              <div class="brand">Get <b>Bored.</b></div>
+              <div class="tagline">Bored minds<br>go interesting places.</div>
+            </div>
+            <div class="target" aria-hidden="true"></div>
+          </header>
+          <div class="content">
+            <section class="hero">
+              <div class="rings active" aria-hidden="true"></div>
+              <div>
+                <div class="eyebrow">This iPhone · quiet</div>
+                <div class="state">GetBored</div>
+              </div>
+            </section>
+            <div class="rows">
+              <div class="row"><strong>Account</strong><span>Hidden Apple email</span><span>›</span></div>
+              <div class="row"><strong>Active rules</strong><span>0 sites</span><span>›</span></div>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <article>
+        <p class="case-label"><strong>Profile missing</strong><span>Needs attention</span></p>
+        <div class="phone" aria-label="No profile mock">
+          <div class="statusbar"><span>6:13</span><span>● Wi-Fi ▰</span></div>
+          <header class="masthead">
+            <div>
+              <div class="brand">Get <b>Bored.</b></div>
+              <div class="tagline">Bored minds<br>go interesting places.</div>
+            </div>
+            <div class="target" aria-hidden="true"></div>
+          </header>
+          <div class="content profile-only">
+            <div class="rings missing" aria-hidden="true"></div>
+            <div class="eyebrow">This iPhone · needs attention</div>
+            <div class="state signal">Protection missing</div>
+            <p class="profile-copy">Download the profile, then open Settings → Profile Downloaded → Install.</p>
+            <div class="button">Download &amp; install profile</div>
+            <div class="signout">Check again</div>
+            <div class="signout">Sign out</div>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <p class="note"><strong>Apple requires customer confirmation.</strong> The button opens a short-lived, authenticated profile download. The customer then installs it from Settings and returns to GetBored, which checks for the filter profile again.</p>
+  </main>
+</body>
+</html>
