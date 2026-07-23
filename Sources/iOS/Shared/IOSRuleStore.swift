@@ -100,7 +100,7 @@ class IOSRuleStore {
             logger.debug("loadSiteRules: no data found or decode failed, returning empty")
             return []
         }
-        logger.debug("loadSiteRules: loaded \(items.count) items")
+        logger.debug("loadSiteRules: loaded \(items.count, privacy: .public) items")
         return items
     }
 
@@ -140,7 +140,7 @@ class IOSRuleStore {
             logger.error("saveSiteRules: failed to encode items")
             return
         }
-        logger.info("saveSiteRules: saving \(items.count) items")
+        logger.info("saveSiteRules: saving \(items.count, privacy: .public) items")
         let defaults = sharedDefaults
         defaults?.set(data, forKey: siteRulesKey)
         defaults?.synchronize()
@@ -155,7 +155,7 @@ class IOSRuleStore {
             return false
         }
 
-        logger.info("saveParentChildMapJSON: saving \(json.utf8.count) bytes")
+        logger.info("saveParentChildMapJSON: saving \(json.utf8.count, privacy: .public) bytes")
         let defaults = sharedDefaults
         defaults?.set(json, forKey: parentChildMapKey)
         defaults?.synchronize()
@@ -216,14 +216,14 @@ class IOSRuleStore {
 
         invalidateDefaultsCache()
 
-        logger.info("applyFilterListSnapshot: \(entries.count) entries, mode=\(filterMode.rawValue), \(exceptions.count) exceptions, \(allowedApps.count) allowedApps, \(blockedApps.count) blockedApps")
+        logger.info("applyFilterListSnapshot: \(entries.count, privacy: .public) entries, mode=\(filterMode.rawValue, privacy: .public), \(exceptions.count, privacy: .public) exceptions, \(allowedApps.count, privacy: .public) allowedApps, \(blockedApps.count, privacy: .public) blockedApps")
     }
 
     // MARK: - Filter Mode
 
     /// Set the filter mode ("blockSpecific" or "whiteList")
     func setMode(_ mode: String) {
-        logger.info("setMode: \(mode)")
+        logger.info("setMode: \(mode, privacy: .public)")
         sharedDefaults?.set(mode, forKey: modeKey)
         sharedDefaults?.synchronize()
     }
@@ -233,7 +233,7 @@ class IOSRuleStore {
     /// this is also what the React Native "Active Rules" screen reads for display.
     func getMode() -> String {
         let mode = decodedFilterMode().rawValue
-        logger.debug("getMode: \(mode)")
+        logger.debug("getMode: \(mode, privacy: .public)")
         return mode
     }
 
@@ -279,7 +279,7 @@ class IOSRuleStore {
 
     /// Save exception patterns
     func setExceptions(_ exceptions: [String]) {
-        logger.info("setExceptions: \(exceptions.count) exceptions")
+        logger.info("setExceptions: \(exceptions.count, privacy: .public) exceptions")
         sharedDefaults?.set(exceptions, forKey: exceptionsKey)
         sharedDefaults?.synchronize()
     }
@@ -293,7 +293,7 @@ class IOSRuleStore {
 
     /// Save bundle IDs of apps that bypass filtering
     func setAllowedApps(_ bundleIDs: [String]) {
-        logger.info("setAllowedApps: \(bundleIDs.count) apps")
+        logger.info("setAllowedApps: \(bundleIDs.count, privacy: .public) apps")
         sharedDefaults?.set(bundleIDs, forKey: allowedAppsKey)
         sharedDefaults?.synchronize()
     }
@@ -301,7 +301,7 @@ class IOSRuleStore {
     /// Load allowed app bundle IDs
     func loadAllowedApps() -> [String] {
         let apps = sharedDefaults?.stringArray(forKey: allowedAppsKey) ?? []
-        logger.debug("loadAllowedApps: \(apps.count) apps")
+        logger.debug("loadAllowedApps: \(apps.count, privacy: .public) apps")
         return apps
     }
 
@@ -319,7 +319,7 @@ class IOSRuleStore {
 
     /// Save bundle IDs of apps whose traffic should be blocked entirely
     func setBlockedApps(_ bundleIDs: [String]) {
-        logger.info("setBlockedApps: \(bundleIDs.count) apps")
+        logger.info("setBlockedApps: \(bundleIDs.count, privacy: .public) apps")
         sharedDefaults?.set(bundleIDs, forKey: blockedAppsKey)
         sharedDefaults?.synchronize()
     }
@@ -327,7 +327,7 @@ class IOSRuleStore {
     /// Load blocked app bundle IDs
     func loadBlockedApps() -> [String] {
         let apps = sharedDefaults?.stringArray(forKey: blockedAppsKey) ?? []
-        logger.debug("loadBlockedApps: \(apps.count) apps")
+        logger.debug("loadBlockedApps: \(apps.count, privacy: .public) apps")
         return apps
     }
 

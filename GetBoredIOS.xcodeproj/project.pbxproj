@@ -19,7 +19,6 @@
 		13AB0F0ED1724891B6000EDC /* SafariTestHarnessContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3287775BCA2749979ABFAB2B /* SafariTestHarnessContentView.swift */; };
 		13CA5AFA787C945F98069E2D /* background.js in Resources */ = {isa = PBXBuildFile; fileRef = D3C2B2DFF9189D73FFBB0547 /* background.js */; };
 		15A4720589D9AEFDFD52A8A4 /* iOSFlowInspector.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = B13C109D52BB8CF4949E1E76 /* iOSFlowInspector.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
-		1699D5F4A9B63F480FEA6969 /* SafariAppProxyProvider.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = 59841F631E2C9BFA4D39A6D3 /* SafariAppProxyProvider.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		20E57F207296D0DF42071525 /* iOSBlockHandler.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = 51FFB3E78FF333C5FA74A95F /* iOSBlockHandler.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		2C02EB53051A6D7572A6F0E6 /* Sources/iOS/iOSBlockHandler/PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 2A6750D54954AF636FE5875B /* Sources/iOS/iOSBlockHandler/PrivacyInfo.xcprivacy */; };
 		3866DA922000B43E04EFB167 /* IOSRuleStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54405896F6E80832028947EF /* IOSRuleStore.swift */; };
@@ -39,7 +38,6 @@
 		7E19871524EC6D109F8A6227 /* icon-48.png in Resources */ = {isa = PBXBuildFile; fileRef = 46A3E99B83BD1F3580BCA6C0 /* icon-48.png */; };
 		7E215C8357E59B878A2681A8 /* icon-512.png in Resources */ = {isa = PBXBuildFile; fileRef = A77015159D559FE37F614107 /* icon-512.png */; };
 		9036624EEAF9F16AAEA89B96 /* content.js in Resources */ = {isa = PBXBuildFile; fileRef = 28220110C03D8DA025447634 /* content.js */; };
-		90E17277773DF9448FC767C3 /* SafariChildRegistrationExtension.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = A60E5D972187DF777B271D91 /* SafariChildRegistrationExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		92A110529D6E62B466F97BC5 /* NetworkExtension.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 54D9BAA543B47311891D1707 /* NetworkExtension.framework */; };
 		A1B2C3D4E5F60718293A4B5D /* KMPDecisionCoreAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4B5C /* KMPDecisionCoreAdapter.swift */; };
 		A1B2C3D4E5F60718293A4B5E /* KMPDecisionCoreAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4B5C /* KMPDecisionCoreAdapter.swift */; };
@@ -47,6 +45,9 @@
 		A1B2C3D4E5F60718293A4B60 /* KMPDecisionCoreAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4B5C /* KMPDecisionCoreAdapter.swift */; };
 		A1B2C3D4E5F60718293A4B61 /* KMPDecisionCoreAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4B5C /* KMPDecisionCoreAdapter.swift */; };
 		A48FE532A8FC5A1BBBFC1069 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CAF0878EF27A9625CCD0F666 /* Foundation.framework */; };
+		ACCTOBJC0100000000000001 /* AccountModule.m in Sources */ = {isa = PBXBuildFile; fileRef = ACCTOBJC0000000000000001 /* AccountModule.m */; };
+		ACCTSW010000000000000001 /* AccountModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACCTSW000000000000000001 /* AccountModule.swift */; };
+		APICLI010000000000000001 /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = APICLI000000000000000001 /* APIClient.swift */; };
 		B1C2D3E4F5A60718B2C3D4E5 /* IOSRuleStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54405896F6E80832028947EF /* IOSRuleStore.swift */; };
 		BBBC86F552A8C1E7A52D3AEC /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CAF0878EF27A9625CCD0F666 /* Foundation.framework */; };
 		C0ADED7A0F4875C91432609E /* IOSRuleStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54405896F6E80832028947EF /* IOSRuleStore.swift */; };
@@ -59,22 +60,19 @@
 		D10000000000000000000006 /* GetBoredSharedCore.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = D10000000000000000000001 /* GetBoredSharedCore.xcframework */; };
 		D20000000000000000000001 /* IOSRuleStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54405896F6E80832028947EF /* IOSRuleStore.swift */; };
 		DC2BFCC6E40C73EACED483AF /* SafariWebExtensionHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = C40B8E6852EC46DF4308D18E /* SafariWebExtensionHandler.swift */; };
+		DIAGOBJC0100000000000001 /* DiagnosticsModule.m in Sources */ = {isa = PBXBuildFile; fileRef = DIAGOBJC0000000000000001 /* DiagnosticsModule.m */; };
+		DIAGSW010000000000000001 /* DiagnosticsModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = DIAGSW000000000000000001 /* DiagnosticsModule.swift */; };
 		E1F0FF1A025AC7A4F2CDF708 /* icon-96.png in Resources */ = {isa = PBXBuildFile; fileRef = 790C22BAE3CAAEEFF3CCD75D /* icon-96.png */; };
 		EB8B943EF30F07FE5886D526 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 6964DDE065BE32959A0A45E8 /* PrivacyInfo.xcprivacy */; };
 		EBDD6122FA1BDE26F3E43E5E /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 6964DDE065BE32959A0A45E8 /* PrivacyInfo.xcprivacy */; };
 		ED1D7B0230D5E22C8F1D6245 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CAF0878EF27A9625CCD0F666 /* Foundation.framework */; };
 		F5E6F7089012ABCDF1A2B3C4 /* FilterListModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1A2B3C4D5E6F7089012ABCD /* FilterListModels.swift */; };
+		KCSTORE01000000000000001 /* KeychainStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = KCSTORE00000000000000001 /* KeychainStore.swift */; };
 		SPMBUILDFILE000000000003 /* GetBoredCore in Frameworks */ = {isa = PBXBuildFile; productRef = SPMPROD00000000000000003 /* GetBoredCore */; };
 		SPMBUILDFILE000000000004 /* GetBoredCore in Frameworks */ = {isa = PBXBuildFile; productRef = SPMPROD00000000000000004 /* GetBoredCore */; };
 		SPMBUILDFILE000000000005 /* GetBoredCore in Frameworks */ = {isa = PBXBuildFile; productRef = SPMPROD00000000000000005 /* GetBoredCore */; };
 		SPMBUILDFILE000000000006 /* GetBoredCore in Frameworks */ = {isa = PBXBuildFile; productRef = SPMPROD00000000000000006 /* GetBoredCore */; };
 		SPMBUILDFILE000000000007 /* GetBoredCore in Frameworks */ = {isa = PBXBuildFile; productRef = SPMPROD00000000000000007 /* GetBoredCore */; };
-		KCSTORE01000000000000001 /* KeychainStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = KCSTORE00000000000000001 /* KeychainStore.swift */; };
-		APICLI010000000000000001 /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = APICLI000000000000000001 /* APIClient.swift */; };
-		ACCTSW010000000000000001 /* AccountModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACCTSW000000000000000001 /* AccountModule.swift */; };
-		DIAGSW010000000000000001 /* DiagnosticsModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = DIAGSW000000000000000001 /* DiagnosticsModule.swift */; };
-		DIAGOBJC0100000000000001 /* DiagnosticsModule.m in Sources */ = {isa = PBXBuildFile; fileRef = DIAGOBJC0000000000000001 /* DiagnosticsModule.m */; };
-		ACCTOBJC0100000000000001 /* AccountModule.m in Sources */ = {isa = PBXBuildFile; fileRef = ACCTOBJC0000000000000001 /* AccountModule.m */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -85,26 +83,12 @@
 			remoteGlobalIDString = 303D4C1F85FE4E126207E4B2;
 			remoteInfo = iOSBlockHandler;
 		};
-		3EEC1E5127DB5191459CE1FC /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 1A000000E /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 530DCDF5CC3DF5F5D0F3316D;
-			remoteInfo = SafariChildRegistrationExtension;
-		};
 		APPPROXY00000000000UI0001 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 1A000000E /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = 95084DFB593BA97E92D5B0BE;
 			remoteInfo = "GetBored iOS";
-		};
-		C4C552F8DB1D7E165341026E /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 1A000000E /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 629B003C175AB49BE145446F;
-			remoteInfo = SafariAppProxyProvider;
 		};
 		E2B62F79F75DCD563B0D6791 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -190,6 +174,9 @@
 		A60E5D972187DF777B271D91 /* SafariChildRegistrationExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = SafariChildRegistrationExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		A77015159D559FE37F614107 /* icon-512.png */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = image.png; name = "icon-512.png"; path = "images/icon-512.png"; sourceTree = "<group>"; };
 		A9FF4B276136B5CDFD7D1A32 /* messages.json */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.json; name = messages.json; path = _locales/en/messages.json; sourceTree = "<group>"; };
+		ACCTOBJC0000000000000001 /* AccountModule.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = AccountModule.m; path = Sources/iOS/App/AccountModule.m; sourceTree = SOURCE_ROOT; };
+		ACCTSW000000000000000001 /* AccountModule.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AccountModule.swift; path = Sources/iOS/App/AccountModule.swift; sourceTree = SOURCE_ROOT; };
+		APICLI000000000000000001 /* APIClient.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = APIClient.swift; path = Sources/iOS/App/APIClient.swift; sourceTree = SOURCE_ROOT; };
 		B13C109D52BB8CF4949E1E76 /* iOSFlowInspector.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = iOSFlowInspector.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		C40B8E6852EC46DF4308D18E /* SafariWebExtensionHandler.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SafariWebExtensionHandler.swift; sourceTree = "<group>"; };
 		C593D80EFC0A35D9BF0760F2 /* Pods-GetBored iOS.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-GetBored iOS.release.xcconfig"; path = "Target Support Files/Pods-GetBored iOS/Pods-GetBored iOS.release.xcconfig"; sourceTree = "<group>"; };
@@ -198,19 +185,16 @@
 		D10000000000000000000001 /* GetBoredSharedCore.xcframework */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = wrapper.xcframework; name = GetBoredSharedCore.xcframework; path = "shared-kotlin/build/XCFrameworks/debug/GetBoredSharedCore.xcframework"; sourceTree = SOURCE_ROOT; };
 		D32C98119DF940089D1CF5B9 /* Info.plist */ = {isa = PBXFileReference; explicitFileType = text.plist.xml; path = Info.plist; sourceTree = SOURCE_ROOT; };
 		D3C2B2DFF9189D73FFBB0547 /* background.js */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.javascript; path = background.js; sourceTree = "<group>"; };
+		DIAGOBJC0000000000000001 /* DiagnosticsModule.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = DiagnosticsModule.m; path = Sources/iOS/App/DiagnosticsModule.m; sourceTree = SOURCE_ROOT; };
+		DIAGSW000000000000000001 /* DiagnosticsModule.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DiagnosticsModule.swift; path = Sources/iOS/App/DiagnosticsModule.swift; sourceTree = SOURCE_ROOT; };
 		E517431784A245AD86943D22 /* SafariSimulatorUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SafariSimulatorUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		E5E8702C81E4C7EC000CAB9E /* iOSFlowInspector.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; name = iOSFlowInspector.entitlements; path = Sources/iOS/iOSFlowInspector/iOSFlowInspector.entitlements; sourceTree = "<group>"; };
 		F1A2B3C4D5E6F7089012ABCD /* FilterListModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = FilterListModels.swift; path = Sources/iOS/App/FilterListModels.swift; sourceTree = SOURCE_ROOT; };
 		F8B5E0A622CE50156F3873F7 /* Sources/iOS/SafariAppProxyProvider/Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Sources/iOS/SafariAppProxyProvider/Info.plist; sourceTree = SOURCE_ROOT; };
 		FC7C9C45648F8CA624EEC1E0 /* SafariServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = SafariServices.framework; sourceTree = "<group>"; };
+		KCSTORE00000000000000001 /* KeychainStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = KeychainStore.swift; path = Sources/iOS/App/KeychainStore.swift; sourceTree = SOURCE_ROOT; };
 		SCRE0001SCRE00000001SCRE /* Sources/iOS/SafariChildRegistrationExtension/SafariChildRegistrationExtension.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; path = Sources/iOS/SafariChildRegistrationExtension/SafariChildRegistrationExtension.entitlements; sourceTree = SOURCE_ROOT; };
 		SCRE0002SCRE00000002SCRE /* Sources/iOS/SafariChildRegistrationExtension/Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Sources/iOS/SafariChildRegistrationExtension/Info.plist; sourceTree = SOURCE_ROOT; };
-		KCSTORE00000000000000001 /* KeychainStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = KeychainStore.swift; path = Sources/iOS/App/KeychainStore.swift; sourceTree = SOURCE_ROOT; };
-		APICLI000000000000000001 /* APIClient.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = APIClient.swift; path = Sources/iOS/App/APIClient.swift; sourceTree = SOURCE_ROOT; };
-		ACCTSW000000000000000001 /* AccountModule.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AccountModule.swift; path = Sources/iOS/App/AccountModule.swift; sourceTree = SOURCE_ROOT; };
-		DIAGSW000000000000000001 /* DiagnosticsModule.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DiagnosticsModule.swift; path = Sources/iOS/App/DiagnosticsModule.swift; sourceTree = SOURCE_ROOT; };
-		DIAGOBJC0000000000000001 /* DiagnosticsModule.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = DiagnosticsModule.m; path = Sources/iOS/App/DiagnosticsModule.m; sourceTree = SOURCE_ROOT; };
-		ACCTOBJC0000000000000001 /* AccountModule.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = AccountModule.m; path = Sources/iOS/App/AccountModule.m; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -877,44 +861,6 @@
 			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
 			showEnvVarsInLog = 0;
 		};
-		62511AD301625DDD5A3D2857 /* Build GetBoredSharedCore XCFramework */ = {
-			isa = PBXShellScriptBuildPhase;
-			alwaysOutOfDate = 1;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-			);
-			name = "Build GetBoredSharedCore XCFramework";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "set -eu\n\nexport JAVA_HOME=\"${JAVA_HOME:-/opt/homebrew/opt/openjdk}\"\n\ncd \"${SRCROOT}\"\n./gradlew :shared-kotlin:assembleGetBoredSharedCoreXCFramework --quiet\n";
-		};
-		D1F000000000000000000010 /* Bundle React Native code and images */ = {
-			isa = PBXShellScriptBuildPhase;
-			alwaysOutOfDate = 1;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-			);
-			name = "Bundle React Native code and images";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "set -e\n\nWITH_ENVIRONMENT=\"$SRCROOT/node_modules/react-native/scripts/xcode/with-environment.sh\"\nREACT_NATIVE_XCODE=\"$SRCROOT/node_modules/react-native/scripts/react-native-xcode.sh\"\n\n/bin/sh -c \"$WITH_ENVIRONMENT $REACT_NATIVE_XCODE\"\n";
-		};
 		2F04CEC1C6D2044545DED8FD /* Inject Debug-only Metro/local-network keys */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
@@ -933,6 +879,25 @@
 			shellPath = /bin/sh;
 			shellScript = "set -e\n\nif [ \"${CONFIGURATION}\" = \"Debug\" ]; then\n  PLIST=\"${BUILT_PRODUCTS_DIR}/${INFOPLIST_PATH}\"\n\n  /usr/libexec/PlistBuddy -c \"Delete :NSAppTransportSecurity\" \"${PLIST}\" 2>/dev/null || true\n  /usr/libexec/PlistBuddy -c \"Add :NSAppTransportSecurity dict\" \"${PLIST}\"\n  /usr/libexec/PlistBuddy -c \"Add :NSAppTransportSecurity:NSAllowsLocalNetworking bool true\" \"${PLIST}\"\n\n  /usr/libexec/PlistBuddy -c \"Delete :NSLocalNetworkUsageDescription\" \"${PLIST}\" 2>/dev/null || true\n  /usr/libexec/PlistBuddy -c \"Add :NSLocalNetworkUsageDescription string \\\"GetBored connects to the Metro packager on your Mac to load the JS bundle during development.\\\"\" \"${PLIST}\"\n\n  /usr/libexec/PlistBuddy -c \"Delete :NSBonjourServices\" \"${PLIST}\" 2>/dev/null || true\n  /usr/libexec/PlistBuddy -c \"Add :NSBonjourServices array\" \"${PLIST}\"\n  /usr/libexec/PlistBuddy -c \"Add :NSBonjourServices:0 string _http._tcp\" \"${PLIST}\"\nfi\n";
 			showEnvVarsInLog = 0;
+		};
+		62511AD301625DDD5A3D2857 /* Build GetBoredSharedCore XCFramework */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Build GetBoredSharedCore XCFramework";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "set -eu\n\nexport JAVA_HOME=\"${JAVA_HOME:-/opt/homebrew/opt/openjdk}\"\n\ncd \"${SRCROOT}\"\n./gradlew :shared-kotlin:assembleGetBoredSharedCoreXCFramework --quiet\n";
 		};
 		D1F000000000000000000002 /* Verify GetBoredSharedCore XCFramework */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -1009,6 +974,25 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "set -eu\n\nxcframework=\"${SRCROOT}/shared-kotlin/build/XCFrameworks/debug/GetBoredSharedCore.xcframework\"\nheader=\"${xcframework}/ios-arm64_x86_64-simulator/GetBoredSharedCore.framework/Headers/GetBoredSharedCore.h\"\n\nif [ ! -d \"${xcframework}\" ]; then\n  echo \"error: Missing GetBoredSharedCore.xcframework at ${xcframework}\" >&2\n  echo \"error: Run ./gradlew :shared-kotlin:assembleGetBoredSharedCoreDebugXCFramework before building Xcode targets that import Kotlin.\" >&2\n  exit 1\nfi\n\nif [ ! -f \"${header}\" ]; then\n  echo \"error: GetBoredSharedCore.xcframework exists but expected Swift import header is missing: ${header}\" >&2\n  exit 1\nfi\n";
+		};
+		D1F000000000000000000010 /* Bundle React Native code and images */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Bundle React Native code and images";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "set -e\n\nWITH_ENVIRONMENT=\"$SRCROOT/node_modules/react-native/scripts/xcode/with-environment.sh\"\nREACT_NATIVE_XCODE=\"$SRCROOT/node_modules/react-native/scripts/react-native-xcode.sh\"\n\n/bin/sh -c \"$WITH_ENVIRONMENT $REACT_NATIVE_XCODE\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -1110,23 +1094,11 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
-		27508A945D547BC48C08EAB6 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			name = SafariAppProxyProvider;
-			target = 629B003C175AB49BE145446F /* SafariAppProxyProvider */;
-			targetProxy = C4C552F8DB1D7E165341026E /* PBXContainerItemProxy */;
-		};
 		2A19DB638FE97A0283F4C24D /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			name = iOSBlockHandler;
 			target = 303D4C1F85FE4E126207E4B2 /* iOSBlockHandler */;
 			targetProxy = 05A0D8C0043681058591011C /* PBXContainerItemProxy */;
-		};
-		34166C6ACB2B3FBABF517652 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			name = SafariChildRegistrationExtension;
-			target = 530DCDF5CC3DF5F5D0F3316D /* SafariChildRegistrationExtension */;
-			targetProxy = 3EEC1E5127DB5191459CE1FC /* PBXContainerItemProxy */;
 		};
 		3B4796C4AE0342AEE3EF626E /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -1161,6 +1133,7 @@
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				CODE_SIGN_ENTITLEMENTS = Sources/iOS/iOSFlowInspector/iOSFlowInspector.entitlements;
 				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 10;
 				DEVELOPMENT_TEAM = 3A3AVFF22Q;
 				INFOPLIST_FILE = Sources/iOS/iOSFlowInspector/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
@@ -1176,9 +1149,6 @@
 		1A0000012 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 6;
-				MARKETING_VERSION = 1.0;
-				VERSIONING_SYSTEM = "apple-generic";
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_CXX_LANGUAGE_STANDARD = "c++20";
@@ -1206,6 +1176,7 @@
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 6;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
@@ -1223,6 +1194,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				MARKETING_VERSION = 1.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -1231,15 +1203,13 @@
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) DEBUG";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				USE_HERMES = true;
+				VERSIONING_SYSTEM = "apple-generic";
 			};
 			name = Debug;
 		};
 		1A0000013 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 6;
-				MARKETING_VERSION = 1.0;
-				VERSIONING_SYSTEM = "apple-generic";
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_CXX_LANGUAGE_STANDARD = "c++20";
@@ -1267,6 +1237,7 @@
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 6;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -1278,6 +1249,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				MARKETING_VERSION = 1.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				REACT_NATIVE_PATH = "${PODS_ROOT}/.././node_modules/react-native";
@@ -1285,6 +1257,7 @@
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				USE_HERMES = true;
+				VERSIONING_SYSTEM = "apple-generic";
 			};
 			name = Release;
 		};
@@ -1334,15 +1307,16 @@
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				CODE_SIGN_ENTITLEMENTS = "Sources/iOS/App/GetBored iOS.entitlements";
 				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 10;
 				DEVELOPMENT_TEAM = 3A3AVFF22Q;
 				GETBORED_DISPLAY_NAME = GetBored;
 				INFOPLIST_FILE = Sources/iOS/App/Info.plist;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
 				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
 				PRODUCT_BUNDLE_IDENTIFIER = com.getbored.filter;
 				PRODUCT_NAME = GetBored;
 				SDKROOT = iphoneos;
@@ -1405,6 +1379,7 @@
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				CODE_SIGN_ENTITLEMENTS = Sources/iOS/iOSBlockHandler/iOSBlockHandler.entitlements;
 				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 10;
 				DEVELOPMENT_TEAM = 3A3AVFF22Q;
 				INFOPLIST_FILE = Sources/iOS/iOSBlockHandler/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
@@ -1433,15 +1408,16 @@
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				CODE_SIGN_ENTITLEMENTS = "Sources/iOS/App/GetBored iOS.entitlements";
 				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 10;
 				DEVELOPMENT_TEAM = 3A3AVFF22Q;
 				GETBORED_DISPLAY_NAME = "GetBored DBG";
 				INFOPLIST_FILE = Sources/iOS/App/Info.plist;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
 				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
 				PRODUCT_BUNDLE_IDENTIFIER = com.getbored.filter;
 				PRODUCT_NAME = GetBored;
 				SDKROOT = iphoneos;
@@ -1459,6 +1435,7 @@
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				CODE_SIGN_ENTITLEMENTS = Sources/iOS/iOSBlockHandler/iOSBlockHandler.entitlements;
 				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 10;
 				DEVELOPMENT_TEAM = 3A3AVFF22Q;
 				INFOPLIST_FILE = Sources/iOS/iOSBlockHandler/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
@@ -1540,6 +1517,7 @@
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				CODE_SIGN_ENTITLEMENTS = Sources/iOS/iOSFlowInspector/iOSFlowInspector.entitlements;
 				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 10;
 				DEVELOPMENT_TEAM = 3A3AVFF22Q;
 				INFOPLIST_FILE = Sources/iOS/iOSFlowInspector/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.0;

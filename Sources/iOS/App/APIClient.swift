@@ -1,4 +1,21 @@
 import Foundation
+import os.log
+import GetBoredCore
+
+/// Every request/response outcome below is written here before returning to
+/// the caller — DiagnosticsModule ships this subsystem's OSLogStore entries
+/// to the backend, so a request failure not logged here is invisible to
+/// remote diagnostics.
+private let logger = Logger(
+    subsystem: GetBoredIdentifiers.Logging.iOSFilterApp,
+    category: "APIClient"
+)
+
+/// The diagnostics-upload endpoint itself is logged at `.debug` only (never
+/// `.info`/`.warning`) — logging its own traffic at a level DiagnosticsModule
+/// captures would make every snapshot include the previous snapshot's upload,
+/// compounding indefinitely.
+private let diagnosticsUploadPath = "/api/client-events"
 
 /// Selects the REST API backend base URL for the current build configuration.
 ///
@@ -86,9 +103,11 @@ final class APIClient {
     private let session: URLSession
 
     private init() {
+        logger.info("begin init")
         let configuration = URLSessionConfiguration.default
         configuration.timeoutIntervalForRequest = Self.requestTimeout
         session = URLSession(configuration: configuration)
+        logger.info("end init: URLSession configured")
     }
 
     // MARK: - send
@@ -129,11 +148,14 @@ final class APIClient {
         authenticated: Bool = true,
         completion: @escaping (Result<(status: Int, data: Data), APIError>) -> Void
     ) {
+        Self.logStart(method: method, path: path)
+
         var bearerToken: String?
         if authenticated {
             guard let token = KeychainStore.read(.sessionToken) else {
                 // No stored session token — treat exactly like a 401 without
                 // spending a network round trip to find that out.
+                Self.logFailure(method: method, path: path, error: .signedOut)
                 completion(.failure(.signedOut))
                 return
             }
@@ -147,33 +169,109 @@ final class APIClient {
             jsonBody: jsonBody,
             bearerToken: bearerToken
         ) else {
+            Self.logFailure(method: method, path: path, error: .network(underlying: URLError(.badURL)))
             completion(.failure(.network(underlying: URLError(.badURL))))
             return
         }
 
         session.dataTask(with: request) { data, response, transportError in
             if let transportError {
-                completion(.failure(.network(underlying: transportError)))
+                let error = APIError.network(underlying: transportError)
+                Self.logFailure(method: method, path: path, error: error)
+                completion(.failure(error))
                 return
             }
 
             guard let httpResponse = response as? HTTPURLResponse else {
-                completion(.failure(.network(underlying: URLError(.badServerResponse))))
+                let error = APIError.network(underlying: URLError(.badServerResponse))
+                Self.logFailure(method: method, path: path, error: error)
+                completion(.failure(error))
                 return
             }
 
             let payload = data ?? Data()
             switch httpResponse.statusCode {
             case 200..<300:
+                Self.logSuccess(method: method, path: path, status: httpResponse.statusCode)
                 completion(.success((status: httpResponse.statusCode, data: payload)))
             case 401:
+                Self.logFailure(method: method, path: path, error: .signedOut)
                 completion(.failure(.signedOut))
             case 402:
+                Self.logFailure(method: method, path: path, error: .subscriptionRequired)
                 completion(.failure(.subscriptionRequired))
             default:
-                completion(.failure(.server(status: httpResponse.statusCode)))
+                let error = APIError.server(status: httpResponse.statusCode)
+                Self.logFailure(method: method, path: path, error: error)
+                completion(.failure(error))
             }
         }.resume()
+    }
+
+    // MARK: - Request/response logging
+
+    /// `true` only for the diagnostics-upload endpoint — see `diagnosticsUploadPath`.
+    private static func isDiagnosticsUpload(_ path: String) -> Bool {
+        path == diagnosticsUploadPath
+    }
+
+    private static func logStart(method: Method, path: String) {
+        if isDiagnosticsUpload(path) {
+            logger.debug("begin send: \(method.rawValue, privacy: .public) \(path, privacy: .public)")
+            return
+        }
+        logger.info("begin send: \(method.rawValue, privacy: .public) \(path, privacy: .public)")
+    }
+
+    private static func logSuccess(method: Method, path: String, status: Int) {
+        if isDiagnosticsUpload(path) {
+            logger.debug("end send: status=\(status, privacy: .public) \(method.rawValue, privacy: .public) \(path, privacy: .public)")
+            return
+        }
+        logger.info("end send: status=\(status, privacy: .public) \(method.rawValue, privacy: .public) \(path, privacy: .public)")
+    }
+
+    private static func logFailure(method: Method, path: String, error: APIError) {
+        if isDiagnosticsUpload(path) {
+            switch error {
+            case .signedOut:
+                logger.debug("end send: signedOut for \(method.rawValue, privacy: .public) \(path, privacy: .public)")
+            case .subscriptionRequired:
+                logger.debug("end send: subscriptionRequired for \(method.rawValue, privacy: .public) \(path, privacy: .public)")
+            case .server(let status):
+                logger.debug("end send: server status=\(status, privacy: .public) for \(method.rawValue, privacy: .public) \(path, privacy: .public)")
+            case .network(let underlying):
+                logger.debug("end send: network failure for \(method.rawValue, privacy: .public) \(path, privacy: .public): \(underlying as NSError, privacy: .public)")
+            case .decoding(let underlying):
+                logger.debug("end send: decoding failure for \(method.rawValue, privacy: .public) \(path, privacy: .public): \(underlying as NSError, privacy: .public)")
+            }
+            return
+        }
+
+        let logLine: () -> Void
+        switch error {
+        case .signedOut:
+            logLine = {
+                logger.warning("end send: signedOut for \(method.rawValue, privacy: .public) \(path, privacy: .public)")
+            }
+        case .subscriptionRequired:
+            logLine = {
+                logger.warning("end send: subscriptionRequired for \(method.rawValue, privacy: .public) \(path, privacy: .public)")
+            }
+        case .server(let status):
+            logLine = {
+                logger.warning("end send: server status=\(status, privacy: .public) for \(method.rawValue, privacy: .public) \(path, privacy: .public)")
+            }
+        case .network(let underlying):
+            logLine = {
+                logger.warning("end send: network failure for \(method.rawValue, privacy: .public) \(path, privacy: .public): \(underlying as NSError, privacy: .public)")
+            }
+        case .decoding(let underlying):
+            logLine = {
+                logger.error("end send: decoding failure for \(method.rawValue, privacy: .public) \(path, privacy: .public): \(underlying as NSError, privacy: .public)")
+            }
+        }
+        logLine()
     }
 
     // MARK: - sendDecoding
@@ -204,6 +302,7 @@ final class APIClient {
         authenticated: Bool = true,
         completion: @escaping (Result<T, APIError>) -> Void
     ) {
+        logger.info("begin sendDecoding: \(method.rawValue, privacy: .public) \(path, privacy: .public)")
         send(
             method,
             path: path,
@@ -213,12 +312,26 @@ final class APIClient {
         ) { result in
             switch result {
             case .failure(let error):
+                switch error {
+                case .signedOut:
+                    logger.warning("end sendDecoding: signedOut for \(path, privacy: .public)")
+                case .subscriptionRequired:
+                    logger.warning("end sendDecoding: subscriptionRequired for \(path, privacy: .public)")
+                case .server(let status):
+                    logger.warning("end sendDecoding: server status=\(status, privacy: .public) for \(path, privacy: .public)")
+                case .network(let underlying):
+                    logger.warning("end sendDecoding: network failure for \(path, privacy: .public): \(underlying as NSError, privacy: .public)")
+                case .decoding(let underlying):
+                    logger.error("end sendDecoding: decoding failure for \(path, privacy: .public): \(underlying as NSError, privacy: .public)")
+                }
                 completion(.failure(error))
             case .success(let response):
                 do {
                     let decoded = try JSONDecoder().decode(T.self, from: response.data)
+                    logger.info("end sendDecoding: decoded response for \(path, privacy: .public)")
                     completion(.success(decoded))
                 } catch {
+                    logger.error("end sendDecoding: decode failure for \(path, privacy: .public): \(error as NSError, privacy: .public)")
                     completion(.failure(.decoding(underlying: error)))
                 }
             }
@@ -250,14 +363,31 @@ final class APIClient {
         jsonBody: Data?,
         bearerToken: String?
     ) -> URLRequest? {
+        let isDiagnosticsUpload = Self.isDiagnosticsUpload(path)
+        if isDiagnosticsUpload {
+            logger.debug("begin buildRequest: \(method.rawValue, privacy: .public) \(path, privacy: .public)")
+        } else {
+            logger.info("begin buildRequest: \(method.rawValue, privacy: .public) \(path, privacy: .public)")
+        }
+
         let normalizedPath = path.hasPrefix("/") ? path : "/\(path)"
 
         guard var components = URLComponents(string: APIEnvironment.baseURL.absoluteString + normalizedPath) else {
+            if isDiagnosticsUpload {
+                logger.debug("end buildRequest: invalid URL components for \(path, privacy: .public)")
+            } else {
+                logger.error("end buildRequest: invalid URL components for \(path, privacy: .public)")
+            }
             return nil
         }
         components.queryItems = query
 
         guard let url = components.url else {
+            if isDiagnosticsUpload {
+                logger.debug("end buildRequest: invalid URL for \(path, privacy: .public)")
+            } else {
+                logger.error("end buildRequest: invalid URL for \(path, privacy: .public)")
+            }
             return nil
         }
 
@@ -273,6 +403,11 @@ final class APIClient {
             request.setValue("Bearer \(bearerToken)", forHTTPHeaderField: "Authorization")
         }
 
+        if isDiagnosticsUpload {
+            logger.debug("end buildRequest: request ready for \(path, privacy: .public)")
+        } else {
+            logger.info("end buildRequest: request ready for \(path, privacy: .public)")
+        }
         return request
     }
 }

@@ -1,9 +1,15 @@
 import Foundation
 import AuthenticationServices
 import CryptoKit
+import os.log
 import UIKit
 import React
 import GetBoredCore
+
+private let logger = Logger(
+    subsystem: GetBoredIdentifiers.Logging.iOSFilterApp,
+    category: "AccountModule"
+)
 
 /// Native Sign in with Apple bridge, exposed to JS as `NativeModules.Account`
 /// (see the `RCT_EXTERN_MODULE(Account, ...)` declaration in AccountModule.m).
@@ -56,7 +62,11 @@ import GetBoredCore
 @objc(Account)
 final class AccountModule: NSObject {
 
-    @objc static func requiresMainQueueSetup() -> Bool { true }
+    @objc static func requiresMainQueueSetup() -> Bool {
+        logger.info("begin requiresMainQueueSetup")
+        logger.info("end requiresMainQueueSetup: true")
+        return true
+    }
 
     // MARK: - In-flight sign-in state
 
@@ -81,10 +91,12 @@ final class AccountModule: NSObject {
     private var pendingController: ASAuthorizationController?
 
     private func clearPendingState() {
+        logger.info("begin clearPendingState")
         pendingResolve = nil
         pendingReject = nil
         pendingRawNonce = nil
         pendingController = nil
+        logger.info("end clearPendingState")
     }
 
     /// Strong reference to the in-flight web sign-in session ("Use a
@@ -102,19 +114,24 @@ final class AccountModule: NSObject {
     /// too so this method is correct even if that ever changes).
     @objc func signIn(_ resolve: @escaping RCTPromiseResolveBlock,
                       rejecter reject: @escaping RCTPromiseRejectBlock) {
+        logger.info("begin signIn")
         DispatchQueue.main.async {
             self.beginSignIn(resolve: resolve, reject: reject)
         }
+        logger.info("end signIn: queued on main")
     }
 
     private func beginSignIn(resolve: @escaping RCTPromiseResolveBlock,
                              reject: @escaping RCTPromiseRejectBlock) {
+        logger.info("begin beginSignIn")
         guard pendingResolve == nil else {
+            logger.warning("end beginSignIn: request already in progress")
             reject("SERVER", "A Sign in with Apple request is already in progress", nil)
             return
         }
 
         guard let rawNonce = Self.generateRawNonce() else {
+            logger.error("end beginSignIn: secure nonce generation failed")
             reject("SERVER", "Unable to generate a secure nonce for Sign in with Apple", nil)
             return
         }
@@ -136,22 +153,29 @@ final class AccountModule: NSObject {
         pendingController = controller
 
         controller.performRequests()
+        logger.info("end beginSignIn: authorization request presented")
     }
 
     /// Maps a failed `/auth/apple` call to the RN rejection codes this
     /// module documents to JS. `.decoding` has no dedicated JS-facing code —
     /// it falls under the same "SERVER" catch-all as `.server`.
     private static func rejectSignIn(_ reject: RCTPromiseRejectBlock, dueTo apiError: APIError) {
+        logger.info("begin rejectSignIn")
         switch apiError {
         case .network(let underlying):
+            logger.warning("end rejectSignIn: NETWORK: \(underlying as NSError, privacy: .public)")
             reject("NETWORK", underlying.localizedDescription, underlying)
         case .signedOut:
+            logger.warning("end rejectSignIn: SIGNED_OUT")
             reject("SIGNED_OUT", "Sign in with Apple was rejected: not authenticated", apiError)
         case .subscriptionRequired:
+            logger.warning("end rejectSignIn: SUBSCRIPTION_REQUIRED")
             reject("SUBSCRIPTION_REQUIRED", "Sign in with Apple was rejected: subscription required", apiError)
         case .server(let status):
+            logger.error("end rejectSignIn: SERVER status=\(status, privacy: .public)")
             reject("SERVER", "Server returned status \(status)", apiError)
         case .decoding(let underlying):
+            logger.error("end rejectSignIn: SERVER decode failure: \(underlying as NSError, privacy: .public)")
             reject("SERVER", "Failed to decode the server's response", underlying)
         }
     }
@@ -186,14 +210,18 @@ final class AccountModule: NSObject {
     ///           └── session error .canceledLogin → reject(CANCELLED)
     @objc func signInWithWebAccount(_ resolve: @escaping RCTPromiseResolveBlock,
                                     rejecter reject: @escaping RCTPromiseRejectBlock) {
+        logger.info("begin signInWithWebAccount")
         DispatchQueue.main.async {
             self.beginWebSignIn(resolve: resolve, reject: reject)
         }
+        logger.info("end signInWithWebAccount: queued on main")
     }
 
     private func beginWebSignIn(resolve: @escaping RCTPromiseResolveBlock,
                                 reject: @escaping RCTPromiseRejectBlock) {
+        logger.info("begin beginWebSignIn")
         guard pendingWebSession == nil else {
+            logger.warning("end beginWebSignIn: request already in progress")
             reject("SERVER", "A sign-in is already in progress", nil)
             return
         }
@@ -219,20 +247,26 @@ final class AccountModule: NSObject {
 
         if !session.start() {
             pendingWebSession = nil
+            logger.error("end beginWebSignIn: session presentation failed")
             reject("SERVER", "Unable to present the sign-in window", nil)
+            return
         }
+        logger.info("end beginWebSignIn: web session presented")
     }
 
     private static func finishWebSignIn(callbackURL: URL?,
                                         error: Error?,
                                         resolve: RCTPromiseResolveBlock,
                                         reject: RCTPromiseRejectBlock) {
+        logger.info("begin finishWebSignIn")
         if let error {
             let sessionError = error as? ASWebAuthenticationSessionError
             if sessionError?.code == .canceledLogin {
+                logger.warning("end finishWebSignIn: user cancelled")
                 reject("CANCELLED", "The user canceled Sign in with Apple", error)
                 return
             }
+            logger.error("end finishWebSignIn: web session failed: \(error as NSError, privacy: .public)")
             reject("SERVER", error.localizedDescription, error)
             return
         }
@@ -240,6 +274,7 @@ final class AccountModule: NSObject {
         guard let callbackURL,
               let fragment = URLComponents(url: callbackURL, resolvingAgainstBaseURL: false)?.fragment
         else {
+            logger.error("end finishWebSignIn: callback or fragment missing")
             reject("SERVER", "Sign in returned no result", nil)
             return
         }
@@ -256,19 +291,23 @@ final class AccountModule: NSObject {
 
         if let flowError = values["error"] {
             if flowError == "cancelled" {
+                logger.warning("end finishWebSignIn: server flow cancelled")
                 reject("CANCELLED", "The user canceled Sign in with Apple", nil)
             } else {
+                logger.error("end finishWebSignIn: server flow error=\(flowError, privacy: .public)")
                 reject("SERVER", "Sign in failed on the server", nil)
             }
             return
         }
 
         guard let sessionToken = values["sessionToken"], let userId = values["userId"] else {
+            logger.error("end finishWebSignIn: incomplete callback result")
             reject("SERVER", "Sign in returned an incomplete result", nil)
             return
         }
 
         KeychainStore.write(sessionToken, for: .sessionToken)
+        logger.info("end finishWebSignIn: session stored for userId=\(userId, privacy: .public)")
         resolve(["userId": userId])
     }
 
@@ -283,8 +322,25 @@ final class AccountModule: NSObject {
     /// naturally expires.
     @objc func signOut(_ resolve: @escaping RCTPromiseResolveBlock,
                        rejecter reject: @escaping RCTPromiseRejectBlock) {
-        APIClient.shared.send(.post, path: "/auth/logout", authenticated: true) { _ in
+        logger.info("begin signOut")
+        APIClient.shared.send(.post, path: "/auth/logout", authenticated: true) { result in
+            switch result {
+            case .success:
+                logger.info("signOut: server session revoked")
+            case .failure(let error):
+                switch error {
+                case .network(let underlying), .decoding(let underlying):
+                    logger.warning("signOut: best-effort server revoke failed: \(underlying as NSError, privacy: .public)")
+                case .server(let status):
+                    logger.warning("signOut: best-effort server revoke failed with status=\(status, privacy: .public)")
+                case .signedOut:
+                    logger.warning("signOut: server already considers session signed out")
+                case .subscriptionRequired:
+                    logger.warning("signOut: server rejected revoke as subscriptionRequired")
+                }
+            }
             KeychainStore.delete(.sessionToken)
+            logger.info("end signOut: local session cleared")
             resolve(nil)
         }
     }
@@ -315,6 +371,7 @@ final class AccountModule: NSObject {
     ///                          can retry.
     @objc func deleteAccount(_ resolve: @escaping RCTPromiseResolveBlock,
                              rejecter reject: @escaping RCTPromiseRejectBlock) {
+        logger.info("begin deleteAccount")
         APIClient.shared.send(.delete, path: "/api/account", authenticated: true) { result in
             switch result {
             case .success:
@@ -328,9 +385,11 @@ final class AccountModule: NSObject {
                         allowedApps: [],
                         blockedApps: []
                     )
+                    logger.info("end deleteAccount: account data and local policy cleared")
                     resolve(nil)
                 }
             case .failure(let apiError):
+                logger.error("end deleteAccount: request failed")
                 Self.rejectSignIn(reject, dueTo: apiError)
             }
         }
@@ -359,7 +418,9 @@ final class AccountModule: NSObject {
     @objc func redeemActivationCode(_ code: String,
                                     resolver resolve: @escaping RCTPromiseResolveBlock,
                                     rejecter reject: @escaping RCTPromiseRejectBlock) {
+        logger.info("begin redeemActivationCode")
         guard let body = try? JSONEncoder().encode(ActivationCodeRequest(code: code)) else {
+            logger.error("end redeemActivationCode: request encoding failed")
             reject("SERVER", "Failed to encode the activation request", nil)
             return
         }
@@ -372,12 +433,16 @@ final class AccountModule: NSObject {
         ) { result in
             switch result {
             case .success:
+                logger.info("end redeemActivationCode: activation redeemed")
                 resolve(nil)
             case .failure(.server(let status)) where status == 400:
+                logger.warning("end redeemActivationCode: invalid or unavailable code")
                 reject("INVALID_CODE", "That activation code is invalid or unavailable.", nil)
             case .failure(.server(let status)) where status == 429:
+                logger.warning("end redeemActivationCode: rate limited")
                 reject("RATE_LIMITED", "Too many attempts. Try again later.", nil)
             case .failure(let error):
+                logger.error("end redeemActivationCode: request failed")
                 Self.rejectSignIn(reject, dueTo: error)
             }
         }
@@ -414,7 +479,9 @@ final class AccountModule: NSObject {
     ///                           ← offline/5xx: never reject; enrichment omitted
     @objc func currentAccount(_ resolve: @escaping RCTPromiseResolveBlock,
                              rejecter reject: @escaping RCTPromiseRejectBlock) {
+        logger.info("begin currentAccount")
         guard KeychainStore.read(.sessionToken) != nil else {
+            logger.info("end currentAccount: signed out locally")
             resolve(["signedIn": false])
             return
         }
@@ -432,6 +499,8 @@ final class AccountModule: NSObject {
                 if let email = me.contactEmail ?? me.identityEmail {
                     payload["email"] = email
                 }
+                let hasEmail = me.contactEmail != nil || me.identityEmail != nil
+                logger.info("end currentAccount: signed in userId=\(me.userId, privacy: .public) plan=\(me.plan, privacy: .public) emailPresent=\(hasEmail, privacy: .public)")
                 resolve(payload)
             case .failure(.signedOut):
                 // The server rejected the token itself (expired, revoked, or
@@ -439,10 +508,21 @@ final class AccountModule: NSObject {
                 // a zombie "signed in" state forever; discard it like signOut
                 // does and let the welcome screen offer a fresh sign-in.
                 KeychainStore.delete(.sessionToken)
+                logger.warning("end currentAccount: server rejected stored session; local session cleared")
                 resolve(["signedIn": false])
-            case .failure:
+            case .failure(let error):
                 // Keychain presence already answered "signedIn" above; a
                 // failed enrichment call just means userId/email are omitted.
+                switch error {
+                case .network(let underlying), .decoding(let underlying):
+                    logger.warning("end currentAccount: enrichment unavailable: \(underlying as NSError, privacy: .public)")
+                case .server(let status):
+                    logger.warning("end currentAccount: enrichment server status=\(status, privacy: .public)")
+                case .subscriptionRequired:
+                    logger.warning("end currentAccount: enrichment subscriptionRequired")
+                case .signedOut:
+                    break
+                }
                 resolve(["signedIn": true])
             }
         }
@@ -459,11 +539,14 @@ final class AccountModule: NSObject {
     /// rejection rather than a crash, since there is no safe fallback
     /// source of randomness to substitute for a cryptographic nonce.
     private static func generateRawNonce(byteCount: Int = 32) -> String? {
+        logger.info("begin generateRawNonce")
         var randomBytes = [UInt8](repeating: 0, count: byteCount)
         let status = SecRandomCopyBytes(kSecRandomDefault, byteCount, &randomBytes)
         guard status == errSecSuccess else {
+            logger.error("end generateRawNonce: SecRandomCopyBytes status=\(status, privacy: .public)")
             return nil
         }
+        logger.info("end generateRawNonce: generated secure random bytes")
         return base64URLEncode(Data(randomBytes))
     }
 
@@ -494,17 +577,20 @@ extension AccountModule: ASAuthorizationControllerDelegate {
 
     func authorizationController(controller: ASAuthorizationController,
                                  didCompleteWithAuthorization authorization: ASAuthorization) {
+        logger.info("begin authorizationController.didCompleteWithAuthorization")
         guard let resolve = pendingResolve,
               let reject = pendingReject,
               let rawNonce = pendingRawNonce
         else {
             // No pending signIn() call tracked — this delegate is only ever
             // attached while one is in flight, so this should not happen.
+            logger.error("end authorizationController.didCompleteWithAuthorization: pending state missing")
             return
         }
         clearPendingState()
 
         guard let credential = authorization.credential as? ASAuthorizationAppleIDCredential else {
+            logger.error("end authorizationController.didCompleteWithAuthorization: unexpected credential type")
             reject("SERVER", "Sign in with Apple returned an unexpected credential type", nil)
             return
         }
@@ -512,6 +598,7 @@ extension AccountModule: ASAuthorizationControllerDelegate {
         guard let identityTokenData = credential.identityToken,
               let identityToken = String(data: identityTokenData, encoding: .utf8)
         else {
+            logger.error("end authorizationController.didCompleteWithAuthorization: identity token missing or invalid")
             reject("SERVER", "Sign in with Apple did not return an identity token", nil)
             return
         }
@@ -519,6 +606,7 @@ extension AccountModule: ASAuthorizationControllerDelegate {
         let authorizationCode = credential.authorizationCode.flatMap {
             String(data: $0, encoding: .utf8)
         }
+        logger.info("authorizationController.didCompleteWithAuthorization: authorizationCodePresent=\(authorizationCode != nil, privacy: .public)")
 
         let requestBody = AppleSignInRequestBody(
             identityToken: identityToken,
@@ -527,6 +615,7 @@ extension AccountModule: ASAuthorizationControllerDelegate {
         )
 
         guard let jsonBody = try? JSONEncoder().encode(requestBody) else {
+            logger.error("end authorizationController.didCompleteWithAuthorization: request encoding failed")
             reject("SERVER", "Failed to encode the Sign in with Apple request body", nil)
             return
         }
@@ -543,8 +632,10 @@ extension AccountModule: ASAuthorizationControllerDelegate {
             switch result {
             case .success(let response):
                 KeychainStore.write(response.sessionToken, for: .sessionToken)
+                logger.info("end authorizationController.didCompleteWithAuthorization: session stored for userId=\(response.userId, privacy: .public)")
                 resolve(["userId": response.userId])
             case .failure(let apiError):
+                logger.error("end authorizationController.didCompleteWithAuthorization: backend sign-in failed")
                 Self.rejectSignIn(reject, dueTo: apiError)
             }
         }
@@ -552,16 +643,20 @@ extension AccountModule: ASAuthorizationControllerDelegate {
 
     func authorizationController(controller: ASAuthorizationController,
                                  didCompleteWithError error: Error) {
+        logger.info("begin authorizationController.didCompleteWithError")
         guard let reject = pendingReject else {
+            logger.error("end authorizationController.didCompleteWithError: pending rejection missing")
             return
         }
         clearPendingState()
 
         if let authorizationError = error as? ASAuthorizationError, authorizationError.code == .canceled {
+            logger.warning("end authorizationController.didCompleteWithError: user cancelled")
             reject("CANCELLED", "The user canceled Sign in with Apple", error)
             return
         }
 
+        logger.error("end authorizationController.didCompleteWithError: \(error as NSError, privacy: .public)")
         reject("SERVER", error.localizedDescription, error)
     }
 }
@@ -584,13 +679,16 @@ extension AccountModule: ASAuthorizationControllerPresentationContextProviding {
     /// optionality). `?? nil` flattens that back down to `UIWindow?` before
     /// the `if let` below.
     func presentationAnchor(for controller: ASAuthorizationController) -> ASPresentationAnchor {
+        logger.info("begin presentationAnchor.ASAuthorizationController")
         if let window = UIApplication.shared.delegate?.window ?? nil {
+            logger.info("end presentationAnchor.ASAuthorizationController: app window")
             return window
         }
         // Should not happen in practice: signIn() can only run after the app
         // has finished launching and RCTAppDelegate has assigned its window.
         // A fresh UIWindow satisfies the non-optional return type without
         // crashing if it somehow does.
+        logger.warning("end presentationAnchor.ASAuthorizationController: fallback window")
         return UIWindow()
     }
 }
@@ -602,9 +700,12 @@ extension AccountModule: ASWebAuthenticationPresentationContextProviding {
     /// Same key-window anchor as the native sheet above (see that method's
     /// doc comment for the `UIWindow??` flattening).
     func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
+        logger.info("begin presentationAnchor.ASWebAuthenticationSession")
         if let window = UIApplication.shared.delegate?.window ?? nil {
+            logger.info("end presentationAnchor.ASWebAuthenticationSession: app window")
             return window
         }
+        logger.warning("end presentationAnchor.ASWebAuthenticationSession: fallback window")
         return UIWindow()
     }
 }
@@ -628,6 +729,8 @@ private struct AppleSignInRequestBody: Encodable {
     }
 
     func encode(to encoder: Encoder) throws {
+        logger.info("begin AppleSignInRequestBody.encode")
+        defer { logger.info("end AppleSignInRequestBody.encode") }
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(identityToken, forKey: .identityToken)
         try container.encode(nonce, forKey: .nonce)

@@ -5,6 +5,11 @@ import UIKit
 import React
 import GetBoredCore
 
+private let logger = Logger(
+    subsystem: GetBoredIdentifiers.Logging.iOSFilterApp,
+    category: "Diagnostics"
+)
+
 // ─── Wire format (mirrors POST /api/client-events) ─────────────────────────
 
 private struct ClientLogEvent: Encodable {
@@ -51,7 +56,11 @@ private let snapshotWindow: TimeInterval = 10 * 60
 @objc(Diagnostics)
 final class DiagnosticsModule: NSObject {
 
-    @objc static func requiresMainQueueSetup() -> Bool { false }
+    @objc static func requiresMainQueueSetup() -> Bool {
+        logger.info("begin requiresMainQueueSetup")
+        logger.info("end requiresMainQueueSetup: false")
+        return false
+    }
 
     // MARK: - reportRecentLogs
 
@@ -73,9 +82,16 @@ final class DiagnosticsModule: NSObject {
     @objc func reportRecentLogs(_ reason: String,
                                 resolver resolve: @escaping RCTPromiseResolveBlock,
                                 rejecter reject: @escaping RCTPromiseRejectBlock) {
+        logger.info("begin reportRecentLogs: reason=\(reason, privacy: .public)")
         DispatchQueue.global(qos: .utility).async {
             let events = Self.collectRecentEvents()
+            logger.info("reportRecentLogs: collected events=\(events.count, privacy: .public)")
             Self.sendBatch(reason: reason, events: events) { sent in
+                if sent {
+                    logger.info("end reportRecentLogs: accepted events=\(events.count, privacy: .public)")
+                } else {
+                    logger.warning("end reportRecentLogs: upload failed events=\(events.count, privacy: .public)")
+                }
                 resolve(["sent": sent, "events": events.count])
             }
         }
@@ -87,6 +103,7 @@ final class DiagnosticsModule: NSObject {
     /// capped to the NEWEST [maxEventsPerBatch] (the tail is where the error
     /// that triggered the report lives).
     private static func collectRecentEvents() -> [ClientLogEvent] {
+        logger.info("begin collectRecentEvents")
         let formatter = ISO8601DateFormatter()
         do {
             let store = try OSLogStore(scope: .currentProcessIdentifier)
@@ -104,10 +121,13 @@ final class DiagnosticsModule: NSObject {
                     message: log.composedMessage
                 ))
             }
-            return Array(events.suffix(maxEventsPerBatch))
+            let recentEvents = Array(events.suffix(maxEventsPerBatch))
+            logger.info("end collectRecentEvents: events=\(recentEvents.count, privacy: .public)")
+            return recentEvents
         } catch {
             // No log access (old OS, store failure): report proceeds with an
             // empty batch so at least the reason + device context arrive.
+            logger.warning("end collectRecentEvents: OSLogStore failed: \(error as NSError, privacy: .public)")
             return []
         }
     }
@@ -130,12 +150,14 @@ final class DiagnosticsModule: NSObject {
     fileprivate static func sendBatch(reason: String,
                                       events: [ClientLogEvent],
                                       completion: ((Bool) -> Void)? = nil) {
+        logger.info("begin sendBatch: reason=\(reason, privacy: .public) events=\(events.count, privacy: .public)")
         let request = ClientEventsRequest(
             reason: reason,
             context: currentContext(),
             events: events
         )
         guard let body = try? JSONEncoder().encode(request) else {
+            logger.error("end sendBatch: JSON encoding failed")
             completion?(false)
             return
         }
@@ -147,34 +169,51 @@ final class DiagnosticsModule: NSObject {
         ) { result in
             switch result {
             case .success:
+                logger.info("end sendBatch: batch accepted")
                 completion?(true)
-            case .failure:
+            case .failure(let error):
                 // Best-effort by design: offline, signed out, server down —
                 // the report is simply lost, never surfaced as an error.
+                switch error {
+                case .network(let underlying), .decoding(let underlying):
+                    logger.warning("end sendBatch: upload failed: \(underlying as NSError, privacy: .public)")
+                case .server(let status):
+                    logger.warning("end sendBatch: server status=\(status, privacy: .public)")
+                case .signedOut:
+                    logger.warning("end sendBatch: signedOut")
+                case .subscriptionRequired:
+                    logger.warning("end sendBatch: subscriptionRequired")
+                }
                 completion?(false)
             }
         }
     }
 
     private static func currentContext() -> ClientContext {
+        logger.info("begin currentContext")
         let info = Bundle.main.infoDictionary
-        return ClientContext(
+        let context = ClientContext(
             appVersion: info?["CFBundleShortVersionString"] as? String ?? "unknown",
             build: info?["CFBundleVersion"] as? String ?? "unknown",
             iosVersion: UIDevice.current.systemVersion,
             deviceModel: hardwareModel()
         )
+        logger.info("end currentContext")
+        return context
     }
 
     /// Hardware identifier ("iPhone14,4"), which — unlike UIDevice.model's
     /// generic "iPhone" — distinguishes the devices in a report stream.
     private static func hardwareModel() -> String {
+        logger.info("begin hardwareModel")
         var systemInfo = utsname()
         uname(&systemInfo)
-        return withUnsafeBytes(of: &systemInfo.machine) { buffer in
+        let model = withUnsafeBytes(of: &systemInfo.machine) { buffer in
             let data = Data(buffer.prefix(while: { $0 != 0 }))
             return String(data: data, encoding: .utf8) ?? "unknown"
         }
+        logger.info("end hardwareModel: model=\(model, privacy: .public)")
+        return model
     }
 }
 
@@ -202,12 +241,18 @@ final class MetricKitReporter: NSObject, MXMetricManagerSubscriber {
     private var started = false
 
     func start() {
-        guard !started else { return }
+        logger.info("begin MetricKitReporter.start")
+        guard !started else {
+            logger.info("end MetricKitReporter.start: already started")
+            return
+        }
         started = true
         MXMetricManager.shared.add(self)
+        logger.info("end MetricKitReporter.start: subscriber registered")
     }
 
     func didReceive(_ payloads: [MXDiagnosticPayload]) {
+        logger.info("begin MetricKitReporter.didReceive: payloads=\(payloads.count, privacy: .public)")
         let formatter = ISO8601DateFormatter()
         let events = payloads.map { payload in
             ClientLogEvent(
@@ -219,5 +264,6 @@ final class MetricKitReporter: NSObject, MXMetricManagerSubscriber {
             )
         }
         DiagnosticsModule.sendBatch(reason: "metrickit-diagnostic", events: events)
+        logger.info("end MetricKitReporter.didReceive: batch queued")
     }
 }
