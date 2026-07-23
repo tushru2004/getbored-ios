@@ -1,8 +1,18 @@
 import Foundation
 import NetworkExtension
+import os.log
 import React
 import UIKit
 import GetBoredCore
+
+/// Errors logged here ride the remote-diagnostics pipeline: DiagnosticsModule
+/// snapshots this subsystem's entries from OSLogStore and ships them to
+/// /api/client-events, so a failed enable on any device is explained in the
+/// server logs — provided the failure is actually WRITTEN here first.
+private let logger = Logger(
+    subsystem: GetBoredIdentifiers.Logging.iOSFilterApp,
+    category: "FilterStatusModule"
+)
 
 /// React Native bridge for filter status, device registration, and policy sync.
 ///
@@ -26,8 +36,11 @@ final class FilterStatusModule: NSObject {
     ///           ▼
     ///   NEFilterManager.loadFromPreferences { filterError in ... }
     ///           │
-    ///           ├── filterError != nil → filterEnabled = nil (unknown)
-    ///           └── filterError == nil → filterEnabled = NEFilterManager.isEnabled
+    ///           ├── filterError != nil → filterEnabled = nil, profileState = unknown
+    ///           └── filterError == nil
+    ///                   ├── providerConfiguration == nil → profileState = missing
+    ///                   └── providerConfiguration != nil → profileState = installed
+    ///                           └── filterEnabled = NEFilterManager.isEnabled
     ///                   │
     ///                   ▼
     ///           KMPDecisionCoreAdapter.filterStatusViewModel(
@@ -36,16 +49,25 @@ final class FilterStatusModule: NSObject {
     ///           )                                                     only to satisfy Kotlin's
     ///                   │                                             existing signature
     ///                   ▼
-    ///           resolve({filterState, filterLabel, signedIn})  ← signedIn replaces icloudAvailable
+    ///           resolve({filterState, filterLabel, profileState, signedIn})
     ///
     /// The Kotlin core still owns filter-state wording (active/inactive/unknown);
     /// its icloudState/icloudLabel outputs are discarded below rather than
     /// forwarded to JS — `signedIn` (a local Keychain check) replaces them.
     @objc func current(_ resolve: @escaping RCTPromiseResolveBlock,
                        rejecter reject: @escaping RCTPromiseRejectBlock) {
-        NEFilterManager.shared().loadFromPreferences { filterError in
-            let filterEnabled: Bool? = filterError == nil ? NEFilterManager.shared().isEnabled : nil
+        let manager = NEFilterManager.shared()
+        manager.loadFromPreferences { filterError in
+            let filterEnabled: Bool? = filterError == nil ? manager.isEnabled : nil
             let filterErrorMsg = filterError?.localizedDescription
+            let profileState: String
+            if filterError != nil {
+                profileState = "unknown"
+            } else if manager.providerConfiguration == nil {
+                profileState = "missing"
+            } else {
+                profileState = "installed"
+            }
 
             let vm = KMPDecisionCoreAdapter.filterStatusViewModel(
                 filterEnabled: filterEnabled,
@@ -57,6 +79,7 @@ final class FilterStatusModule: NSObject {
             let payload: [String: Any] = [
                 "filterState": vm.filterState,
                 "filterLabel": vm.filterLabel,
+                "profileState": profileState,
                 "signedIn": self.isSignedIn(),
             ]
             resolve(payload)
@@ -220,9 +243,11 @@ final class FilterStatusModule: NSObject {
     ///                └── ok → resolve(nil)   ← caller re-reads current() for the new state
     @objc func enableFilter(_ resolve: @escaping RCTPromiseResolveBlock,
                             rejecter reject: @escaping RCTPromiseRejectBlock) {
+        logger.info("begin enableFilter")
         let manager = NEFilterManager.shared()
         manager.loadFromPreferences { loadError in
             if let loadError {
+                logger.error("end enableFilter: loadFromPreferences failed: \(loadError as NSError, privacy: .public)")
                 reject("SERVER", loadError.localizedDescription, loadError)
                 return
             }
@@ -235,10 +260,60 @@ final class FilterStatusModule: NSObject {
             manager.isEnabled = true
             manager.saveToPreferences { saveError in
                 if let saveError {
+                    logger.error("end enableFilter: saveToPreferences failed: \(saveError as NSError, privacy: .public)")
                     reject("SERVER", saveError.localizedDescription, saveError)
                     return
                 }
+                logger.info("end enableFilter: configuration saved, filter enabled")
                 resolve(nil)
+            }
+        }
+    }
+
+    /// Requests a short-lived, account-scoped customer-profile URL and opens
+    /// it in the system browser. The browser download is deliberate: iOS does
+    /// not let a third-party app silently install a configuration profile, so
+    /// the customer completes Apple's consent flow in Settings.
+    @objc func downloadProfile(_ resolve: @escaping RCTPromiseResolveBlock,
+                               rejecter reject: @escaping RCTPromiseRejectBlock) {
+        logger.info("begin downloadProfile")
+        APIClient.shared.sendDecoding(
+            ProfileDownloadResponse.self,
+            method: .post,
+            path: "/api/profile-downloads"
+        ) { result in
+            switch result {
+            case .failure(.server(let status)) where status == 409:
+                logger.warning("end downloadProfile: administrator has not configured a profile password")
+                reject(
+                    RejectCode.server,
+                    "Your protection profile is not ready. Contact GetBored Support.",
+                    nil
+                )
+
+            case .failure(let error):
+                logger.error("end downloadProfile: ticket request failed")
+                self.reject(for: error, rejecter: reject)
+
+            case .success(let response):
+                guard let url = URL(string: response.downloadUrl),
+                      url.scheme == "https" else {
+                    logger.error("end downloadProfile: server returned an invalid HTTPS URL")
+                    reject(RejectCode.server, "The profile download link was invalid.", nil)
+                    return
+                }
+
+                DispatchQueue.main.async {
+                    UIApplication.shared.open(url, options: [:]) { opened in
+                        if opened {
+                            logger.info("end downloadProfile: opened profile URL")
+                            resolve(nil)
+                        } else {
+                            logger.error("end downloadProfile: iOS could not open profile URL")
+                            reject(RejectCode.server, "Could not open the profile download.", nil)
+                        }
+                    }
+                }
             }
         }
     }
@@ -512,6 +587,13 @@ private struct Device: Decodable {
     let appVersion: String?
     let lastSeenAt: String?
     let createdAt: String
+}
+
+/// Response from `POST /api/profile-downloads`. The expiry is intentionally
+/// omitted: the native app only needs the validated HTTPS URL; the backend
+/// owns ticket lifetime and Safari owns the subsequent download.
+private struct ProfileDownloadResponse: Decodable {
+    let downloadUrl: String
 }
 
 /// Decoded response from `GET /api/policy?deviceId=`. The server also sends

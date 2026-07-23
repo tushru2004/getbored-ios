@@ -16,6 +16,8 @@ export type UseFilterStatus = {
   refresh: () => void;
   /** In-app filter enable ("Turn Filtering On"); reloads status after. */
   enable: () => Promise<void>;
+  /** Opens the authenticated customer-profile download in the browser. */
+  downloadProfile: () => Promise<void>;
   /**
    * The last enable() failure, held OUTSIDE the polled `state` so the
    * status poll can't overwrite it a few seconds later (the bug where the
@@ -95,5 +97,10 @@ export function useFilterStatus(): UseFilterStatus {
     await load();
   }, [load]);
 
-  return {state, refresh: load, enable, enableError};
+  const downloadProfile = useCallback(
+    () => FilterStatusBridge.downloadProfile(),
+    [],
+  );
+
+  return {state, refresh: load, enable, downloadProfile, enableError};
 }

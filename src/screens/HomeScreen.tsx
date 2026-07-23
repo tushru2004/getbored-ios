@@ -287,6 +287,118 @@ const Welcome: React.FC<WelcomeProps> = ({account, onSignIn}) => {
   );
 };
 
+// ─── Managed profile gate (activated accounts only) ───────────────────────
+
+type ProfileGateProps = {
+  filter: FilterStatusState;
+  accountEmail?: string;
+  onDownload: () => Promise<void>;
+  onRefresh: () => void;
+  onSignOut: () => void;
+};
+
+const ProfileGate: React.FC<ProfileGateProps> = ({
+  filter,
+  accountEmail,
+  onDownload,
+  onRefresh,
+  onSignOut,
+}) => {
+  const [downloading, setDownloading] = useState(false);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
+  const checking = filter.kind === 'loading';
+  const missing =
+    filter.kind === 'ready' && filter.status.profile.kind === 'missing';
+  const title = checking
+    ? 'Checking protection…'
+    : missing
+      ? 'Protection missing'
+      : 'Unable to verify setup';
+  const detail = missing
+    ? 'Download the profile, then open Settings → Profile Downloaded → Install.'
+    : checking
+      ? 'Looking for the managed GetBored filter profile on this iPhone.'
+      : 'GetBored could not read the managed filter profile. Check device management, then try again.';
+  const eyebrow = checking
+    ? 'This iPhone · checking'
+    : 'This iPhone · needs attention';
+  const download = useCallback(async () => {
+    setDownloading(true);
+    setDownloadError(null);
+    try {
+      await onDownload();
+    } catch (error: unknown) {
+      setDownloadError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setDownloading(false);
+    }
+  }, [onDownload]);
+
+  return (
+    <View style={styles.profileGate}>
+      <BrandMasthead />
+      <View style={styles.profileGateBody}>
+        <StillWaterRings
+          size={112}
+          color={checking ? colors.neutral : colors.warning}
+          variant="open"
+        />
+        <Text style={styles.profileGateEyebrow}>{eyebrow}</Text>
+        <Text style={styles.profileGateTitle}>{title}</Text>
+        <Text style={styles.profileGateDetail}>{detail}</Text>
+        <View style={styles.profileGateIdentity}>
+          <Text style={styles.profileGateIdentityLabel}>Signed-in account</Text>
+          <Text selectable style={styles.profileGateIdentityValue}>
+            {accountEmail ?? 'Email unavailable'}
+          </Text>
+        </View>
+        {downloadError !== null && (
+          <Text style={styles.profileGateError}>{downloadError}</Text>
+        )}
+        {checking ? (
+          <ActivityIndicator
+            color={colors.label}
+            style={styles.profileGateActivity}
+          />
+        ) : missing ? (
+          <>
+            <Pressable
+              disabled={downloading}
+              onPress={download}
+              style={({pressed}) => [
+                styles.cta,
+                styles.profileGateRefresh,
+                (pressed || downloading) && styles.pressedDim,
+              ]}>
+              {downloading ? (
+                <ActivityIndicator color={colors.label} />
+              ) : (
+                <Text style={styles.ctaText}>Download &amp; Install Profile</Text>
+              )}
+            </Pressable>
+            <Pressable onPress={onRefresh} style={styles.profileGateCheckAgain}>
+              <Text style={styles.profileGateCheckAgainText}>Check Again</Text>
+            </Pressable>
+          </>
+        ) : (
+          <Pressable
+            onPress={onRefresh}
+            style={({pressed}) => [
+              styles.cta,
+              styles.profileGateRefresh,
+              pressed && styles.pressedDim,
+            ]}>
+            <Text style={styles.ctaText}>Check Again</Text>
+          </Pressable>
+        )}
+        <Pressable onPress={onSignOut} style={styles.profileGateSignOut}>
+          <Text style={styles.profileGateSignOutText}>Sign out</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+};
+
 // ─── Home ──────────────────────────────────────────────────────────────────
 
 /**
@@ -295,12 +407,15 @@ const Welcome: React.FC<WelcomeProps> = ({account, onSignIn}) => {
  * state to decide which of three top-level views to show, and hosts the two
  * modals.
  *
- * Top-level gating (showMain = signedIn OR account feature unavailable):
+ * Top-level gating:
  *
  *   account.state.kind
  *       │
- *       ├── 'signedIn' | 'unavailable' → main dashboard (ScrollView below)
- *       ├── 'needsActivation'          → <ActivationScreen>  (redeem a code)
+ *       ├── 'needsActivation' → <ActivationScreen>  (redeem a code)
+ *       ├── 'signedIn'       → filter profile gate
+ *       │       ├── profile installed → main dashboard
+ *       │       └── missing/unknown   → <ProfileGate>
+ *       ├── 'unavailable'    → main dashboard (legacy native build fallback)
  *       └── anything else (signedOut / checking / signingIn / deleting / error)
  *               └──→ <Welcome> — one "Sign in with Apple" button →
  *                       account.signInWithDifferentAccount() (the web flow).
@@ -335,7 +450,12 @@ export const HomeScreen: React.FC = () => {
 
   const {sync} = filterSync;
   const {refresh: refreshAccount} = account;
-  const {refresh: refreshStatus, enable, enableError} = filterStatus;
+  const {
+    refresh: refreshStatus,
+    enable,
+    downloadProfile,
+    enableError,
+  } = filterStatus;
 
   const onPullRefresh = useCallback(async () => {
     setPulling(true);
@@ -349,7 +469,11 @@ export const HomeScreen: React.FC = () => {
   const signedIn = account.state.kind === 'signedIn';
   const needsActivation = account.state.kind === 'needsActivation';
   const accountAbsent = account.state.kind === 'unavailable';
-  const showMain = signedIn || accountAbsent;
+  const profileInstalled =
+    filterStatus.state.kind === 'ready' &&
+    filterStatus.state.status.profile.kind === 'installed';
+  const showProfileGate = signedIn && !profileInstalled;
+  const showMain = accountAbsent || (signedIn && profileInstalled);
 
   const hero = deriveHero(
     filterStatus.state,
@@ -392,6 +516,14 @@ export const HomeScreen: React.FC = () => {
             <ActivationScreen
               accountLabel={accountEmail}
               onActivate={account.redeemActivationCode}
+              onSignOut={account.signOut}
+            />
+          ) : showProfileGate ? (
+            <ProfileGate
+              filter={filterStatus.state}
+              accountEmail={accountEmail}
+              onDownload={downloadProfile}
+              onRefresh={refreshStatus}
               onSignOut={account.signOut}
             />
           ) : (
@@ -724,5 +856,87 @@ const styles = StyleSheet.create({
     ...typography.body,
     fontSize: 16,
     color: '#FFFFFF',
+  },
+
+  // Profile gate
+  profileGate: {
+    flex: 1,
+    paddingHorizontal: spacing.xl,
+  },
+  profileGateBody: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingBottom: spacing.xxl,
+  },
+  profileGateEyebrow: {
+    ...typography.eyebrow,
+    color: colors.label,
+    marginTop: spacing.lg,
+  },
+  profileGateTitle: {
+    ...typography.hero,
+    color: colors.warning,
+    marginTop: spacing.sm,
+    textAlign: 'center',
+  },
+  profileGateDetail: {
+    ...typography.subhead,
+    color: colors.labelSecondary,
+    lineHeight: 20,
+    marginTop: spacing.md,
+    maxWidth: 320,
+    textAlign: 'center',
+  },
+  profileGateIdentity: {
+    alignSelf: 'stretch',
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.separator,
+    marginTop: spacing.lg,
+    paddingTop: spacing.md,
+  },
+  profileGateIdentityLabel: {
+    ...typography.eyebrow,
+    color: colors.labelSecondary,
+    marginTop: spacing.sm,
+    textAlign: 'center',
+  },
+  profileGateIdentityValue: {
+    ...typography.caption,
+    color: colors.label,
+    marginTop: 3,
+    textAlign: 'center',
+  },
+  profileGateActivity: {
+    marginTop: spacing.xl,
+  },
+  profileGateError: {
+    ...typography.body,
+    color: colors.warning,
+    marginTop: spacing.md,
+    textAlign: 'center',
+  },
+  profileGateRefresh: {
+    alignSelf: 'stretch',
+    marginBottom: 0,
+    marginTop: spacing.xl,
+  },
+  profileGateCheckAgain: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    marginTop: spacing.sm,
+  },
+  profileGateCheckAgainText: {
+    ...typography.body,
+    color: colors.label,
+  },
+  profileGateSignOut: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    marginTop: spacing.md,
+  },
+  profileGateSignOutText: {
+    ...typography.body,
+    color: colors.labelSecondary,
   },
 });

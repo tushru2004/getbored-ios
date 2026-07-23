@@ -7,6 +7,7 @@ import {
   DeviceRegistration,
   DeviceRegistrationSnapshot,
   FilterStatus,
+  FilterProfileStatus,
   StatusViewModel,
   SyncSummary,
 } from './types';
@@ -14,6 +15,7 @@ import {
 type RawStatus = {
   filterState: string;
   filterLabel: string;
+  profileState: string;
   signedIn: boolean;
 };
 
@@ -22,6 +24,7 @@ type NativeFilterStatus = {
   registerDevice: () => Promise<DeviceRegistration>;
   currentDeviceRegistration: () => Promise<DeviceRegistrationSnapshot>;
   enableFilter: () => Promise<void>;
+  downloadProfile: () => Promise<void>;
   syncFilterLists: () => Promise<SyncSummary>;
   loadActiveRules: () => Promise<ActiveRules>;
 };
@@ -66,6 +69,17 @@ const parseAccount = (raw: RawStatus): AccountStatus =>
     ? {kind: 'signedIn', label: 'Signed in'}
     : {kind: 'signedOut', label: 'Signed out'};
 
+const parseProfile = (raw: RawStatus): FilterProfileStatus => {
+  switch (raw.profileState) {
+    case 'installed':
+    case 'missing':
+    case 'unknown':
+      return {kind: raw.profileState};
+    default:
+      return {kind: 'unknown'};
+  }
+};
+
 /**
  * Typed JS facade over the `FilterStatus` native module (registered by the iOS
  * side via NativeModules). `native` is resolved once at import time and may be
@@ -94,14 +108,15 @@ export const FilterStatusBridge = {
    *       └── parseAccount(raw) → AccountStatus
    *       │
    *       ▼
-   *   {filter, account}  ← StatusViewModel
+   *   {filter, profile, account}  ← StatusViewModel
    */
   async current(): Promise<StatusViewModel> {
     if (!native) throw new NativeModuleUnavailableError('FilterStatus');
     const raw = await native.current();
     const filter = parseFilter(raw);
+    const profile = parseProfile(raw);
     const account = parseAccount(raw);
-    return {filter, account};
+    return {filter, profile, account};
   },
 
   async registerDevice(): Promise<DeviceRegistration> {
@@ -117,6 +132,11 @@ export const FilterStatusBridge = {
   async enableFilter(): Promise<void> {
     if (!native) throw new NativeModuleUnavailableError('FilterStatus');
     return native.enableFilter();
+  },
+
+  async downloadProfile(): Promise<void> {
+    if (!native) throw new NativeModuleUnavailableError('FilterStatus');
+    return native.downloadProfile();
   },
 
   async syncFilterLists(): Promise<SyncSummary> {

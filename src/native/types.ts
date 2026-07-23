@@ -8,8 +8,14 @@ export type AccountStatus =
   | {kind: 'signedIn'; label: string}
   | {kind: 'signedOut'; label: string};
 
+export type FilterProfileStatus =
+  | {kind: 'installed'}
+  | {kind: 'missing'}
+  | {kind: 'unknown'};
+
 export type StatusViewModel = {
   filter: FilterStatus;
+  profile: FilterProfileStatus;
   account: AccountStatus;
 };
 
