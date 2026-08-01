@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>GetBored iOS v1 — Architecture</title>
+<style>
+  :root{
+    --bg:#f6f7fb; --dot:#cdd2dc; --panel:#ffffff; --border:#e2e8f0;
+    --text:#0f172a; --muted:#64748b;
+  }
+  html,body{margin:0}
+  body{
+    background-color:var(--bg);
+    background-image:radial-gradient(circle, var(--dot) 1px, transparent 1px);
+    background-size:20px 20px;
+    font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif;
+    color:var(--text);
+    padding:28px 32px 36px;
+  }
+  h1{font-size:19px;margin:0 0 2px}
+  p.sub{color:var(--muted);font-size:13px;margin:0 0 18px}
+  .stage{background:transparent}
+  pre.mermaid{margin:0}
+  .legend{display:flex;gap:16px;flex-wrap:wrap;margin-top:18px;font-size:12px;color:var(--muted)}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .sw{width:22px;height:0;border-top-width:2px;border-top-style:solid;display:inline-block}
+</style>
+<script type="module">
+  import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+  mermaid.initialize({
+    startOnLoad:false, securityLevel:'loose', theme:'base',
+    themeVariables:{
+      fontFamily:'-apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif',
+      fontSize:'13px', primaryColor:'#ffffff', primaryTextColor:'#0f172a',
+      primaryBorderColor:'#cbd5e1', lineColor:'#64748b',
+      clusterBkg:'#f8fafc', clusterBorder:'#cbd5e1', edgeLabelBackground:'#ffffff'
+    }
+  });
+  const blocks=document.querySelectorAll('pre.mermaid');
+  for(let i=0;i<blocks.length;i++){
+    const b=blocks[i];
+    try{ const {svg}=await mermaid.render('m-'+i,b.textContent.trim()); b.innerHTML=svg; b.setAttribute('data-processed','true'); }
+    catch(e){ console.error('Mermaid block '+i+' FAILED:',e.message); }
+  }
+</script>
+</head>
+<body>
+  <h1>GetBored iOS — v1 (App Store) architecture</h1>
+  <p class="sub">Apple sign-in + activation code → GetBored REST API (replaces CloudKit) → on-device Network Content Filter. iPhone-only, block-mode only.</p>
+
+  <div class="stage">
+  <pre class="mermaid">
+%%{init: {
+  "flowchart": {"htmlLabels": true, "nodeSpacing": 40, "rankSpacing": 80, "diagramPadding": 16, "wrappingWidth": 220, "curve": "basis", "defaultRenderer": "dagre-wrapper"}
+}}%%
+flowchart LR
+
+  subgraph BE["GetBored backend"]
+    direction TB
+    ADMIN["`**Admin web dashboard**
+    user builds block lists
+    (getbored-mac-ios-admin)`"]
+    API["`**GetBored REST API**
+    dashboard hosts
+    auth · session · list sync
+    account deletion`"]
+    ADMIN -->|"saves block lists"| API
+  end
+
+  subgraph PHONE["iPhone — App Store build (iPhone-only)"]
+    direction TB
+    SIGNIN["`**Welcome**
+    Sign in with Apple`"]
+    ACT["`**Activation code gate**
+    entered / web sign-in flow`"]
+    HOME["`**Quiet home**
+    N sites blocked · synced HH:MM`"]
+    AGROUP["`**App-Group rule store**
+    block-mode rules`"]
+    FILTER["`**NEFilterDataProvider**
+    content-filter-provider
+    block-mode only`"]
+    SIGNIN --> ACT
+    HOME --> AGROUP
+    AGROUP --> FILTER
+  end
+
+  PROFILE["`**Protection / supervision profile**
+    activation gate`"]
+  NET["`**Network**
+    distracting flows blocked`"]
+
+  ACT -->|"validate + issue session"| API
+  API -->|"sync block lists"| HOME
+  API -.->|"activated users gated on"| PROFILE
+  PROFILE -.->|"must be installed"| FILTER
+  FILTER ==>|"blocks"| NET
+
+  subgraph REMOVED["Removed in v1"]
+    direction LR
+    CK["`CloudKit sync`"]
+    SAP["`Safari App-Proxy +
+    child-registration ext`"]
+    WL["`Parent-child
+    whitelist stack`"]
+  end
+  CK -.->|"replaced by REST API"| API
+
+  classDef sky    fill:#e0f2fe,stroke:#0ea5e9,color:#0369a1,stroke-width:1.5px;
+  classDef green  fill:#d1fae5,stroke:#10b981,color:#047857,stroke-width:1.5px;
+  classDef blue   fill:#dbeafe,stroke:#3b82f6,color:#1d4ed8,stroke-width:1.5px;
+  classDef amber  fill:#fef3c7,stroke:#f59e0b,color:#b45309,stroke-width:1.5px;
+  classDef slate  fill:#f1f5f9,stroke:#475569,color:#334155,stroke-width:1.5px;
+  classDef red    fill:#fee2e2,stroke:#ef4444,color:#b91c1c,stroke-width:1.5px;
+
+  class SIGNIN,ACT,HOME sky;
+  class AGROUP,FILTER amber;
+  class API,ADMIN green;
+  class PROFILE,NET slate;
+  class CK,SAP,WL red;
+
+  %% edge 0 ADMIN->API  1 SIGNIN->ACT  2 HOME->AGROUP  3 AGROUP->FILTER
+  %% edge 4 ACT->API  5 API->HOME  6 API-.->PROFILE  7 PROFILE-.->FILTER  8 FILTER=>NET  9 CK-.->API
+  linkStyle 4 stroke:#0369a1,stroke-width:2px;
+  linkStyle 5 stroke:#047857,stroke-width:2px;
+  linkStyle 8 stroke:#b45309,stroke-width:2.5px;
+  linkStyle 9 stroke:#b91c1c,stroke-width:1.5px,stroke-dasharray:6 4;
+</pre>
+  </div>
+
+  <div class="legend">
+    <span><i class="sw" style="border-top-color:#0369a1"></i>auth / activation</span>
+    <span><i class="sw" style="border-top-color:#047857"></i>list sync (REST)</span>
+    <span><i class="sw" style="border-top-color:#b45309"></i>on-device enforcement</span>
+    <span><i class="sw" style="border-top-color:#b91c1c;border-top-style:dashed"></i>removed / replaced in v1</span>
+  </div>
+</body>
+</html>
