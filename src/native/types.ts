@@ -4,31 +4,41 @@ export type FilterStatus =
   | {kind: 'checking'; label: string}
   | {kind: 'error'; label: string};
 
-export type ICloudStatus =
-  | {kind: 'available'; label: string}
-  | {kind: 'unavailable'; label: string}
-  | {kind: 'checking'; label: string};
+export type AccountStatus =
+  | {kind: 'signedIn'; label: string}
+  | {kind: 'signedOut'; label: string};
+
+export type FilterProfileStatus =
+  | {kind: 'installed'}
+  | {kind: 'missing'}
+  | {kind: 'unknown'};
 
 export type StatusViewModel = {
   filter: FilterStatus;
-  icloud: ICloudStatus;
+  profile: FilterProfileStatus;
+  account: AccountStatus;
 };
 
 export type DeviceRegistration = {
   id: string;
-  deviceName: string;
-  deviceModel: string;
-  systemVersion: string;
-  appVersion: string;
-  lastSeenAt: string;
-  buildConfiguration: string;
-  registeredDeviceCount: number;
+  name: string | null;
+  model: string | null;
+  appVersion: string | null;
+  lastSeenAt: string | null;
+  createdAt: string;
 };
 
 export type DeviceRegistrationSnapshot = {
   isRegistered: boolean;
   registration: DeviceRegistration | null;
-  registeredDeviceCount: number;
+};
+
+/** Counts of what a successful sync just applied on-device. */
+export type SyncSummary = {
+  sites: number;
+  exceptions: number;
+  allowedApps: number;
+  blockedApps: number;
 };
 
 export type ActiveRules = {
@@ -39,17 +49,17 @@ export type ActiveRules = {
   blockedApps: string[];
 };
 
-export type AppGroupDefaultsKey = {
-  key: string;
-  type: string;
-  preview: string;
+export type AccountSummary = {
+  signedIn: boolean;
+  userId?: string;
+  /** Live backend entitlement. Absent only when account enrichment failed. */
+  plan?: string;
+  /** Best email for display: contactEmail if set, else the Apple identity
+   * email (possibly an @privaterelay.appleid.com address). Absent when the
+   * enrichment call fails or the account has no stored email. */
+  email?: string;
 };
 
-export type AppGroupDefaultsSnapshot = {
-  groupIdentifier: string;
-  flowLogKey: string;
-  flowLogLimit: number;
-  flowLogCount: number;
-  flowLog: string[];
-  keys: AppGroupDefaultsKey[];
+export type SignInResult = {
+  userId: string;
 };

@@ -79,21 +79,31 @@ class FlowInspector: NEFilterDataProvider {
     /// - blockSpecific: the list is a BLOCKLIST (block what's listed)
     /// - whiteList: the list is an ALLOWLIST (allow what's listed, block everything else)
     ///
+    /// v1 SHIPS BLOCK MODE ONLY: the parent-child Safari whitelist machinery this branch
+    /// feeds (allowedSafariParent, the two Safari extensions, the App-Proxy provider) was
+    /// removed from this build. `loadedFilterRules.filterMode` can never actually be
+    /// `.whiteList` here — IOSRuleStore.loadFilterRules() (via decodedFilterMode()) coerces
+    /// any `.whiteList` config back to `.blockSpecific` before it reaches this function. The
+    /// `mode == .whiteList` branch below is kept only as defense in depth; do not re-enable
+    /// the whitelist machinery by relying on it.
+    ///
     /// Call flow:
     ///
     ///   classifyHost(host)
     ///           │
-    ///           ├── loadFilterRules()              ← re-read every call; CloudKit sync can change it anytime
+    ///           ├── loadFilterRules()              ← re-read every call; a server policy sync can change it anytime
+    ///           │                                     (.whiteList is already coerced to .blockSpecific here)
     ///           ├── currentMode = rules.filterMode ← side effect: cache mode for telemetry/logging
     ///           │
-    ///           ├── mode == .whiteList     → allowedSafariParent(forChildHost: host) (parent-child allow lookup)
+    ///           ├── mode == .whiteList     → allowedSafariParent(forChildHost: host) (dead in v1; see above)
     ///           └── mode == .blockSpecific → allowedParent = nil (skip parent-child lookup)
     ///                   │
     ///                   ▼
     ///           KMPDecisionCoreAdapter.classifyHost(host, rules, systemAllowedSuffixes, allowedParent)
     ///                   → (decision.blocked, decision.reason)
     private func classifyHost(_ host: String) -> (blocked: Bool, reason: String) {
-        // Always re-read the mode — it could change at any time via CloudKit sync
+        // Always re-read the mode — it could change at any time when the app
+        // applies a fresh server policy snapshot (GET /api/policy → applyFilterListSnapshot).
         let loadedFilterRules = IOSRuleStore.shared.loadFilterRules()
         currentMode = loadedFilterRules.filterMode.rawValue
         let allowedParent = loadedFilterRules.filterMode == .whiteList
@@ -231,8 +241,8 @@ class FlowInspector: NEFilterDataProvider {
     /// SAFETY-CRITICAL ORDERING: the allow gate (own-app / Apple-system / parent-whitelisted) is
     /// evaluated FIRST and returns .allow() immediately. Only flows that nothing allowed reach the
     /// isAppBlocked .drop() check. Never reorder allow-before-drop — it is load-bearing:
-    ///   - Own-app traffic must never be dropped, or GetBored loses its own network + CloudKit
-    ///     control channel and can no longer be managed/recovered remotely.
+    ///   - Own-app traffic must never be dropped, or GetBored loses its own network + server
+    ///     API control channel and can no longer be managed/recovered remotely.
     ///   - Apple system domains must never be dropped (breaks iCloud, App Store, cert validation).
     ///   - A parent-whitelisted app is explicit parent intent and outranks any overlap with the
     ///     admin blocked-apps list.

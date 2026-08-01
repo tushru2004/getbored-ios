@@ -16,7 +16,7 @@ import os.log
 /// - iOS calls `handleNewFlow(_:)` once per outbound TCP/UDP connection.
 /// - iOS calls `stopProxy(...)` when the user disables the profile or it errors.
 ///
-/// **Bundle ID:** `com.getbored.advance.whitelist.SafariAppProxyProvider`
+/// **Bundle ID:** `com.getbored.filter.safari-app-proxy-provider`
 /// **Per-app VPN scope:** Safari only (Mobile Safari bundle ID).
 /// **Profile:** `com.getbored.ios.safari-app-proxy-spike` (mobileconfig).
 final class SafariAppProxyProvider: NEAppProxyProvider {
@@ -54,7 +54,7 @@ final class SafariAppProxyProvider: NEAppProxyProvider {
 
     /// App Group `UserDefaults` shared with the host app, the iOS content
     /// filter, and the Safari registration extension.
-    /// Suite: `group.com.getbored.advance.whitelist`.
+    /// Suite: `group.com.getbored.ios`.
     private let defaults = UserDefaults(suiteName: SafariParentChildContextStore.appGroupIdentifier)
 
     /// Serial queue that owns all `NWConnection` + `relays` dict mutations.
@@ -582,13 +582,14 @@ final class SafariAppProxyProvider: NEAppProxyProvider {
             let mergedChildren = contextStore.mergedChildren(for: active.parentDomain)
             activeChildren = Array(mergedChildren).sorted()
         }
+        let activeContextAgeSeconds = active.map { Date().timeIntervalSince($0.receivedAt) } ?? 0
         let decision = KMPDecisionCoreAdapter.safariRelayDecision(
             endpoint: endpoint,
             using: loadedFilterRules(),
             systemAllowedSuffixes: systemAllowedSuffixes,
             activeParent: active?.parentDomain,
             activeChildren: activeChildren,
-            activeContextAge: active.map { Date().timeIntervalSince($0.receivedAt) } ?? 0,
+            activeContextAge: activeContextAgeSeconds,
             activeContextMaxAge: activeContextMaxAge,
             activeContextRefreshMinAge: activeContextRefreshMinAge
         )

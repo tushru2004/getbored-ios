@@ -100,17 +100,21 @@ class IOSRuleStore {
             logger.debug("loadSiteRules: no data found or decode failed, returning empty")
             return []
         }
-        logger.debug("loadSiteRules: loaded \(items.count) items")
+        logger.debug("loadSiteRules: loaded \(items.count, privacy: .public) items")
         return items
     }
 
     /// Load the full policy snapshot expected by the shared decision core.
     ///
+    /// This is the single chokepoint all consumers (FlowInspector, KMPDecisionCoreAdapter,
+    /// isListed/isExcepted/isAppAllowed/isAppBlocked below) go through to get a filter mode —
+    /// see decodedFilterMode() for the block-mode-only safety guard applied here.
+    ///
     /// Call flow:
     ///
     ///   filter extension (hot path) calls loadFilterRules()
     ///           │
-    ///           ├── sharedDefaults?.string(forKey: modeKey)   → FilterMode (fallback: .blockSpecific)
+    ///           ├── decodedFilterMode()  → FilterMode (block-mode-only guard; never .whiteList)
     ///           ├── loadSiteRules()     → [SiteRule] from JSON in UserDefaults
     ///           ├── loadExceptions()   → [String] from UserDefaults
     ///           ├── loadAllowedApps()  → [String] from UserDefaults
@@ -121,11 +125,9 @@ class IOSRuleStore {
     ///
     /// All five reads hit the same cached UserDefaults instance (5-second TTL).
     func loadFilterRules() -> LoadedFilterRules {
-        let rawMode = sharedDefaults?.string(forKey: modeKey) ?? FilterMode.blockSpecific.rawValue
-        let mode = FilterMode(rawValue: rawMode) ?? .blockSpecific
         return LoadedFilterRules(
             siteRules: loadSiteRules(),
-            filterMode: mode,
+            filterMode: decodedFilterMode(),
             exceptions: loadExceptions(),
             allowedAppBundleIDs: loadAllowedApps(),
             blockedAppBundleIDs: loadBlockedApps()
@@ -138,7 +140,7 @@ class IOSRuleStore {
             logger.error("saveSiteRules: failed to encode items")
             return
         }
-        logger.info("saveSiteRules: saving \(items.count) items")
+        logger.info("saveSiteRules: saving \(items.count, privacy: .public) items")
         let defaults = sharedDefaults
         defaults?.set(data, forKey: siteRulesKey)
         defaults?.synchronize()
@@ -153,7 +155,7 @@ class IOSRuleStore {
             return false
         }
 
-        logger.info("saveParentChildMapJSON: saving \(json.utf8.count) bytes")
+        logger.info("saveParentChildMapJSON: saving \(json.utf8.count, privacy: .public) bytes")
         let defaults = sharedDefaults
         defaults?.set(json, forKey: parentChildMapKey)
         defaults?.synchronize()
@@ -172,11 +174,15 @@ class IOSRuleStore {
 
     // MARK: - Filter List Snapshot
 
-    /// Atomically overwrites the full filter policy with a merged snapshot from CloudKit.
+    /// Atomically overwrites the full filter policy with a server-merged snapshot.
+    ///
+    /// The merge (whitelist-wins, ordered-unique across a device's assigned lists)
+    /// happens server-side now; `syncFilterLists` fetches the already-merged result
+    /// from `GET /api/policy` and hands it straight to this writer.
     ///
     /// Call flow:
     ///
-    ///   syncFilterLists resolves assigned+active FilterLists from CloudKit
+    ///   syncFilterLists fetches this device's merged policy from GET /api/policy
     ///           │
     ///           ▼
     ///   applyFilterListSnapshot(mode:entries:exceptions:allowedApps:blockedApps:)
@@ -210,23 +216,58 @@ class IOSRuleStore {
 
         invalidateDefaultsCache()
 
-        logger.info("applyFilterListSnapshot: \(entries.count) entries, mode=\(filterMode.rawValue), \(exceptions.count) exceptions, \(allowedApps.count) allowedApps, \(blockedApps.count) blockedApps")
+        logger.info("applyFilterListSnapshot: \(entries.count, privacy: .public) entries, mode=\(filterMode.rawValue, privacy: .public), \(exceptions.count, privacy: .public) exceptions, \(allowedApps.count, privacy: .public) allowedApps, \(blockedApps.count, privacy: .public) blockedApps")
     }
 
     // MARK: - Filter Mode
 
     /// Set the filter mode ("blockSpecific" or "whiteList")
     func setMode(_ mode: String) {
-        logger.info("setMode: \(mode)")
+        logger.info("setMode: \(mode, privacy: .public)")
         sharedDefaults?.set(mode, forKey: modeKey)
         sharedDefaults?.synchronize()
     }
 
-    /// Get the current filter mode (defaults to "blockSpecific")
+    /// Get the current filter mode (defaults to "blockSpecific"). Goes through
+    /// decodedFilterMode() so a stored `.whiteList` value is never surfaced here either —
+    /// this is also what the React Native "Active Rules" screen reads for display.
     func getMode() -> String {
-        let mode = sharedDefaults?.string(forKey: modeKey) ?? FilterMode.blockSpecific.rawValue
-        logger.debug("getMode: \(mode)")
+        let mode = decodedFilterMode().rawValue
+        logger.debug("getMode: \(mode, privacy: .public)")
         return mode
+    }
+
+    /// Decodes the stored filter mode, defensively coercing `.whiteList` to `.blockSpecific`.
+    ///
+    /// v1 ships BLOCK MODE ONLY — the parent-child Safari whitelist machinery
+    /// (allowedSafariParent, the two Safari extensions, the App-Proxy provider) was removed
+    /// from this build. A server-synced FilterList (or a stale UserDefaults value written
+    /// before the block-mode-only cutover) can still carry `mode == .whiteList` — that is a
+    /// valid raw value, so the plain `FilterMode(rawValue:)` decode below does not catch it.
+    /// Letting it reach the decision core would either exercise removed machinery or, worse,
+    /// silently degrade into an unfiltered pass-through. Coerce it to the safe block-mode
+    /// default instead — this must NEVER coerce toward "allow everything".
+    ///
+    /// Call flow:
+    ///
+    ///   loadFilterRules() / getMode() → decodedFilterMode()
+    ///           │
+    ///           ├── sharedDefaults?.string(forKey: modeKey)   → raw string (fallback: "blockSpecific")
+    ///           ├── FilterMode(rawValue:)                     → decoded mode (fallback: .blockSpecific)
+    ///           │
+    ///           ├── decoded == .blockSpecific → return unchanged (fast path)
+    ///           └── decoded == .whiteList
+    ///                   └── log warning, return .blockSpecific   ← safe default, never allow-all
+    private func decodedFilterMode() -> FilterMode {
+        let rawMode = sharedDefaults?.string(forKey: modeKey) ?? FilterMode.blockSpecific.rawValue
+        let decodedMode = FilterMode(rawValue: rawMode) ?? .blockSpecific
+
+        guard decodedMode == .whiteList else {
+            return decodedMode
+        }
+
+        logger.warning("decodedFilterMode: whiteList mode received in block-mode-only build; coercing to block-mode default (whitelist machinery removed in v1)")
+        return .blockSpecific
     }
 
     // MARK: - Exceptions (URL path exemptions)
@@ -238,7 +279,7 @@ class IOSRuleStore {
 
     /// Save exception patterns
     func setExceptions(_ exceptions: [String]) {
-        logger.info("setExceptions: \(exceptions.count) exceptions")
+        logger.info("setExceptions: \(exceptions.count, privacy: .public) exceptions")
         sharedDefaults?.set(exceptions, forKey: exceptionsKey)
         sharedDefaults?.synchronize()
     }
@@ -252,7 +293,7 @@ class IOSRuleStore {
 
     /// Save bundle IDs of apps that bypass filtering
     func setAllowedApps(_ bundleIDs: [String]) {
-        logger.info("setAllowedApps: \(bundleIDs.count) apps")
+        logger.info("setAllowedApps: \(bundleIDs.count, privacy: .public) apps")
         sharedDefaults?.set(bundleIDs, forKey: allowedAppsKey)
         sharedDefaults?.synchronize()
     }
@@ -260,7 +301,7 @@ class IOSRuleStore {
     /// Load allowed app bundle IDs
     func loadAllowedApps() -> [String] {
         let apps = sharedDefaults?.stringArray(forKey: allowedAppsKey) ?? []
-        logger.debug("loadAllowedApps: \(apps.count) apps")
+        logger.debug("loadAllowedApps: \(apps.count, privacy: .public) apps")
         return apps
     }
 
@@ -278,7 +319,7 @@ class IOSRuleStore {
 
     /// Save bundle IDs of apps whose traffic should be blocked entirely
     func setBlockedApps(_ bundleIDs: [String]) {
-        logger.info("setBlockedApps: \(bundleIDs.count) apps")
+        logger.info("setBlockedApps: \(bundleIDs.count, privacy: .public) apps")
         sharedDefaults?.set(bundleIDs, forKey: blockedAppsKey)
         sharedDefaults?.synchronize()
     }
@@ -286,7 +327,7 @@ class IOSRuleStore {
     /// Load blocked app bundle IDs
     func loadBlockedApps() -> [String] {
         let apps = sharedDefaults?.stringArray(forKey: blockedAppsKey) ?? []
-        logger.debug("loadBlockedApps: \(apps.count) apps")
+        logger.debug("loadBlockedApps: \(apps.count, privacy: .public) apps")
         return apps
     }
 
@@ -379,6 +420,13 @@ class IOSActivityLogger {
     ///                       └── encode + defaults.set + defaults.synchronize()
     ///
     /// All writes are serialized on `queue` (serial, .utility QoS) to avoid data races.
+    // Activity logging is DISABLED (2026-07-18): out of scope for iOS v1.
+    // Method bodies below are commented out — not deleted — so the extension
+    // call sites (FlowInspector, BlockHandler) keep compiling as no-ops and
+    // the feature can be re-enabled by uncommenting. Known issue when
+    // re-enabling: the 2 s flushInterval is only evaluated on the NEXT log()
+    // call — no timer is ever scheduled, so a lone entry can sit in memory
+    // until the extension process dies.
     func log(domain: String,
              blocked: Bool,
              reason: String,
@@ -386,6 +434,7 @@ class IOSActivityLogger {
              rawEndpoint: String? = nil,
              resolutionSource: String = "legacy",
              isResolvableHostname: Bool = true) {
+        /*
         let entry = ActivityLogEntry(
             displayDomain: domain,
             blocked: blocked,
@@ -404,29 +453,36 @@ class IOSActivityLogger {
                 self._flushPending()
             }
         }
+        */
     }
 
-    /// Force-flush pending entries to disk (async)
+    /// Force-flush pending entries to disk (async). Disabled — see log().
     func flush() {
+        /*
         queue.async { [weak self] in
             self?._flushPending()
         }
+        */
     }
 
-    /// Synchronously flush pending entries. Call before reading entries for upload.
+    /// Synchronously flush pending entries. Disabled — see log().
     func flushSync() {
+        /*
         queue.sync { [weak self] in
             self?._flushPending()
         }
+        */
     }
 
-    /// Must be called on `queue`.
+    /// Must be called on `queue`. Disabled — see log().
     private func _flushPending() {
+        /*
         guard !pendingEntries.isEmpty else { return }
         let toWrite = pendingEntries
         pendingEntries = []
         lastFlush = Date()
         writeEntries(toWrite)
+        */
     }
 
     /// Read-merge-trim-write cycle on the shared activity log.
@@ -435,6 +491,7 @@ class IOSActivityLogger {
     /// reading the log for upload) may have written a tombstone or trim since this process
     /// last read. Without it we'd re-inflate entries that were already cleared.
     private func writeEntries(_ newEntries: [ActivityLogEntry]) {
+        /*
         guard let defaults = sharedDefaults else {
             os_log("IOSActivityLogger.writeEntries: sharedDefaults is nil!", log: writeLogger, type: .error)
             return
@@ -456,21 +513,27 @@ class IOSActivityLogger {
             defaults.set(data, forKey: logKey)
             defaults.synchronize()
         }
+        */
     }
 
     // MARK: - Reading
 
-    /// Read the activity log (called from the iOS app)
+    /// Read the activity log (called from the iOS app). Disabled — see log().
     func loadEntries() -> [ActivityLogEntry] {
+        /*
         guard let defaults = sharedDefaults else { return [] }
         defaults.synchronize()
         guard let data = defaults.data(forKey: logKey) else { return [] }
         return (try? JSONDecoder().decode([ActivityLogEntry].self, from: data)) ?? []
+        */
+        return []
     }
 
-    /// Clear all log entries
+    /// Clear all log entries. Disabled — see log().
     func clearLog() {
+        /*
         sharedDefaults?.removeObject(forKey: logKey)
         sharedDefaults?.synchronize()
+        */
     }
 }

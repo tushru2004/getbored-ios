@@ -1,56 +1,643 @@
-import React from 'react';
-import {SafeAreaView, ScrollView, StyleSheet, Text, View} from 'react-native';
+import React, {useCallback, useState} from 'react';
+import {
+  ActivityIndicator,
+  Pressable,
+  RefreshControl,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 
+import {AccountSheet} from '../components/AccountSheet';
 import {ErrorBoundary} from '../components/ErrorBoundary';
-import {DeviceRegistrationCard} from '../components/cards/DeviceRegistrationCard';
-import {FilterListSyncCard} from '../components/cards/FilterListSyncCard';
-import {StatusCard} from '../components/cards/StatusCard';
-import {StatusCardSkeleton} from '../components/cards/StatusCardSkeleton';
-import {useFilterStatus} from '../hooks/useFilterStatus';
-import {colors, spacing, typography} from '../theme';
+import {StillWaterRings} from '../components/StillWaterRings';
+import {AccountState} from '../hooks/useAccount';
+import {useConnectedApp} from '../hooks/useConnectedApp';
+import {DeviceRegistrationState} from '../hooks/useDeviceRegistration';
+import {FilterListSyncState} from '../hooks/useFilterListSync';
+import {FilterStatusState, useFilterStatus} from '../hooks/useFilterStatus';
+import {SyncSummary} from '../native/types';
+import {colors, hardShadow, spacing, typography} from '../theme';
+import {ActiveRulesScreen} from './ActiveRulesScreen';
+import {ActivationScreen} from './ActivationScreen';
 
-/**
- * Picks the right card for the current filter-status fetch state.
- *
- *   useFilterStatus().state.kind
- *       │
- *       ├── 'loading' → <StatusCardSkeleton />
- *       ├── 'ready'   → <StatusCard status={state.status} />
- *       └── 'error'   → error box with "Tap to retry" → refresh()
- */
-const StatusSection: React.FC = () => {
-  const {state, refresh} = useFilterStatus();
+// ─── Hero derivation ───────────────────────────────────────────────────────
 
-  switch (state.kind) {
-    case 'loading':
-      return <StatusCardSkeleton />;
-    case 'ready':
-      return <StatusCard status={state.status} />;
-    case 'error':
-      return (
-        <View style={styles.errorBox}>
-          <Text style={styles.errorTitle}>Couldn’t load status</Text>
-          <Text style={styles.errorMessage}>{state.message}</Text>
-          <Text style={styles.errorRetry} onPress={refresh}>
-            Tap to retry
-          </Text>
-        </View>
-      );
-  }
+type Hero = {
+  word: string;
+  color: string;
+  variant: 'closed' | 'open';
+  substance: string;
+  showEnable: boolean;
 };
 
-export const HomeScreen: React.FC = () => (
-  <SafeAreaView style={styles.root}>
-    <ScrollView contentContainerStyle={styles.scroll}>
-      <Text style={styles.header}>GetBored</Text>
-      <ErrorBoundary>
-        <StatusSection />
-        <DeviceRegistrationCard />
-        <FilterListSyncCard />
-      </ErrorBoundary>
-    </ScrollView>
-  </SafeAreaView>
+function countLabel(count: number, singular: string, plural: string): string {
+  if (count === 1) {
+    return `1 ${singular}`;
+  }
+  return `${count} ${plural}`;
+}
+
+function formatSyncTime(syncedAtMs: number): string {
+  return new Date(syncedAtMs).toLocaleTimeString([], {
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
+
+/**
+ * The quiet line under the state word, in precedence order. A successful
+ * sync returns '' — its counts render as the stat pair instead, and its
+ * timestamp lives in the footer whisper.
+ *
+ * Only reached from deriveHero's 'active' filter branch. Registration
+ * outranks sync so the one-time "Connecting…" is never masked by a stale
+ * sync line:
+ *
+ *   registration 'saving'      → "Connecting this iPhone…"
+ *   sync 'syncing'             → "Syncing…"
+ *   sync 'success'             → ''  (stat pair + footer carry the detail)
+ *   sync 'notRegistered'       → "Waiting to connect…"
+ *   sync 'error'               → sync.message
+ *   anything else (idle, …)    → ''
+ */
+function substanceLine(
+  sync: FilterListSyncState,
+  registration: DeviceRegistrationState,
+): string {
+  if (registration.kind === 'saving') {
+    return 'Connecting this iPhone…';
+  }
+  if (sync.kind === 'syncing') {
+    return 'Syncing…';
+  }
+  if (sync.kind === 'success') {
+    return '';
+  }
+  if (sync.kind === 'notRegistered') {
+    return 'Waiting to connect…';
+  }
+  if (sync.kind === 'error') {
+    return sync.message;
+  }
+  return '';
+}
+
+/** Never show a private-relay address raw — it reads as gibberish. The full
+ * address stays visible in the Account sheet. */
+function displayEmail(email?: string): string {
+  if (!email) {
+    return 'Signed in';
+  }
+  if (email.endsWith('@privaterelay.appleid.com')) {
+    return 'Hidden Apple email';
+  }
+  return email;
+}
+
+// ─── Stat pair (what the last sync applied) ────────────────────────────────
+
+/** Tapping the counts answers the obvious follow-up — "blocked WHAT?" —
+ * by opening the Active Rules list. */
+const StatPair: React.FC<{summary: SyncSummary; onPress: () => void}> = ({
+  summary,
+  onPress,
+}) => {
+  const sitesCaption = summary.sites === 1 ? 'site blocked' : 'sites blocked';
+  const appsCaption =
+    summary.blockedApps === 1 ? 'app blocked' : 'apps blocked';
+  const hasBlockedApps = summary.blockedApps > 0;
+
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({pressed}) => [styles.statPair, pressed && styles.pressedDim]}>
+      <View style={styles.stat}>
+        <Text style={styles.statNum}>{summary.sites}</Text>
+        <Text style={styles.statCap}>{sitesCaption}</Text>
+      </View>
+      {hasBlockedApps && (
+        <View style={[styles.stat, styles.statAfter]}>
+          <Text style={styles.statNum}>{summary.blockedApps}</Text>
+          <Text style={styles.statCap}>{appsCaption}</Text>
+        </View>
+      )}
+    </Pressable>
+  );
+};
+
+/**
+ * Collapses filter status + sync + registration into the one answer the top
+ * half of the screen exists to give. Subscription lapse and a disabled
+ * filter both read as "Paused" — in both cases the truth is: not filtering.
+ *
+ * Precedence (first match wins — a subscription lapse outranks everything,
+ * then filter loading/error, then the filter's own kind):
+ *
+ *   deriveHero(filter, sync, registration)
+ *       │
+ *       ├── sync 'subscriptionRequired'      → "Paused"    (warning, no Enable)
+ *       ├── filter 'loading'                 → "Checking…" (neutral)
+ *       ├── filter 'error'                   → "Unknown"   (neutral, filter.message)
+ *       └── filter 'ready' → filter.status.filter.kind
+ *               │
+ *               ├── 'inactive'  → "Paused"   (warning, showEnable = true)
+ *               ├── 'active'    → "GetBored" (success; substance = substanceLine(...))
+ *               └── otherwise   → "Checking…"(neutral fallback)
+ *
+ * Only the 'inactive' branch sets showEnable — it's the one Paused state the
+ * user can fix in-app; a subscription lapse is fixed off-device.
+ */
+function deriveHero(
+  filter: FilterStatusState,
+  sync: FilterListSyncState,
+  registration: DeviceRegistrationState,
+): Hero {
+  if (sync.kind === 'subscriptionRequired') {
+    return {
+      word: 'Paused',
+      color: colors.warning,
+      variant: 'open',
+      substance: 'Subscription required — filtering stopped',
+      showEnable: false,
+    };
+  }
+  if (filter.kind === 'loading') {
+    return {
+      word: 'Checking…',
+      color: colors.neutral,
+      variant: 'closed',
+      substance: '',
+      showEnable: false,
+    };
+  }
+  if (filter.kind === 'error') {
+    return {
+      word: 'Unknown',
+      color: colors.neutral,
+      variant: 'open',
+      substance: filter.message,
+      showEnable: false,
+    };
+  }
+  const filterKind = filter.status.filter.kind;
+  if (filterKind === 'inactive') {
+    return {
+      word: 'Paused',
+      color: colors.warning,
+      variant: 'open',
+      substance: 'The content filter is turned off',
+      showEnable: true,
+    };
+  }
+  if (filterKind === 'active') {
+    return {
+      // The good state IS the brand: the wordmark itself sits under the
+      // settled rings. Attention states keep plain state words.
+      word: 'GetBored',
+      color: colors.success,
+      variant: 'closed',
+      substance: substanceLine(sync, registration),
+      showEnable: false,
+    };
+  }
+  return {
+    word: 'Checking…',
+    color: colors.neutral,
+    variant: 'closed',
+    substance: '',
+    showEnable: false,
+  };
+}
+
+function heroEyebrowFor(hero: Hero): string {
+  if (hero.word === 'GetBored') {
+    return 'This iPhone · quiet';
+  }
+  if (hero.word === 'Paused') {
+    return 'This iPhone · attention';
+  }
+  return 'This iPhone · status';
+}
+
+// ─── Shared brand masthead ──────────────────────────────────────────────────
+
+const BrandMasthead: React.FC = () => (
+  <View style={styles.brandMasthead}>
+    <View>
+      <View style={styles.brandWordmarkRow}>
+        <Text style={styles.brandWordmark}>Get</Text>
+        <Text style={[styles.brandWordmark, styles.brandWordmarkAccent]}>
+          Bored.
+        </Text>
+      </View>
+      <Text style={styles.brandTagline}>
+        Bored minds{`\n`}go interesting places.
+      </Text>
+    </View>
+    <StillWaterRings
+      size={72}
+      color={colors.surface}
+      variant="closed"
+    />
+  </View>
 );
+
+// ─── Welcome (signed out / deleting) ───────────────────────────────────────
+
+type WelcomeProps = {
+  account: AccountState;
+  onSignIn: () => void;
+};
+
+const Welcome: React.FC<WelcomeProps> = ({account, onSignIn}) => {
+  const busy =
+    account.kind === 'checking' ||
+    account.kind === 'signingIn' ||
+    account.kind === 'deleting';
+  const isDeleting = account.kind === 'deleting';
+
+  return (
+    <View style={styles.welcome}>
+      <BrandMasthead />
+      <View style={styles.welcomeBody}>
+        {isDeleting && (
+          <Text style={styles.welcomeTagline}>Deleting your account…</Text>
+        )}
+        {account.kind === 'error' && (
+          <Text style={styles.welcomeError}>{account.message}</Text>
+        )}
+        <Pressable
+          disabled={busy}
+          onPress={onSignIn}
+          style={({pressed}) => [
+            styles.appleButton,
+            (pressed || busy) && styles.pressedDim,
+          ]}>
+          {busy ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : (
+            <Text style={styles.appleButtonText}>Sign in with Apple</Text>
+          )}
+        </Pressable>
+      </View>
+    </View>
+  );
+};
+
+// ─── Managed profile gate (activated accounts only) ───────────────────────
+
+type ProfileGateProps = {
+  filter: FilterStatusState;
+  accountEmail?: string;
+  onDownload: () => Promise<void>;
+  onRefresh: () => void;
+  onSignOut: () => void;
+};
+
+const ProfileGate: React.FC<ProfileGateProps> = ({
+  filter,
+  accountEmail,
+  onDownload,
+  onRefresh,
+  onSignOut,
+}) => {
+  const [downloading, setDownloading] = useState(false);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
+  const checking = filter.kind === 'loading';
+  const missing =
+    filter.kind === 'ready' && filter.status.profile.kind === 'missing';
+  const title = checking
+    ? 'Checking protection…'
+    : missing
+      ? 'Protection missing'
+      : 'Unable to verify setup';
+  const detail = missing
+    ? 'Download the profile, then open Settings → Profile Downloaded → Install.'
+    : checking
+      ? 'Looking for the managed GetBored filter profile on this iPhone.'
+      : 'GetBored could not read the managed filter profile. Check device management, then try again.';
+  const eyebrow = checking
+    ? 'This iPhone · checking'
+    : 'This iPhone · needs attention';
+  const download = useCallback(async () => {
+    setDownloading(true);
+    setDownloadError(null);
+    try {
+      await onDownload();
+    } catch (error: unknown) {
+      setDownloadError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setDownloading(false);
+    }
+  }, [onDownload]);
+
+  return (
+    <View style={styles.profileGate}>
+      <BrandMasthead />
+      <View style={styles.profileGateBody}>
+        <StillWaterRings
+          size={112}
+          color={checking ? colors.neutral : colors.warning}
+          variant="open"
+        />
+        <Text style={styles.profileGateEyebrow}>{eyebrow}</Text>
+        <Text style={styles.profileGateTitle}>{title}</Text>
+        <Text style={styles.profileGateDetail}>{detail}</Text>
+        <View style={styles.profileGateIdentity}>
+          <Text style={styles.profileGateIdentityLabel}>Signed-in account</Text>
+          <Text selectable style={styles.profileGateIdentityValue}>
+            {accountEmail ?? 'Email unavailable'}
+          </Text>
+        </View>
+        {downloadError !== null && (
+          <Text style={styles.profileGateError}>{downloadError}</Text>
+        )}
+        {checking ? (
+          <ActivityIndicator
+            color={colors.label}
+            style={styles.profileGateActivity}
+          />
+        ) : missing ? (
+          <>
+            <Pressable
+              disabled={downloading}
+              onPress={download}
+              style={({pressed}) => [
+                styles.cta,
+                styles.profileGateRefresh,
+                (pressed || downloading) && styles.pressedDim,
+              ]}>
+              {downloading ? (
+                <ActivityIndicator color={colors.label} />
+              ) : (
+                <Text style={styles.ctaText}>Download &amp; Install Profile</Text>
+              )}
+            </Pressable>
+            <Pressable onPress={onRefresh} style={styles.profileGateCheckAgain}>
+              <Text style={styles.profileGateCheckAgainText}>Check Again</Text>
+            </Pressable>
+          </>
+        ) : (
+          <Pressable
+            onPress={onRefresh}
+            style={({pressed}) => [
+              styles.cta,
+              styles.profileGateRefresh,
+              pressed && styles.pressedDim,
+            ]}>
+            <Text style={styles.ctaText}>Check Again</Text>
+          </Pressable>
+        )}
+        <Pressable onPress={onSignOut} style={styles.profileGateSignOut}>
+          <Text style={styles.profileGateSignOutText}>Sign out</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+};
+
+// ─── Home ──────────────────────────────────────────────────────────────────
+
+/**
+ * The app's single screen. useConnectedApp owns account/registration/sync and
+ * runs the auto-connect/auto-sync orchestration; this component only reads that
+ * state to decide which of three top-level views to show, and hosts the two
+ * modals.
+ *
+ * Top-level gating:
+ *
+ *   account.state.kind
+ *       │
+ *       ├── 'needsActivation' → <ActivationScreen>  (redeem a code)
+ *       ├── 'signedIn'       → filter profile gate
+ *       │       ├── profile installed → main dashboard
+ *       │       └── missing/unknown   → <ProfileGate>
+ *       ├── 'unavailable'    → main dashboard (legacy native build fallback)
+ *       └── anything else (signedOut / checking / signingIn / deleting / error)
+ *               └──→ <Welcome> — one "Sign in with Apple" button →
+ *                       account.signInWithDifferentAccount() (the web flow).
+ *                       We deliberately use the web flow, not the native
+ *                       sheet: the native sheet is locked to the device's
+ *                       iCloud account, whereas the web flow lets the user
+ *                       enter ANY Apple ID. account.signIn() (native) is kept
+ *                       on the hook but no longer wired to any button.
+ *
+ * Main dashboard:
+ *
+ *   pull-to-refresh (RefreshControl) → onPullRefresh()
+ *       └──→ Promise.all([sync(), refreshStatus()])  ← 'pulling' guards the spinner
+ *
+ *   deriveHero(...) picks the hero; showStatPair (active + last sync succeeded)
+ *   swaps the rings/word block for the tappable StatPair → opens the rules modal.
+ *
+ * Modals (rendered always, toggled by local state; both live OUTSIDE the
+ * showMain branch so a sign-out mid-sheet still animates them closed):
+ *
+ *   showAccount ── openAccount() also calls refreshAccount(false) to retry the
+ *       │          optional /api/me enrichment without flashing 'checking'
+ *       └──→ <AccountSheet>  (sign out / delete account)
+ *   showRules ──→ <ActiveRulesScreen>  (read-only rules list)
+ */
+export const HomeScreen: React.FC = () => {
+  const {account, registration, filterSync} = useConnectedApp();
+  const filterStatus = useFilterStatus();
+  const [showAccount, setShowAccount] = useState(false);
+  const [showRules, setShowRules] = useState(false);
+  const [pulling, setPulling] = useState(false);
+
+  const {sync} = filterSync;
+  const {refresh: refreshAccount} = account;
+  const {
+    refresh: refreshStatus,
+    enable,
+    downloadProfile,
+    enableError,
+  } = filterStatus;
+
+  const onPullRefresh = useCallback(async () => {
+    setPulling(true);
+    try {
+      await Promise.all([sync(), refreshStatus()]);
+    } finally {
+      setPulling(false);
+    }
+  }, [sync, refreshStatus]);
+
+  const signedIn = account.state.kind === 'signedIn';
+  const needsActivation = account.state.kind === 'needsActivation';
+  const accountAbsent = account.state.kind === 'unavailable';
+  const profileInstalled =
+    filterStatus.state.kind === 'ready' &&
+    filterStatus.state.status.profile.kind === 'installed';
+  const showProfileGate = signedIn && !profileInstalled;
+  const showMain = accountAbsent || (signedIn && profileInstalled);
+
+  const hero = deriveHero(
+    filterStatus.state,
+    filterSync.state,
+    registration.state,
+  );
+  const accountEmail =
+    account.state.kind === 'signedIn' || account.state.kind === 'needsActivation'
+      ? account.state.email
+      : undefined;
+  const syncSuccess =
+    filterSync.state.kind === 'success' ? filterSync.state : null;
+  const showStatPair = hero.word === 'GetBored' && syncSuccess !== null;
+  const rulesValue = syncSuccess
+    ? countLabel(syncSuccess.summary.sites, 'site', 'sites')
+    : '—';
+  const footerText = syncSuccess
+    ? `Synced automatically · ${formatSyncTime(syncSuccess.syncedAtMs)}`
+    : 'This iPhone syncs automatically.';
+  const heroEyebrow = heroEyebrowFor(hero);
+  // A failed "Turn Filtering On" outranks the generic Paused copy: the
+  // ticket shows WHY it failed, and stays until the user retries (the
+  // status poll can't clear it — see useFilterStatus.enableError).
+  const warningText = enableError ?? hero.substance;
+  const showWarningTicket =
+    enableError !== null || (hero.word === 'Paused' && hero.substance !== '');
+  const openAccount = useCallback(() => {
+    setShowAccount(true);
+    // Keep the existing signed-in UI in place while retrying the optional
+    // `/api/me` enrichment. A transient launch-time failure should not leave
+    // the account sheet showing a blank email for the rest of the session.
+    refreshAccount(false);
+  }, [refreshAccount]);
+
+  return (
+    <SafeAreaView style={styles.root}>
+      <ErrorBoundary>
+        {!showMain && (
+          needsActivation ? (
+            <ActivationScreen
+              accountLabel={accountEmail}
+              onActivate={account.redeemActivationCode}
+              onSignOut={account.signOut}
+            />
+          ) : showProfileGate ? (
+            <ProfileGate
+              filter={filterStatus.state}
+              accountEmail={accountEmail}
+              onDownload={downloadProfile}
+              onRefresh={refreshStatus}
+              onSignOut={account.signOut}
+            />
+          ) : (
+            <Welcome
+              account={account.state}
+              onSignIn={account.signInWithDifferentAccount}
+            />
+          )
+        )}
+
+        {showMain && (
+          <ScrollView
+            contentContainerStyle={styles.scroll}
+            refreshControl={
+              <RefreshControl refreshing={pulling} onRefresh={onPullRefresh} />
+            }>
+            <BrandMasthead />
+            {!showStatPair && (
+              <View style={styles.hero}>
+                <StillWaterRings
+                  size={112}
+                  color={hero.color}
+                  variant={hero.variant}
+                />
+                <View style={styles.heroCopy}>
+                  <Text style={styles.heroEyebrow}>{heroEyebrow}</Text>
+                  <Text style={[styles.stateWord, {color: heroWordColor(hero)}]}>
+                    {hero.word}
+                  </Text>
+                  {!showWarningTicket && hero.substance !== '' && (
+                    <Text style={styles.substance}>{hero.substance}</Text>
+                  )}
+                </View>
+              </View>
+            )}
+
+            {showStatPair && syncSuccess && (
+              <StatPair
+                summary={syncSuccess.summary}
+                onPress={() => setShowRules(true)}
+              />
+            )}
+
+            {showWarningTicket && (
+              <View style={styles.warningTicket}>
+                <Text style={styles.warningTicketText}>{warningText}</Text>
+              </View>
+            )}
+
+            {hero.showEnable && (
+              <Pressable
+                onPress={enable}
+                style={({pressed}) => [
+                  styles.cta,
+                  pressed && styles.pressedDim,
+                ]}>
+                <Text style={styles.ctaText}>Turn Filtering On</Text>
+              </Pressable>
+            )}
+
+            <View style={styles.rows}>
+              {signedIn && (
+                <Pressable
+                  style={({pressed}) => [
+                    styles.row,
+                    pressed && styles.pressedDim,
+                  ]}
+                  onPress={openAccount}>
+                  <Text style={styles.rowLabel}>Account</Text>
+                  <Text style={styles.rowValue} numberOfLines={1}>
+                    {displayEmail(accountEmail)}
+                  </Text>
+                  <Text style={styles.chevron}>›</Text>
+                </Pressable>
+              )}
+              <Pressable
+                style={({pressed}) => [
+                  styles.row,
+                  pressed && styles.pressedDim,
+                ]}
+                onPress={() => setShowRules(true)}>
+                <Text style={styles.rowLabel}>Active rules</Text>
+                <Text style={styles.rowValue}>{rulesValue}</Text>
+                <Text style={styles.chevron}>›</Text>
+              </Pressable>
+            </View>
+
+            <Text style={styles.footerWhisper}>{footerText}</Text>
+          </ScrollView>
+        )}
+      </ErrorBoundary>
+
+      <AccountSheet
+        visible={showAccount}
+        onClose={() => setShowAccount(false)}
+        email={accountEmail}
+        registration={registration.state}
+        onSignOut={account.signOut}
+        onDeleteAccount={account.deleteAccount}
+      />
+      <ActiveRulesScreen
+        visible={showRules}
+        onClose={() => setShowRules(false)}
+      />
+    </SafeAreaView>
+  );
+};
+
+function heroWordColor(hero: Hero): string {
+  if (hero.word === 'Paused') {
+    return colors.warning;
+  }
+  return colors.label;
+}
 
 const styles = StyleSheet.create({
   root: {
@@ -58,32 +645,298 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   scroll: {
-    paddingVertical: spacing.lg,
+    flexGrow: 1,
+    paddingHorizontal: spacing.xl,
+    paddingBottom: spacing.xxl,
   },
-  header: {
-    ...typography.title,
+  hero: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingTop: spacing.xxl + spacing.sm,
+    paddingBottom: spacing.xl,
+    gap: spacing.lg,
+    borderBottomWidth: 2,
+    borderBottomColor: colors.label,
+  },
+  heroCopy: {
+    flex: 1,
+  },
+  heroEyebrow: {
+    ...typography.eyebrow,
     color: colors.label,
-    marginHorizontal: spacing.lg,
-    marginBottom: spacing.md,
   },
-  errorBox: {
-    marginHorizontal: spacing.lg,
-    padding: spacing.lg,
+  stateWord: {
+    ...typography.hero,
+    marginTop: spacing.sm,
+  },
+  substance: {
+    ...typography.subhead,
+    fontSize: 12,
+    lineHeight: 17,
+    color: colors.labelSecondary,
+    fontVariant: ['tabular-nums'],
+    marginTop: spacing.sm,
+  },
+  cta: {
+    ...hardShadow,
+    backgroundColor: colors.sun,
+    borderWidth: 1,
+    borderColor: colors.label,
+    borderRadius: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 49,
+    marginBottom: spacing.xl,
+  },
+  ctaText: {
+    ...typography.eyebrow,
+    color: colors.label,
+  },
+  warningTicket: {
     backgroundColor: colors.surface,
-    borderRadius: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.signal,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    marginTop: spacing.lg,
+    marginBottom: spacing.lg,
   },
-  errorTitle: {
-    ...typography.headline,
+  warningTicketText: {
+    ...typography.subhead,
     color: colors.label,
-    marginBottom: spacing.xs,
+    lineHeight: 18,
   },
-  errorMessage: {
+  rows: {
+    borderTopWidth: 1,
+    borderTopColor: colors.label,
+    marginTop: spacing.xl,
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.lg + 2,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.separator,
+  },
+  rowLabel: {
+    fontFamily: typography.display.fontFamily,
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.label,
+  },
+  rowValue: {
+    fontSize: 15,
+    fontWeight: '400',
+    // A step darker than labelSecondary so values don't read washed-out
+    // next to the labels (iteration-02 mock).
+    color: colors.labelSecondary,
+    marginLeft: 'auto',
+    maxWidth: 190,
+    fontVariant: ['tabular-nums'],
+  },
+  chevron: {
+    fontSize: 17,
+    fontWeight: '400',
+    color: colors.labelSecondary,
+  },
+  statPair: {
+    ...hardShadow,
+    flexDirection: 'row',
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.label,
+    marginTop: spacing.lg,
+  },
+  stat: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 76,
+    paddingVertical: spacing.md,
+  },
+  statAfter: {
+    borderLeftWidth: 1,
+    borderLeftColor: colors.label,
+  },
+  statNum: {
+    fontFamily: typography.display.fontFamily,
+    fontSize: 29,
+    fontWeight: '500',
+    letterSpacing: -0.8,
+    color: colors.label,
+    fontVariant: ['tabular-nums'],
+  },
+  statCap: {
+    marginTop: 2,
+    ...typography.eyebrow,
+    fontSize: 10,
+    color: colors.labelSecondary,
+  },
+  footerWhisper: {
+    ...typography.microFooter,
+    color: colors.neutral,
+    textAlign: 'center',
+    marginTop: 'auto',
+    paddingTop: spacing.xxl,
+  },
+  pressedDim: {
+    opacity: 0.6,
+  },
+
+  // Brand masthead shared by the signed-out and signed-in home states.
+  brandMasthead: {
+    backgroundColor: colors.label,
+    borderBottomWidth: 3,
+    borderBottomColor: colors.sun,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    minHeight: 124,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.lg,
+    marginHorizontal: -spacing.xl,
+  },
+  brandWordmark: {
+    ...typography.wordmarkLarge,
+    color: colors.surface,
+  },
+  brandWordmarkRow: {
+    alignItems: 'baseline',
+    flexDirection: 'row',
+    gap: 4,
+  },
+  brandWordmarkAccent: {
+    color: colors.sun,
+    transform: [{translateY: 3}, {rotate: '-2deg'}],
+  },
+  brandTagline: {
+    ...typography.microFooter,
+    color: colors.surface,
+    lineHeight: 16,
+    marginTop: spacing.md,
+  },
+
+  // Welcome
+  welcome: {
+    flex: 1,
+    paddingHorizontal: spacing.xl,
+  },
+  welcomeBody: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingBottom: spacing.xxl,
+  },
+  welcomeTagline: {
+    fontFamily: typography.display.fontFamily,
+    fontSize: 18,
+    fontStyle: 'italic',
+    lineHeight: 22,
+    color: colors.labelSecondary,
+    textAlign: 'center',
+    marginTop: spacing.sm,
+  },
+  welcomeError: {
+    ...typography.subhead,
+    color: colors.danger,
+    textAlign: 'center',
+    marginTop: spacing.md,
+  },
+  appleButton: {
+    alignSelf: 'stretch',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 50,
+    backgroundColor: '#0E1211',
+    borderRadius: 0,
+    paddingVertical: spacing.lg,
+    marginTop: spacing.xl,
+  },
+  appleButtonText: {
+    ...typography.body,
+    fontSize: 16,
+    color: '#FFFFFF',
+  },
+
+  // Profile gate
+  profileGate: {
+    flex: 1,
+    paddingHorizontal: spacing.xl,
+  },
+  profileGateBody: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingBottom: spacing.xxl,
+  },
+  profileGateEyebrow: {
+    ...typography.eyebrow,
+    color: colors.label,
+    marginTop: spacing.lg,
+  },
+  profileGateTitle: {
+    ...typography.hero,
+    color: colors.warning,
+    marginTop: spacing.sm,
+    textAlign: 'center',
+  },
+  profileGateDetail: {
     ...typography.subhead,
     color: colors.labelSecondary,
-    marginBottom: spacing.md,
+    lineHeight: 20,
+    marginTop: spacing.md,
+    maxWidth: 320,
+    textAlign: 'center',
   },
-  errorRetry: {
+  profileGateIdentity: {
+    alignSelf: 'stretch',
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.separator,
+    marginTop: spacing.lg,
+    paddingTop: spacing.md,
+  },
+  profileGateIdentityLabel: {
+    ...typography.eyebrow,
+    color: colors.labelSecondary,
+    marginTop: spacing.sm,
+    textAlign: 'center',
+  },
+  profileGateIdentityValue: {
+    ...typography.caption,
+    color: colors.label,
+    marginTop: 3,
+    textAlign: 'center',
+  },
+  profileGateActivity: {
+    marginTop: spacing.xl,
+  },
+  profileGateError: {
     ...typography.body,
-    color: colors.info,
+    color: colors.warning,
+    marginTop: spacing.md,
+    textAlign: 'center',
+  },
+  profileGateRefresh: {
+    alignSelf: 'stretch',
+    marginBottom: 0,
+    marginTop: spacing.xl,
+  },
+  profileGateCheckAgain: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    marginTop: spacing.sm,
+  },
+  profileGateCheckAgainText: {
+    ...typography.body,
+    color: colors.label,
+  },
+  profileGateSignOut: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    marginTop: spacing.md,
+  },
+  profileGateSignOutText: {
+    ...typography.body,
+    color: colors.labelSecondary,
   },
 });
