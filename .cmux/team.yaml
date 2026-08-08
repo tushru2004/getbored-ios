@@ -1,0 +1,71 @@
+project: /Users/tushru2004/repos/getbored-ios
+workspace_name: GetBored iOS API Wake
+agents_per_workspace: 1
+close_all_workspaces: false
+claude_channel_port_base: 8890
+workspace_names:
+- Claude 1
+- Claude 2
+- Claude 3
+- Claude 4
+- Sol
+- Terra
+- Luna
+required_agent_names:
+- Claude 1
+- Claude 2
+- Claude 3
+- Claude 4
+- Sol
+- Terra
+- Luna
+agents:
+- name: Claude 1
+  cli: claude
+  model: claude-opus-5
+  flags: --dangerously-skip-permissions
+  session_id: 41b08714-8182-4850-90c4-55bd35d7a4b2
+  orchestrator: true
+  wake_transport: claude-channel
+- name: Claude 2
+  cli: claude
+  model: claude-fable-5
+  flags: --dangerously-skip-permissions
+  session_id: d42beb52-a273-4e8e-aa08-62e5addbe6a9
+  wake_transport: claude-channel
+- name: Claude 3
+  cli: claude
+  model: claude-opus-5
+  flags: --dangerously-skip-permissions
+  session_id: 4e04bf88-87fe-4ea6-b203-0f1851feb68f
+  wake_transport: claude-channel
+- name: Claude 4
+  cli: claude
+  model: claude-opus-5
+  flags: --dangerously-skip-permissions
+  session_id: 955d0e7b-1c65-42f1-9c17-9daa4e93af8a
+  wake_transport: claude-channel
+- name: Sol
+  cli: codex
+  model: gpt-5.6-sol
+  flags: --dangerously-bypass-approvals-and-sandbox -c 'model_reasoning_effort="medium"'
+  session_id:
+  wake_transport: codex-app-server
+- name: Terra
+  cli: codex
+  model: gpt-5.6-terra
+  flags: --dangerously-bypass-approvals-and-sandbox -c 'model_reasoning_effort="medium"'
+  session_id:
+  wake_transport: codex-app-server
+- name: Luna
+  cli: codex
+  model: gpt-5.6-luna
+  flags: --dangerously-bypass-approvals-and-sandbox -c 'model_reasoning_effort="medium"'
+  session_id:
+  wake_transport: codex-app-server
+shared_write_paths:
+- Makefile
+- GetBoredIOS.xcworkspace/**
+- Sources/**
+- docs/**
+- AGENTS.md
