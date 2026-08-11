@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#17342f" />
+  <title>GetBored Admin — allow-list mode mock</title>
+  <style>
+    :root{
+      --wb-bg:#F1ECDF; --wb-bg-deep:#17342F; --wb-surface:#FFFDF6; --wb-paper-deep:#E5DECC;
+      --wb-border:#A8AFA1; --wb-ink:#17342F; --wb-text:#17342F; --wb-muted:#52655E;
+      --wb-sun:#F2C84B; --wb-signal:#E85C3F; --wb-water:#A8C9BD; --wb-green:#2F7A5F;
+      --wb-shadow:7px 7px 0 rgba(23,52,47,.13);
+      --serif:"Iowan Old Style","Baskerville","Palatino",Georgia,serif;
+      --sans:"Avenir Next","Helvetica Neue",Helvetica,Arial,sans-serif;
+      --mono:"SFMono-Regular","SF Mono",Menlo,Consolas,monospace;
+    }
+    *{box-sizing:border-box}
+    html{background:#17342F}
+    body{margin:0;font-family:var(--sans);color:var(--wb-text);
+      background-color:var(--wb-bg);
+      background-image:linear-gradient(rgba(23,52,47,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(23,52,47,.025) 1px,transparent 1px);
+      background-size:28px 28px;}
+    button{font:inherit;color:inherit}
+    button:focus-visible{outline:3px solid var(--wb-sun);outline-offset:3px}
+
+    .app{max-width:1160px;margin:0 auto;min-height:100vh;display:grid;grid-template-columns:244px minmax(0,1fr);
+      background:var(--wb-bg);
+      background-image:linear-gradient(rgba(23,52,47,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(23,52,47,.025) 1px,transparent 1px);
+      background-size:28px 28px;border-left:1px solid rgba(23,52,47,.14);border-right:1px solid rgba(23,52,47,.14)}
+
+    /* RAIL */
+    .rail{position:relative;background:var(--wb-bg-deep);color:var(--wb-bg);display:grid;grid-template-rows:auto auto 1fr auto;padding:26px 0 20px;overflow:hidden}
+    .rail::after{content:"";position:absolute;right:-90px;bottom:40px;width:200px;height:200px;border:1px solid rgba(241,236,223,.12);border-radius:50%;box-shadow:0 0 0 34px rgba(241,236,223,.03),0 0 0 68px rgba(241,236,223,.02)}
+    .brand{padding:0 22px}
+    .wordmark{display:inline-flex;gap:5px;font:700 25px/.9 var(--serif);letter-spacing:-.04em}
+    .wordmark span:last-child{color:var(--wb-sun);display:inline-block;transform:translateY(4px) rotate(-2deg)}
+    .tagline{margin:12px 0 0;color:rgba(241,236,223,.55);font:8px/1.6 var(--mono);letter-spacing:.12em;text-transform:uppercase}
+    .sidebarSection{margin-top:30px;padding:0 14px}
+    .sidebarTitle{padding:0 8px;color:rgba(241,236,223,.42);font:700 8px/1 var(--mono);letter-spacing:.14em;text-transform:uppercase}
+    .sidebarItem{position:relative;width:100%;margin-top:6px;display:grid;grid-template-columns:1fr auto;align-items:center;gap:8px;min-height:38px;padding:0 8px;border:0;background:transparent;color:rgba(241,236,223,.72);cursor:pointer;text-align:left}
+    .sidebarItem .navText{font-size:13px;font-weight:600}
+    .sidebarItem .navCount{font:8px/1 var(--mono);color:rgba(241,236,223,.5)}
+    .sidebarItemActive{color:var(--wb-bg);background:rgba(241,236,223,.09)}
+    .sidebarItemActive::before{content:"";position:absolute;left:-14px;top:7px;bottom:7px;width:5px;background:var(--wb-sun)}
+    .navSub{margin:4px 0 0;padding:0 8px 0 10px;border-left:1px solid rgba(241,236,223,.14)}
+    .listNavItem{display:block;width:100%;text-align:left;border:0;background:transparent;color:rgba(241,236,223,.5);font:10px/1 var(--mono);padding:7px 6px;cursor:pointer}
+    .listNavItem.active{color:var(--wb-sun)}
+    .railAccountFooter{padding:0 22px;color:rgba(241,236,223,.5);font:9px/1.4 var(--mono);letter-spacing:.06em}
+
+    /* MAIN */
+    .body{padding:22px clamp(22px,4vw,52px) 46px;min-width:0}
+    .utility{display:flex;align-items:center;justify-content:space-between;padding-bottom:11px;border-bottom:1px solid var(--wb-border);font:9px/1 var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--wb-muted)}
+    .utility .left{display:flex;align-items:center;gap:9px}
+    .syncDot{width:7px;height:7px;border-radius:50%;background:var(--wb-ink);box-shadow:0 0 0 3px rgba(168,201,189,.5)}
+
+    /* editor header */
+    .editorHeader{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;margin-top:24px}
+    .quietLink{border:0;border-bottom:2px solid var(--wb-ink);background:transparent;font:700 9px/1 var(--mono);letter-spacing:.09em;text-transform:uppercase;padding:0 0 3px;cursor:pointer}
+    .quietLink:hover{color:var(--wb-signal);border-color:var(--wb-signal)}
+    .pageTitle{margin:12px 0 4px;font:500 clamp(29px,3.4vw,38px)/1 var(--serif);letter-spacing:-.03em}
+    .pageSubtitle{margin:0;color:var(--wb-muted);font-size:12px}
+    .editorActions{display:flex;gap:16px;padding-bottom:5px}
+    .dangerLink{border:0;border-bottom:2px solid var(--wb-signal);background:transparent;color:var(--wb-signal);font:700 9px/1 var(--mono);letter-spacing:.09em;text-transform:uppercase;padding:0 0 3px;cursor:pointer}
+
+    /* stepper */
+    .steps{display:grid;grid-template-columns:repeat(3,1fr);margin-top:22px;border-top:2px solid var(--wb-ink);border-bottom:2px solid var(--wb-ink)}
+    .stepButton{position:relative;display:grid;grid-template-columns:24px 1fr;align-items:center;gap:11px;padding:14px 12px;border:0;border-right:1px solid var(--wb-border);background:transparent;text-align:left;cursor:pointer}
+    .stepButton:last-child{border-right:0}
+    .stepNumber{display:grid;place-items:center;width:22px;height:22px;border:1px solid var(--wb-ink);font:700 9px/1 var(--mono)}
+    .stepActive .stepNumber{background:var(--wb-sun);box-shadow:2px 2px 0 var(--wb-ink)}
+    .stepDone .stepNumber{background:var(--wb-ink);color:var(--wb-bg)}
+    .stepCopy strong{display:block;font:600 14px/1.1 var(--serif)}
+    .stepCopy small{display:block;margin-top:3px;color:var(--wb-muted);font:8px/1 var(--mono);letter-spacing:.09em;text-transform:uppercase}
+    .stepActive::after{content:"";position:absolute;left:12px;right:12px;bottom:-2px;height:4px;background:var(--wb-signal)}
+
+    /* pane */
+    .editorContent{padding:30px 0 12px}
+    .paneEyebrow{margin:0;font:700 9px/1 var(--mono);letter-spacing:.13em;text-transform:uppercase;color:var(--wb-muted)}
+    .paneQuestion{margin:9px 0 6px;font:500 clamp(23px,2.6vw,29px)/1.05 var(--serif);letter-spacing:-.02em}
+    .paneHint{margin:0;max-width:640px;color:var(--wb-muted);font-size:12px;line-height:1.5}
+
+    .addRow{display:grid;grid-template-columns:1fr auto;max-width:620px;margin:22px 0 0;border:1px solid var(--wb-ink);background:var(--wb-surface);box-shadow:4px 4px 0 rgba(23,52,47,.14)}
+    .addRow input{border:0;background:transparent;height:49px;padding:0 15px;font-size:14px;width:100%}
+    .addRow input:focus{outline:none}
+    .addButton{border:0;border-left:1px solid var(--wb-ink);background:var(--wb-sun);height:49px;padding:0 20px;font:700 9px/1 var(--mono);letter-spacing:.08em;text-transform:uppercase;cursor:pointer}
+
+    .entryList{max-width:620px;margin-top:22px;border-top:1px solid var(--wb-ink)}
+    .parent{border-bottom:1px solid var(--wb-border)}
+    .entry{display:grid;grid-template-columns:28px 1fr auto auto;align-items:center;gap:12px;min-height:48px}
+    .entryMonogram{display:grid;place-items:center;width:26px;height:26px;border:1px solid var(--wb-ink);background:var(--wb-paper-deep);font:700 9px/1 var(--mono)}
+    .entryName{font:600 15px/1 var(--serif)}
+    .helperTag{font:700 7px/1 var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--wb-muted)}
+    .removeBtn{border:0;background:transparent;font:700 8px/1 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--wb-muted);cursor:pointer}
+    .removeBtn:hover{color:var(--wb-signal)}
+
+    /* helper (child) domains under a parent */
+    .helpers{margin:0 0 8px;padding:2px 0 6px 38px}
+    .helper{display:grid;grid-template-columns:14px 1fr auto auto;align-items:center;gap:11px;min-height:34px;border-bottom:1px solid rgba(168,175,161,.5)}
+    .helper:last-child{border-bottom:0}
+    .helperDot{width:5px;height:5px;background:var(--wb-border);justify-self:center}
+    .helperName{font:11px/1 var(--mono);color:var(--wb-muted)}
+    .helperState{font:700 7px/1 var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--wb-muted)}
+    /* the #121 case */
+    .helper.needs .helperDot{background:var(--wb-signal)}
+    .helper.needs .helperName{color:var(--wb-text)}
+    .helper.needs .helperState{color:var(--wb-signal)}
+    .approveBtn{border:1px solid var(--wb-ink);background:var(--wb-sun);box-shadow:2px 2px 0 var(--wb-ink);font:700 7px/1 var(--mono);letter-spacing:.08em;text-transform:uppercase;padding:6px 9px;cursor:pointer}
+
+    .wizardNav{display:flex;align-items:center;justify-content:space-between;max-width:620px;margin-top:30px}
+    .wizardNext{min-width:150px;border:1px solid var(--wb-ink);background:var(--wb-sun);box-shadow:3px 3px 0 var(--wb-ink);font:700 9px/1 var(--mono);letter-spacing:.08em;text-transform:uppercase;padding:13px 16px;cursor:pointer}
+
+    /* screen toggle */
+    .switch{position:fixed;left:16px;bottom:14px;z-index:40;display:flex;gap:8px}
+    .switch button{border:1px solid var(--wb-ink);background:var(--wb-surface);font:700 8px/1 var(--mono);letter-spacing:.08em;text-transform:uppercase;padding:8px 11px;cursor:pointer}
+    .switch button.on{background:var(--wb-sun);box-shadow:2px 2px 0 var(--wb-ink)}
+
+    .screen[hidden]{display:none}
+
+    /* create-list sheet */
+    .sheetScrim{position:fixed;inset:0;z-index:30;background:rgba(23,52,47,.58);display:grid;place-items:center;padding:24px}
+    .sheet{width:min(560px,100%);border:1px solid var(--wb-ink);border-top-width:4px;box-shadow:var(--wb-shadow);padding:24px;
+      background-color:var(--wb-bg);background-image:linear-gradient(rgba(23,52,47,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(23,52,47,.025) 1px,transparent 1px);background-size:28px 28px}
+    .sheetTitle{margin:0 0 4px;font:500 28px/1 var(--serif);letter-spacing:-.02em}
+    .sheetSub{margin:0 0 18px;color:var(--wb-muted);font-size:12px}
+    .modeChoiceGrid{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--wb-ink);margin-bottom:20px}
+    .modeChoice{padding:15px 15px 17px;border:0;background:var(--wb-surface);text-align:left;cursor:pointer}
+    .modeChoice+.modeChoice{border-left:1px solid var(--wb-ink)}
+    .modeChoice strong{display:block;font:600 15px/1 var(--serif)}
+    .modeChoice span{display:block;margin-top:7px;color:var(--wb-muted);font-size:11px;line-height:1.4}
+    .modeChoiceSelected{background:var(--wb-sun);box-shadow:inset 0 -4px 0 rgba(23,52,47,.28)}
+    .modeChoiceSelected span{color:rgba(23,52,47,.7)}
+    .modeNote{display:inline-block;margin-top:8px;font:700 7px/1 var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--wb-signal)}
+    .field{margin-bottom:14px}
+    .field>span{display:block;margin-bottom:6px;font:700 8px/1 var(--mono);letter-spacing:.09em;text-transform:uppercase}
+    .field input{appearance:none;width:100%;background:var(--wb-surface);border:1px solid var(--wb-ink);min-height:39px;padding:0 12px;font-size:13px}
+    .sheetActions{display:flex;justify-content:flex-end;gap:14px;margin-top:18px}
+    .secondaryButton{border:0;border-bottom:2px solid var(--wb-ink);background:transparent;font:700 9px/1 var(--mono);letter-spacing:.09em;text-transform:uppercase;padding:0 0 3px;cursor:pointer}
+    .primaryButton{border:1px solid var(--wb-ink);background:var(--wb-sun);box-shadow:3px 3px 0 var(--wb-ink);font:700 9px/1 var(--mono);letter-spacing:.08em;text-transform:uppercase;padding:12px 16px;cursor:pointer}
+
+    .stamp{position:fixed;right:14px;bottom:12px;color:rgba(23,52,47,.4);font:7px/1 var(--mono);letter-spacing:.1em;text-transform:uppercase}
+  </style>
+</head>
+<body>
+  <!-- ===== SCREEN A: editor · Sites step · allow-list ===== -->
+  <div class="app screen" data-screen="editor">
+    <aside class="rail">
+      <div class="brand">
+        <div class="wordmark"><span>Get</span><span>Bored.</span></div>
+        <p class="tagline">Bored minds<br />go interesting places.</p>
+      </div>
+      <div class="sidebarSection">
+        <p class="sidebarTitle">Your desk</p>
+        <button class="sidebarItem sidebarItemActive"><span class="navText">Lists</span><span class="navCount">3</span></button>
+        <div class="navSub">
+          <button class="listNavItem active">Deep work</button>
+          <button class="listNavItem">Evenings</button>
+          <button class="listNavItem">Kids iPad</button>
+        </div>
+        <button class="sidebarItem"><span class="navText">Devices</span><span class="navCount">2</span></button>
+      </div>
+      <div></div>
+      <div class="railAccountFooter">tushar@getbored.online<br />Signed in with Apple</div>
+    </aside>
+
+    <main class="body">
+      <div class="utility"><span class="left"><span class="syncDot"></span> 2 devices registered</span><span>Saturday, 1 August</span></div>
+
+      <div class="editorHeader">
+        <div>
+          <button class="quietLink">← All lists</button>
+          <h1 class="pageTitle">Deep work</h1>
+          <p class="pageSubtitle">Allowing only the items below · everything else is blocked · focus hours</p>
+        </div>
+        <div class="editorActions">
+          <button class="quietLink">Edit details</button>
+          <button class="dangerLink">Delete list</button>
+        </div>
+      </div>
+
+      <div class="steps">
+        <button class="stepButton stepActive"><span class="stepNumber">1</span><span class="stepCopy"><strong>Sites</strong><small>4 allowed</small></span></button>
+        <button class="stepButton"><span class="stepNumber">2</span><span class="stepCopy"><strong>Apps</strong><small>2 allowed</small></span></button>
+        <button class="stepButton"><span class="stepNumber">3</span><span class="stepCopy"><strong>Devices</strong><small>1 assigned</small></span></button>
+      </div>
+
+      <div class="editorContent">
+        <p class="paneEyebrow">Step 1 of 3 · Allowed sites</p>
+        <h2 class="paneQuestion">Which websites do you want to allow?</h2>
+        <p class="paneHint">Everything else is blocked. GetBored auto-allows the helper domains each site needs to load — a few can’t be detected and need your OK.</p>
+
+        <div class="addRow">
+          <input placeholder="example.com" />
+          <button class="addButton">Allow website</button>
+        </div>
+
+        <div class="entryList">
+          <!-- figma.com expanded: helpers + one needs-approval -->
+          <div class="parent">
+            <div class="entry">
+              <span class="entryMonogram">F</span>
+              <span class="entryName">figma.com</span>
+              <span class="helperTag">1 needs approval</span>
+              <button class="removeBtn">Remove</button>
+            </div>
+            <div class="helpers">
+              <div class="helper"><span class="helperDot"></span><span class="helperName">www.figma.com</span><span class="helperState">Auto-allowed</span><span></span></div>
+              <div class="helper"><span class="helperDot"></span><span class="helperName">static.figma.com</span><span class="helperState">Auto-allowed</span><span></span></div>
+              <div class="helper"><span class="helperDot"></span><span class="helperName">figma-alpha-api.s3.amazonaws.com</span><span class="helperState">Auto-allowed</span><span></span></div>
+              <div class="helper needs"><span class="helperDot"></span><span class="helperName">cdn.fig.dev</span><span class="helperState">Needs approval</span><button class="approveBtn">Approve</button></div>
+            </div>
+          </div>
+          <div class="parent"><div class="entry"><span class="entryMonogram">N</span><span class="entryName">notion.so</span><span class="helperTag">3 helpers · all set</span><button class="removeBtn">Remove</button></div></div>
+          <div class="parent"><div class="entry"><span class="entryMonogram">G</span><span class="entryName">github.com</span><span class="helperTag">2 helpers · all set</span><button class="removeBtn">Remove</button></div></div>
+          <div class="parent"><div class="entry"><span class="entryMonogram">M</span><span class="entryName">mail.google.com</span><span class="helperTag">4 helpers · all set</span><button class="removeBtn">Remove</button></div></div>
+        </div>
+
+        <div class="wizardNav">
+          <button class="quietLink">← Back</button>
+          <button class="wizardNext">Next · Apps →</button>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- ===== SCREEN B: create-list sheet · Allow List selected ===== -->
+  <div class="app screen" data-screen="create" hidden>
+    <aside class="rail">
+      <div class="brand"><div class="wordmark"><span>Get</span><span>Bored.</span></div><p class="tagline">Bored minds<br />go interesting places.</p></div>
+      <div class="sidebarSection">
+        <p class="sidebarTitle">Your desk</p>
+        <button class="sidebarItem sidebarItemActive"><span class="navText">Lists</span><span class="navCount">3</span></button>
+        <button class="sidebarItem"><span class="navText">Devices</span><span class="navCount">2</span></button>
+      </div>
+      <div></div>
+      <div class="railAccountFooter">tushar@getbored.online<br />Signed in with Apple</div>
+    </aside>
+    <main class="body">
+      <div class="utility"><span class="left"><span class="syncDot"></span> 2 devices registered</span><span>Saturday, 1 August</span></div>
+      <div class="editorHeader"><div><h1 class="pageTitle">All lists</h1><p class="pageSubtitle">Three lists · assign each to a device</p></div></div>
+    </main>
+
+    <div class="sheetScrim">
+      <div class="sheet">
+        <h2 class="sheetTitle">New list</h2>
+        <p class="sheetSub">Pick how this list decides what to block.</p>
+        <div class="modeChoiceGrid">
+          <button class="modeChoice"><strong>Block list</strong><span>Block only the websites and apps you add. Everything else stays allowed.</span></button>
+          <button class="modeChoice modeChoiceSelected"><strong>Allow list</strong><span>Allow only what you add. Everything else is blocked.</span><span class="modeNote">Now available</span></button>
+        </div>
+        <div class="field"><span>List name</span><input value="Deep work" /></div>
+        <div class="field"><span>Description (optional)</span><input value="focus hours" /></div>
+        <div class="sheetActions">
+          <button class="secondaryButton">Cancel</button>
+          <button class="primaryButton">Create list</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="switch">
+    <button class="on" data-go="editor">Editor · Sites</button>
+    <button data-go="create">Create · Allow list</button>
+  </div>
+  <span class="stamp">Admin allow-list concept · #160 · 2026</span>
+
+  <script>
+    const screens=[...document.querySelectorAll('[data-screen]')];
+    const btns=[...document.querySelectorAll('[data-go]')];
+    function go(n){screens.forEach(s=>s.hidden=s.dataset.screen!==n);btns.forEach(b=>b.classList.toggle('on',b.dataset.go===n));}
+    btns.forEach(b=>b.addEventListener('click',()=>go(b.dataset.go)));
+  </script>
+</body>
+</html>
