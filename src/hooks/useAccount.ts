@@ -8,16 +8,15 @@ export type AccountState =
   | {kind: 'checking'}
   | {kind: 'signedOut'}
   | {kind: 'signingIn'}
-  | {kind: 'needsActivation'; userId?: string; email?: string}
-  | {kind: 'signedIn'; userId?: string; email?: string}
+  | {kind: 'needsActivation'; userId?: string; accountLabel?: string}
+  | {kind: 'signedIn'; userId?: string; accountLabel?: string; reviewDemo: boolean}
   | {kind: 'deleting'}
   | {kind: 'error'; message: string};
 
 export type UseAccount = {
   state: AccountState;
-  signIn: () => Promise<void>;
-  /** Web-flow sign-in: accepts any Apple ID, not just the device's. */
-  signInWithDifferentAccount: () => Promise<void>;
+  signIn: (username: string, password: string) => Promise<void>;
+  signUp: (username: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   deleteAccount: () => Promise<void>;
   redeemActivationCode: (code: string) => Promise<void>;
@@ -44,15 +43,16 @@ export type UseAccount = {
  *                   ▼
  *                 AccountBridge.currentAccount()  ← async
  *                   │
- *                   ├── {signedIn: true, plan !== 'active'} → setState({needsActivation, userId, email})
- *                   ├── {signedIn: true, plan active/unknown} → setState({signedIn, userId, email})
+ *                   ├── {signedIn: true, accountKind review_demo} → setState({signedIn, reviewDemo: true})
+ *                   ├── {signedIn: true, plan active}       → setState({signedIn, reviewDemo: false})
+ *                   ├── {signedIn: true, other plan}        → setState({needsActivation, userId, label})
  *                   ├── {signedIn: false}                    → setState({signedOut})
  *                   └── rejects (only when showChecking)     → setState({error, message})
  *                          └── refresh(false) swallows the reject and keeps
  *                              the current state (background re-enrichment)
  *
- *   signIn() / signInWithDifferentAccount()  ← the two Welcome buttons
- *     │                                         both delegate to runSignIn():
+ *   signIn() / signUp()  ← the two Welcome actions
+ *     │                   both delegate to runSignIn():
  *     ▼
  *   runSignIn(start)
  *     │
@@ -60,8 +60,7 @@ export type UseAccount = {
  *   setState({signingIn})
  *     │
  *     ▼
- *   start()  ← AccountBridge.signIn()            (device Apple ID sheet)
- *     │       or AccountBridge.signInWithWebAccount() (web flow, any Apple ID)
+ *   start()  ← AccountBridge.signIn() or AccountBridge.signUp()
  *     │
  *     ├── resolves            → refresh()            ← re-check via currentAccount()
  *     ├── rejects, CANCELLED  → setState({signedOut}) ← sheet dismissed; no error UI
@@ -103,18 +102,22 @@ export function useAccount(): UseAccount {
             previous.kind === 'signedIn' || previous.kind === 'needsActivation'
               ? previous.userId
               : undefined;
-          const previousEmail =
+          const previousAccountLabel =
             previous.kind === 'signedIn' || previous.kind === 'needsActivation'
-              ? previous.email
+              ? previous.accountLabel
               : undefined;
           const accountDetails = {
             userId: summary.userId ?? previousUserId,
-            email: summary.email ?? previousEmail,
+            accountLabel: summary.username ?? summary.email ?? previousAccountLabel,
           };
-          if (summary.plan !== undefined && summary.plan !== 'active') {
-            return {kind: 'needsActivation', ...accountDetails};
+          const reviewDemo = summary.accountKind === 'review_demo';
+          if (reviewDemo) {
+            return {kind: 'signedIn', ...accountDetails, reviewDemo: true};
           }
-          return {kind: 'signedIn', ...accountDetails};
+          if (summary.plan === 'active') {
+            return {kind: 'signedIn', ...accountDetails, reviewDemo: false};
+          }
+          return {kind: 'needsActivation', ...accountDetails};
         });
       } else {
         setState({kind: 'signedOut'});
@@ -129,9 +132,8 @@ export function useAccount(): UseAccount {
   }, []);
 
   /**
-   * Shared by both sign-in flavors: same lifecycle, same error handling —
-   * only the native entry point differs (device-account sheet vs the web
-   * flow that accepts any Apple ID).
+   * Shared by sign-in and sign-up: same lifecycle and error handling; only
+   * the native endpoint differs.
    */
   const runSignIn = useCallback(
     async (start: () => Promise<unknown>) => {
@@ -152,12 +154,14 @@ export function useAccount(): UseAccount {
   );
 
   const signIn = useCallback(
-    () => runSignIn(() => AccountBridge.signIn()),
+    (username: string, password: string) =>
+      runSignIn(() => AccountBridge.signIn(username, password)),
     [runSignIn],
   );
 
-  const signInWithDifferentAccount = useCallback(
-    () => runSignIn(() => AccountBridge.signInWithWebAccount()),
+  const signUp = useCallback(
+    (username: string, password: string) =>
+      runSignIn(() => AccountBridge.signUp(username, password)),
     [runSignIn],
   );
 
@@ -207,7 +211,7 @@ export function useAccount(): UseAccount {
   return {
     state,
     signIn,
-    signInWithDifferentAccount,
+    signUp,
     signOut,
     deleteAccount,
     redeemActivationCode,

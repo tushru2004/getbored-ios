@@ -110,7 +110,7 @@ export const ActivationScreen: React.FC<Props> = ({
         </Pressable>
 
         <Pressable disabled={pending} onPress={onSignOut} style={styles.signOutButton}>
-          <Text style={styles.signOutText}>Use a different Apple account</Text>
+          <Text style={styles.signOutText}>Use a different account</Text>
         </Pressable>
       </View>
     </View>
