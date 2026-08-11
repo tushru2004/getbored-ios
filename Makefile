@@ -121,11 +121,11 @@ clean:
 
 
 agents-api-wake: ## Start isolated API-wake cmux agent workspace
-	REPO_ROOT=$(CURDIR) ~/Agents-api-wake/configs/getbored-ios/cmux-api-wake-up
+	REPO_ROOT=$(CURDIR) ~/Agents-api-wake/cmux-api-wake-up
 
 agents-wake-api: agents-api-wake ## Alias for agents-api-wake
 
 agents-api-wake-kill: ## Kill isolated API-wake cmux agent workspace
-	REPO_ROOT=$(CURDIR) ~/Agents-api-wake/configs/getbored-ios/cmux-api-wake-up --kill
+	REPO_ROOT=$(CURDIR) ~/Agents-api-wake/cmux-api-wake-up --kill
 
 agents-wake-api-kill: agents-api-wake-kill ## Alias for agents-api-wake-kill

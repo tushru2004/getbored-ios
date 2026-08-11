@@ -12,7 +12,16 @@ owns the device voluntarily chooses which websites and apps distract them, and
 GetBored blocks those on that same device. It is not parental control, not
 device monitoring, and it does not manage anyone else's device.
 
-**Important — why the content filter may show "Setup required" on your test device:**
+**Supported device:** iPhone only. The app is not designed or entitled for
+iPad, and iPad should not be selected as a supported device in this submission.
+
+**Review access:** Use the username and password supplied in App Store Connect's
+App Review Information fields. That server-designated review account opens the
+complete app and any synchronized account data without asking for a customer activation
+code or managed profile. Review mode is identified clearly in the app and does
+not claim that filtering is active on an unsupervised device.
+
+**Why live blocking cannot run on a standard review iPhone:**
 
 The blocking is enforced by an on-device Network Content Filter
 (`NEFilterDataProvider`, `content-filter-provider` entitlement). On iOS, a
@@ -21,18 +30,17 @@ device**, via a Web Content Filter configuration profile. This is an Apple
 platform requirement — the app itself cannot switch the filter on with its own
 API on a standard, unsupervised device.
 
-Because of this, on a stock (unsupervised) review device the app correctly
-stops at a **"Protection missing"** setup screen. **This is expected behavior,
-not a bug.** What the app itself shows on an unsupervised device:
+On a stock review iPhone, the supplied review account intentionally bypasses
+the customer-only activation and profile-installation gates so the dashboard,
+account management, device registration, synchronized rules, and related UI
+can be reviewed. The app labels this state **Review demo** and explains that
+filtering itself requires a supervised customer iPhone. It does not silently
+simulate an active Network Extension.
 
-- A welcome screen with **Sign in with Apple** (any Apple ID; Hide My Email
-  supported).
-- An **Activation** screen where a one-time activation code unlocks the
-  account. Codes are issued to customers during onboarding, when their device
-  is set up for the filter — so on a stock review device the flow correctly
-  stops here. (Activated customers whose profile is absent additionally see a
-  **"Protection missing"** gate that fetches their managed filter profile and
-  hands it to Settings — shown in the demo video context.)
+Normal customer accounts still follow the production path: create an account
+or sign in with a GetBored username and password, activate the account, install
+the per-customer GetBored configuration profile, then use the app on the
+supervised iPhone.
 
 Block lists themselves are created in the companion GetBored web dashboard (not
 in the iOS app) and sync down to the device automatically.
@@ -42,9 +50,9 @@ https://d1lm440g1i1fns.cloudfront.net/getbored-demo-v2.mp4) showing the filter
 **active on a supervised device**, blocking a user-chosen website in Safari, so
 you can verify the core blocking behavior end to end.
 
-**If you would prefer hands-on testing:** we are happy to ship you a
-pre-supervised device, or provide step-by-step Apple Configurator instructions
-to supervise a spare device. Just let us know.
+If Apple requires additional evidence of the live Network Extension beyond the
+video, please contact us so we can coordinate an appropriate supervised-device
+test arrangement before resubmission.
 
 **Entitlement justification:** `content-filter-provider` is used solely to run
 the device owner's **own** content filter locally. The filter inspects network
@@ -53,8 +61,7 @@ flows on-device only to decide allow/block against the user's own rules.
 **Data handling:**
 - **Inspected:** network connection metadata is evaluated locally, on-device, by
   the filter extension to enforce the user's own block rules. It is not uploaded.
-- **Stored / synced:** the user's account (Sign in with Apple identity — a
-  private relay address when Hide My Email is used), their own filter lists
+- **Stored / synced:** the user's GetBored account username, their own filter lists
   (list names, chosen blocked domains/apps), and a device-registration
   identifier, kept on GetBored's own servers and scoped to that account.
 - **Diagnostics:** first-party only — on certain errors the app uploads its own
@@ -81,13 +88,12 @@ Apple platform requirement the app cannot bypass. The website/app blocking
 itself therefore cannot be exercised on a stock, unsupervised review device.
 This is expected behavior, not a bug.
 
-ON A STANDARD (UNSUPERVISED) REVIEW DEVICE you'll see:
-1. A welcome screen with a single "Sign in with Apple" button (any Apple ID
-   works; Hide My Email is fine).
-2. An Activation screen asking for a one-time code. Codes are issued to
-   customers during onboarding, when their device is set up for the filter.
-   Since the filter could not be enabled on an unsupervised device anyway,
-   this screen is where the flow correctly stops on a stock review device.
+ON A STANDARD (UNSUPERVISED) REVIEW IPHONE:
+1. Sign in with the review username and password supplied in App Store Connect.
+2. The server-designated review account bypasses customer activation and
+   profile installation so the full app UI and synchronized account data open.
+3. The app displays "Review demo" and states that filtering requires a
+   supervised customer iPhone. It does not report the filter as active.
 
 TO SEE THE FULL FLOW (filter ACTIVE on a supervised device, same build),
 please watch this demo video:
@@ -96,12 +102,13 @@ It shows the activated dashboard — filter status, "Turn Filtering On", and the
 read-only "Active rules" list that syncs from the GetBored web dashboard — and
 then Safari blocking a website the user chose.
 
-If hands-on verification is needed, we are happy to arrange a supervised
-review device or provide supervision steps — just contact us.
+If hands-on verification of the Network Extension itself is needed, please
+contact us so we can coordinate a supervised-device test arrangement.
 
 SIGN-IN
-No demo account needed — Sign in with Apple with any Apple ID. Activation
-codes are issued during customer onboarding (see above).
+Use the review username and password entered in App Store Connect's App Review
+Information fields. Do not use a personal Apple Account. The review account
+does not require an activation code.
 
 CONTACT
 Tushar — tushru2004@gmail.com
@@ -128,11 +135,13 @@ filter).
 
 Target 45–90s, screen-recorded on the supervised device.
 
-1. **Open GetBored** → show the home/status screen (Content Filter row).
-2. **Create a rule** → add a distracting website (e.g. a social site) to a block
-   list. Narrate: "I'm choosing to block this site for myself."
-3. **Show filter is Active** → status reads "Active & Protecting" (supervised
-   device, profile installed).
+1. **Open GetBored** → show the home/status screen.
+2. **Open the GetBored web dashboard and create a rule** → add a distracting
+   website (e.g. a social site) to a block list. Narrate: "I'm choosing to
+   block this site for myself."
+3. **Return to the app and show the active filter state** → the hero reads
+   "GetBored" and the synchronized rule count appears (supervised device,
+   profile installed).
 4. **Open Safari → visit the blocked site** → show it is blocked.
 5. **Visit a non-blocked site** → loads normally (proves it's targeted, not a
    blanket block).

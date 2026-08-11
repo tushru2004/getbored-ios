@@ -4,8 +4,8 @@ import {NativeModuleUnavailableError} from './errors';
 import {AccountSummary, SignInResult} from './types';
 
 type NativeAccount = {
-  signIn: () => Promise<SignInResult>;
-  signInWithWebAccount: () => Promise<SignInResult>;
+  signIn: (username: string, password: string) => Promise<SignInResult>;
+  signUp: (username: string, password: string) => Promise<SignInResult>;
   signOut: () => Promise<void>;
   currentAccount: () => Promise<AccountSummary>;
   redeemActivationCode: (code: string) => Promise<void>;
@@ -15,7 +15,7 @@ type NativeAccount = {
 const native = (NativeModules as {Account?: NativeAccount}).Account;
 
 /**
- * Typed JS facade over the `Account` native module (Sign in with Apple +
+ * Typed JS facade over the `Account` native module (password auth +
  * server session). Mirrors FilterStatusBridge's guard pattern: `native` is
  * resolved once at import time and may be undefined on a native build that
  * predates this module, hence `isAvailable` and the shared throw-if-missing
@@ -25,15 +25,14 @@ const native = (NativeModules as {Account?: NativeAccount}).Account;
 export const AccountBridge = {
   isAvailable: native !== undefined,
 
-  async signIn(): Promise<SignInResult> {
+  async signIn(username: string, password: string): Promise<SignInResult> {
     if (!native) throw new NativeModuleUnavailableError('Account');
-    return native.signIn();
+    return native.signIn(username, password);
   },
 
-  /** Web-flow sign-in — accepts any Apple ID, not just the device's. */
-  async signInWithWebAccount(): Promise<SignInResult> {
+  async signUp(username: string, password: string): Promise<SignInResult> {
     if (!native) throw new NativeModuleUnavailableError('Account');
-    return native.signInWithWebAccount();
+    return native.signUp(username, password);
   },
 
   async signOut(): Promise<void> {

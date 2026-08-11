@@ -54,6 +54,10 @@ export type AccountSummary = {
   userId?: string;
   /** Live backend entitlement. Absent only when account enrichment failed. */
   plan?: string;
+  /** Canonical first-party username, when this is a password account. */
+  username?: string;
+  /** Server-owned category. Only review_demo may bypass setup gates. */
+  accountKind?: 'customer' | 'review_demo';
   /** Best email for display: contactEmail if set, else the Apple identity
    * email (possibly an @privaterelay.appleid.com address). Absent when the
    * enrichment call fails or the account has no stored email. */

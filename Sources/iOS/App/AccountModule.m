@@ -2,10 +2,14 @@
 
 @interface RCT_EXTERN_MODULE(Account, NSObject)
 
-RCT_EXTERN_METHOD(signIn:(RCTPromiseResolveBlock)resolve
+RCT_EXTERN_METHOD(signIn:(NSString *)username
+                  password:(NSString *)password
+                  resolver:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject)
 
-RCT_EXTERN_METHOD(signInWithWebAccount:(RCTPromiseResolveBlock)resolve
+RCT_EXTERN_METHOD(signUp:(NSString *)username
+                  password:(NSString *)password
+                  resolver:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject)
 
 RCT_EXTERN_METHOD(signOut:(RCTPromiseResolveBlock)resolve

@@ -7,6 +7,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 
@@ -249,15 +250,32 @@ const BrandMasthead: React.FC = () => (
 
 type WelcomeProps = {
   account: AccountState;
-  onSignIn: () => void;
+  onSignIn: (username: string, password: string) => Promise<void>;
+  onSignUp: (username: string, password: string) => Promise<void>;
 };
 
-const Welcome: React.FC<WelcomeProps> = ({account, onSignIn}) => {
+const Welcome: React.FC<WelcomeProps> = ({account, onSignIn, onSignUp}) => {
+  const [mode, setMode] = useState<'login' | 'signup'>('login');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const busy =
     account.kind === 'checking' ||
     account.kind === 'signingIn' ||
     account.kind === 'deleting';
   const isDeleting = account.kind === 'deleting';
+  const valid = username.trim().length >= 3 && password.length >= 8;
+  const submit = useCallback(() => {
+    const normalizedUsername = username.trim().toLowerCase();
+    return mode === 'login'
+      ? onSignIn(normalizedUsername, password)
+      : onSignUp(normalizedUsername, password);
+  }, [mode, onSignIn, onSignUp, password, username]);
+  const submitFromKeyboardOrPress = useCallback(() => {
+    if (!valid || busy) {
+      return;
+    }
+    submit().catch(() => undefined);
+  }, [busy, submit, valid]);
 
   return (
     <View style={styles.welcome}>
@@ -269,18 +287,62 @@ const Welcome: React.FC<WelcomeProps> = ({account, onSignIn}) => {
         {account.kind === 'error' && (
           <Text style={styles.welcomeError}>{account.message}</Text>
         )}
+        <Text style={styles.authFieldLabel}>Username</Text>
+        <TextInput
+          autoCapitalize="none"
+          autoComplete="username"
+          autoCorrect={false}
+          editable={!busy}
+          maxLength={64}
+          onChangeText={setUsername}
+          placeholder="your.username"
+          placeholderTextColor={colors.neutral}
+          returnKeyType="next"
+          style={styles.authInput}
+          textContentType="username"
+          value={username}
+        />
+        <Text style={styles.authFieldLabel}>Password</Text>
+        <TextInput
+          autoCapitalize="none"
+          autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
+          autoCorrect={false}
+          editable={!busy}
+          maxLength={128}
+          onChangeText={setPassword}
+          onSubmitEditing={submitFromKeyboardOrPress}
+          placeholder="At least 8 characters"
+          placeholderTextColor={colors.neutral}
+          returnKeyType="done"
+          secureTextEntry
+          style={styles.authInput}
+          textContentType={mode === 'signup' ? 'newPassword' : 'password'}
+          value={password}
+        />
         <Pressable
-          disabled={busy}
-          onPress={onSignIn}
+          disabled={busy || !valid}
+          onPress={submitFromKeyboardOrPress}
           style={({pressed}) => [
-            styles.appleButton,
-            (pressed || busy) && styles.pressedDim,
+            styles.authButton,
+            (pressed || busy || !valid) && styles.pressedDim,
           ]}>
           {busy ? (
             <ActivityIndicator color="#FFFFFF" />
           ) : (
-            <Text style={styles.appleButtonText}>Sign in with Apple</Text>
+            <Text style={styles.authButtonText}>
+              {mode === 'login' ? 'Sign in' : 'Create account'}
+            </Text>
           )}
+        </Pressable>
+        <Pressable
+          disabled={busy}
+          onPress={() => setMode(current => (current === 'login' ? 'signup' : 'login'))}
+          style={styles.authModeButton}>
+          <Text style={styles.authModeText}>
+            {mode === 'login'
+              ? 'Create a new account'
+              : 'Already have an account? Sign in'}
+          </Text>
         </Pressable>
       </View>
     </View>
@@ -417,13 +479,7 @@ const ProfileGate: React.FC<ProfileGateProps> = ({
  *       │       └── missing/unknown   → <ProfileGate>
  *       ├── 'unavailable'    → main dashboard (legacy native build fallback)
  *       └── anything else (signedOut / checking / signingIn / deleting / error)
- *               └──→ <Welcome> — one "Sign in with Apple" button →
- *                       account.signInWithDifferentAccount() (the web flow).
- *                       We deliberately use the web flow, not the native
- *                       sheet: the native sheet is locked to the device's
- *                       iCloud account, whereas the web flow lets the user
- *                       enter ANY Apple ID. account.signIn() (native) is kept
- *                       on the hook but no longer wired to any button.
+ *               └──→ <Welcome> — username/password sign-in or account creation.
  *
  * Main dashboard:
  *
@@ -466,23 +522,30 @@ export const HomeScreen: React.FC = () => {
     }
   }, [sync, refreshStatus]);
 
-  const signedIn = account.state.kind === 'signedIn';
+  const signedInAccount =
+    account.state.kind === 'signedIn' ? account.state : null;
+  const signedIn = signedInAccount !== null;
+  const reviewDemo = signedInAccount?.reviewDemo ?? false;
   const needsActivation = account.state.kind === 'needsActivation';
   const accountAbsent = account.state.kind === 'unavailable';
   const profileInstalled =
     filterStatus.state.kind === 'ready' &&
     filterStatus.state.status.profile.kind === 'installed';
-  const showProfileGate = signedIn && !profileInstalled;
-  const showMain = accountAbsent || (signedIn && profileInstalled);
+  const showProfileGate = signedIn && !reviewDemo && !profileInstalled;
+  const showMain = accountAbsent || (signedIn && (reviewDemo || profileInstalled));
 
-  const hero = deriveHero(
-    filterStatus.state,
-    filterSync.state,
-    registration.state,
-  );
+  const hero: Hero = reviewDemo
+    ? {
+        word: 'Review demo',
+        color: colors.neutral,
+        variant: 'open',
+        substance: 'Filtering requires a supervised customer iPhone.',
+        showEnable: false,
+      }
+    : deriveHero(filterStatus.state, filterSync.state, registration.state);
   const accountEmail =
     account.state.kind === 'signedIn' || account.state.kind === 'needsActivation'
-      ? account.state.email
+      ? account.state.accountLabel
       : undefined;
   const syncSuccess =
     filterSync.state.kind === 'success' ? filterSync.state : null;
@@ -529,7 +592,8 @@ export const HomeScreen: React.FC = () => {
           ) : (
             <Welcome
               account={account.state}
-              onSignIn={account.signInWithDifferentAccount}
+              onSignIn={account.signIn}
+              onSignUp={account.signUp}
             />
           )
         )}
@@ -842,7 +906,23 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: spacing.md,
   },
-  appleButton: {
+  authFieldLabel: {
+    ...typography.eyebrow,
+    color: colors.label,
+    marginTop: spacing.md,
+  },
+  authInput: {
+    minHeight: 48,
+    borderWidth: 1,
+    borderColor: colors.label,
+    backgroundColor: colors.surface,
+    color: colors.label,
+    fontFamily: typography.eyebrow.fontFamily,
+    fontSize: 15,
+    paddingHorizontal: spacing.md,
+    marginTop: spacing.sm,
+  },
+  authButton: {
     alignSelf: 'stretch',
     alignItems: 'center',
     justifyContent: 'center',
@@ -852,10 +932,19 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.lg,
     marginTop: spacing.xl,
   },
-  appleButtonText: {
+  authButtonText: {
     ...typography.body,
     fontSize: 16,
     color: '#FFFFFF',
+  },
+  authModeButton: {
+    alignItems: 'center',
+    padding: spacing.md,
+  },
+  authModeText: {
+    ...typography.body,
+    color: colors.labelSecondary,
+    textDecorationLine: 'underline',
   },
 
   // Profile gate
