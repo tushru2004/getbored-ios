@@ -4,13 +4,13 @@ agents_per_workspace: 1
 close_all_workspaces: false
 claude_channel_port_base: 8890
 workspace_names:
-- Claude 1
-- Claude 2
-- Claude 3
-- Claude 4
-- Sol
-- Terra
-- Luna
+- getbored-ios · Claude 1
+- getbored-ios · Claude 2
+- getbored-ios · Claude 3
+- getbored-ios · Claude 4
+- getbored-ios · Sol
+- getbored-ios · Terra
+- getbored-ios · Luna
 required_agent_names:
 - Claude 1
 - Claude 2
@@ -49,19 +49,19 @@ agents:
   cli: codex
   model: gpt-5.6-sol
   flags: --dangerously-bypass-approvals-and-sandbox -c 'model_reasoning_effort="medium"'
-  session_id:
+  session_id: 019fe68f-2d1b-7861-a430-ee4ab9068153
   wake_transport: codex-app-server
 - name: Terra
   cli: codex
   model: gpt-5.6-terra
   flags: --dangerously-bypass-approvals-and-sandbox -c 'model_reasoning_effort="medium"'
-  session_id:
+  session_id: 019fe68f-436a-74e0-96dd-f7efcf4048af
   wake_transport: codex-app-server
 - name: Luna
   cli: codex
   model: gpt-5.6-luna
   flags: --dangerously-bypass-approvals-and-sandbox -c 'model_reasoning_effort="medium"'
-  session_id:
+  session_id: 019fe68f-586c-72d0-bf03-9093c7f10542
   wake_transport: codex-app-server
 shared_write_paths:
 - Makefile
