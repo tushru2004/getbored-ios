@@ -86,16 +86,16 @@ function substanceLine(
   return '';
 }
 
-/** Never show a private-relay address raw — it reads as gibberish. The full
- * address stays visible in the Account sheet. */
-function displayEmail(email?: string): string {
-  if (!email) {
+/** Keep the compact account row useful for both password usernames and legacy
+ * Apple relay addresses. The full account label stays visible in the sheet. */
+function displayAccountLabel(accountLabel?: string): string {
+  if (!accountLabel) {
     return 'Signed in';
   }
-  if (email.endsWith('@privaterelay.appleid.com')) {
+  if (accountLabel.endsWith('@privaterelay.appleid.com')) {
     return 'Hidden Apple email';
   }
-  return email;
+  return accountLabel;
 }
 
 // ─── Stat pair (what the last sync applied) ────────────────────────────────
@@ -295,8 +295,6 @@ const Welcome: React.FC<WelcomeProps> = ({account, onSignIn, onSignUp}) => {
           editable={!busy}
           maxLength={64}
           onChangeText={setUsername}
-          placeholder="your.username"
-          placeholderTextColor={colors.neutral}
           returnKeyType="next"
           style={styles.authInput}
           textContentType="username"
@@ -311,8 +309,6 @@ const Welcome: React.FC<WelcomeProps> = ({account, onSignIn, onSignUp}) => {
           maxLength={128}
           onChangeText={setPassword}
           onSubmitEditing={submitFromKeyboardOrPress}
-          placeholder="At least 8 characters"
-          placeholderTextColor={colors.neutral}
           returnKeyType="done"
           secureTextEntry
           style={styles.authInput}
@@ -353,7 +349,7 @@ const Welcome: React.FC<WelcomeProps> = ({account, onSignIn, onSignUp}) => {
 
 type ProfileGateProps = {
   filter: FilterStatusState;
-  accountEmail?: string;
+  accountLabel?: string;
   onDownload: () => Promise<void>;
   onRefresh: () => void;
   onSignOut: () => void;
@@ -361,7 +357,7 @@ type ProfileGateProps = {
 
 const ProfileGate: React.FC<ProfileGateProps> = ({
   filter,
-  accountEmail,
+  accountLabel,
   onDownload,
   onRefresh,
   onSignOut,
@@ -411,7 +407,7 @@ const ProfileGate: React.FC<ProfileGateProps> = ({
         <View style={styles.profileGateIdentity}>
           <Text style={styles.profileGateIdentityLabel}>Signed-in account</Text>
           <Text selectable style={styles.profileGateIdentityValue}>
-            {accountEmail ?? 'Email unavailable'}
+            {accountLabel ?? 'Account unavailable'}
           </Text>
         </View>
         {downloadError !== null && (
@@ -536,14 +532,14 @@ export const HomeScreen: React.FC = () => {
 
   const hero: Hero = reviewDemo
     ? {
-        word: 'Review demo',
+        word: 'Demo mode',
         color: colors.neutral,
         variant: 'open',
-        substance: 'Filtering requires a supervised customer iPhone.',
+        substance: 'Live filtering requires a supervised iPhone.',
         showEnable: false,
       }
     : deriveHero(filterStatus.state, filterSync.state, registration.state);
-  const accountEmail =
+  const accountLabel =
     account.state.kind === 'signedIn' || account.state.kind === 'needsActivation'
       ? account.state.accountLabel
       : undefined;
@@ -577,14 +573,14 @@ export const HomeScreen: React.FC = () => {
         {!showMain && (
           needsActivation ? (
             <ActivationScreen
-              accountLabel={accountEmail}
+              accountLabel={accountLabel}
               onActivate={account.redeemActivationCode}
               onSignOut={account.signOut}
             />
           ) : showProfileGate ? (
             <ProfileGate
               filter={filterStatus.state}
-              accountEmail={accountEmail}
+              accountLabel={accountLabel}
               onDownload={downloadProfile}
               onRefresh={refreshStatus}
               onSignOut={account.signOut}
@@ -658,7 +654,7 @@ export const HomeScreen: React.FC = () => {
                   onPress={openAccount}>
                   <Text style={styles.rowLabel}>Account</Text>
                   <Text style={styles.rowValue} numberOfLines={1}>
-                    {displayEmail(accountEmail)}
+                    {displayAccountLabel(accountLabel)}
                   </Text>
                   <Text style={styles.chevron}>›</Text>
                 </Pressable>
@@ -683,7 +679,7 @@ export const HomeScreen: React.FC = () => {
       <AccountSheet
         visible={showAccount}
         onClose={() => setShowAccount(false)}
-        email={accountEmail}
+        accountLabel={accountLabel}
         registration={registration.state}
         onSignOut={account.signOut}
         onDeleteAccount={account.deleteAccount}

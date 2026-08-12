@@ -7,7 +7,7 @@ import {colors, spacing, typography} from '../theme';
 type Props = {
   visible: boolean;
   onClose: () => void;
-  email?: string;
+  accountLabel?: string;
   registration: DeviceRegistrationState;
   onSignOut: () => void;
   onDeleteAccount: () => void;
@@ -51,15 +51,14 @@ function confirmDeleteAccount(onConfirmed: () => void) {
 /**
  * The account HALF-sheet: a bottom-anchored panel sized to its content over
  * a dimmed home screen (RN's stock pageSheet can't do detents, so this is a
- * transparent Modal + backdrop + panel). Facts first (full email — this is
- * the one place the raw relay address belongs — and device status), then a
- * visibly separate actions group: Sign Out in the accent, Delete Account in
- * red per App Review 5.1.1(v).
+ * transparent Modal + backdrop + panel). Facts first (account label and device
+ * status), then a visibly separate actions group: Sign Out in the accent and
+ * Delete Account in red per App Review 5.1.1(v).
  */
 export const AccountSheet: React.FC<Props> = ({
   visible,
   onClose,
-  email,
+  accountLabel,
   registration,
   onSignOut,
   onDeleteAccount,
@@ -80,7 +79,7 @@ export const AccountSheet: React.FC<Props> = ({
         <View style={styles.sheetHeader}>
           <View>
             <Text style={styles.title}>Account</Text>
-            <Text style={styles.subtitle}>Signed in with Apple</Text>
+            <Text style={styles.subtitle}>Signed in to GetBored</Text>
           </View>
           <Pressable
             accessibilityLabel="Close account"
@@ -96,9 +95,9 @@ export const AccountSheet: React.FC<Props> = ({
 
         <View style={styles.factRows}>
           <View style={styles.row}>
-            <Text style={styles.rowLabel}>Email</Text>
+            <Text style={styles.rowLabel}>Username</Text>
             <Text style={styles.rowValue} numberOfLines={1}>
-              {email ?? '—'}
+              {accountLabel ?? '—'}
             </Text>
           </View>
           <View style={[styles.row, styles.lastRow]}>
