@@ -24,7 +24,7 @@ export type UseFilterListSync = {
  * non-alarming outcomes — the device keeps its last-applied rules either
  * way — so they get their own calm states instead of the red error box.
  * NOT_REGISTERED means the session is fine but this device has no server
- * id yet (connect it first (automatic via useConnectedApp)).
+ * id yet (connect it first (automatic via useDeviceRegistrationAndRuleSync)).
  */
 function classifyFailure(e: unknown): FilterListSyncState {
   const code = nativeErrorCode(e);

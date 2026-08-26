@@ -15,7 +15,7 @@ import {AccountSheet} from '../components/AccountSheet';
 import {ErrorBoundary} from '../components/ErrorBoundary';
 import {StillWaterRings} from '../components/StillWaterRings';
 import {AccountState} from '../hooks/useAccount';
-import {useConnectedApp} from '../hooks/useConnectedApp';
+import {useDeviceRegistrationAndRuleSync} from '../hooks/useDeviceRegistrationAndRuleSync';
 import {DeviceRegistrationState} from '../hooks/useDeviceRegistration';
 import {FilterListSyncState} from '../hooks/useFilterListSync';
 import {FilterStatusState, useFilterStatus} from '../hooks/useFilterStatus';
@@ -460,7 +460,8 @@ const ProfileGate: React.FC<ProfileGateProps> = ({
 // ─── Home ──────────────────────────────────────────────────────────────────
 
 /**
- * The app's single screen. useConnectedApp owns account/registration/sync and
+ * The app's single screen. useDeviceRegistrationAndRuleSync owns
+ * account/registration/sync and
  * runs the auto-connect/auto-sync orchestration; this component only reads that
  * state to decide which of three top-level views to show, and hosts the two
  * modals.
@@ -494,7 +495,8 @@ const ProfileGate: React.FC<ProfileGateProps> = ({
  *   showRules ──→ <ActiveRulesScreen>  (read-only rules list)
  */
 export const HomeScreen: React.FC = () => {
-  const {account, registration, filterSync} = useConnectedApp();
+  const {account, registration, filterSync} =
+    useDeviceRegistrationAndRuleSync();
   const filterStatus = useFilterStatus();
   const [showAccount, setShowAccount] = useState(false);
   const [showRules, setShowRules] = useState(false);

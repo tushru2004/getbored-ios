@@ -8,7 +8,7 @@ import {
 } from './useDeviceRegistration';
 import {useFilterListSync, UseFilterListSync} from './useFilterListSync';
 
-export type ConnectedApp = {
+export type DeviceRegistrationAndRuleSync = {
   account: UseAccount;
   registration: UseDeviceRegistration;
   filterSync: UseFilterListSync;
@@ -50,7 +50,7 @@ export type ConnectedApp = {
  * error/notice state, not 'idle', so autos never retry on their own —
  * retrying stays a human decision via the cards' buttons.
  */
-export function useConnectedApp(): ConnectedApp {
+export function useDeviceRegistrationAndRuleSync(): DeviceRegistrationAndRuleSync {
   const account = useAccount();
   const registration = useDeviceRegistration();
   const filterSync = useFilterListSync();

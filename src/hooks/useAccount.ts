@@ -25,7 +25,7 @@ export type UseAccount = {
 
 /**
  * Drives the account/sign-in lifecycle. Instantiated exactly once, by
- * useConnectedApp — HomeScreen passes the state down to SignInCard and uses
+ * useDeviceRegistrationAndRuleSync — HomeScreen passes the state down to SignInCard and uses
  * it for gating, so every consumer reads the same state machine.
  *
  * Call flow:

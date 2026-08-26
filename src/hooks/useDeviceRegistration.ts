@@ -37,7 +37,7 @@ function classifyFailure(e: unknown): DeviceRegistrationState {
 /**
  * Tracks whether THIS iPhone has a server-side device registration, and
  * exposes the two writes (refresh = re-check, register = create) that
- * useConnectedApp orchestrates automatically.
+ * useDeviceRegistrationAndRuleSync orchestrates automatically.
  *
  * Call flow:
  *
@@ -56,7 +56,7 @@ function classifyFailure(e: unknown): DeviceRegistrationState {
  *                       ├── showErrors === false → setState({idle})  ← swallow, mount default
  *                       └── showErrors === true  → setState({error, message})
  *
- *   register()  ← auto-connect (useConnectedApp) or manual retry button
+ *   register()  ← auto-connect (useDeviceRegistrationAndRuleSync) or manual retry button
  *       │
  *       ▼
  *   setState({saving}) → registerDevice()
