@@ -116,11 +116,11 @@ final class FilterStatusModule: NSObject {
     ///   registerDevice (no stored id) or updateDevice (404 self-heal) call createDevice(input)
     ///           │
     ///           ▼
-    ///   APIClient.shared.sendDecoding(Device.self, .post, "/api/devices", jsonBody: input)
+    ///   APIClient.shared.request(Device.self, .post, "/api/devices", jsonBody: input)
     ///           │
-    ///           ├── .success(device) → KeychainStore.write(device.id, for: .serverDeviceID)
-    ///           │                       resolve(deviceDictionary(device))
-    ///           └── .failure(error)  → reject(for: error, rejecter: reject)
+    ///           ├── returns device → KeychainStore.write(device.id, for: .serverDeviceID)
+    ///           │                    resolve(deviceDictionary(device))
+    ///           └── throws error   → reject(for: error, rejecter: reject)
     private func createDevice(input: DeviceInput,
                               resolve: @escaping RCTPromiseResolveBlock,
                               rejecter reject: @escaping RCTPromiseRejectBlock) {
@@ -128,15 +128,15 @@ final class FilterStatusModule: NSObject {
             reject(RejectCode.server, "Failed to encode device registration payload.", nil)
             return
         }
-        APIClient.shared.sendDecoding(
-            Device.self, method: .post, path: "/api/devices", jsonBody: body
-        ) { result in
-            switch result {
-            case .success(let device):
+        Task {
+            do {
+                let device = try await APIClient.shared.request(
+                    Device.self, method: .post, path: "/api/devices", jsonBody: body
+                )
                 KeychainStore.write(device.id, for: .serverDeviceID)
                 resolve(self.deviceDictionary(device))
-            case .failure(let error):
-                self.reject(for: error, rejecter: reject)
+            } catch {
+                self.reject(for: APIError.normalized(error), rejecter: reject)
             }
         }
     }
@@ -154,12 +154,12 @@ final class FilterStatusModule: NSObject {
     ///   registerDevice (stored id present) calls updateDevice(id, input)
     ///           │
     ///           ▼
-    ///   APIClient.shared.sendDecoding(Device.self, .put, "/api/devices/{id}", jsonBody: input)
+    ///   APIClient.shared.request(Device.self, .put, "/api/devices/{id}", jsonBody: input)
     ///           │
-    ///           ├── .success(device)          → resolve(deviceDictionary(device))
-    ///           ├── .failure(.server(404))     → KeychainStore.delete(.serverDeviceID)
-    ///           │                                 createDevice(input)  ← self-heal, retries as new
-    ///           └── .failure(other error)      → reject(for: error, rejecter: reject)
+    ///           ├── returns device      → resolve(deviceDictionary(device))
+    ///           ├── throws .server(404) → KeychainStore.delete(.serverDeviceID)
+    ///           │                           createDevice(input)  ← self-heal, retries as new
+    ///           └── throws other error  → reject(for: error, rejecter: reject)
     private func updateDevice(id: String, input: DeviceInput,
                               resolve: @escaping RCTPromiseResolveBlock,
                               rejecter reject: @escaping RCTPromiseRejectBlock) {
@@ -167,17 +167,17 @@ final class FilterStatusModule: NSObject {
             reject(RejectCode.server, "Failed to encode device registration payload.", nil)
             return
         }
-        APIClient.shared.sendDecoding(
-            Device.self, method: .put, path: "/api/devices/\(id)", jsonBody: body
-        ) { result in
-            switch result {
-            case .success(let device):
+        Task {
+            do {
+                let device = try await APIClient.shared.request(
+                    Device.self, method: .put, path: "/api/devices/\(id)", jsonBody: body
+                )
                 resolve(self.deviceDictionary(device))
-            case .failure(.server(let status)) where status == 404:
+            } catch APIError.server(let status) where status == 404 {
                 KeychainStore.delete(.serverDeviceID)
                 self.createDevice(input: input, resolve: resolve, rejecter: reject)
-            case .failure(let error):
-                self.reject(for: error, rejecter: reject)
+            } catch {
+                self.reject(for: APIError.normalized(error), rejecter: reject)
             }
         }
     }
@@ -198,10 +198,10 @@ final class FilterStatusModule: NSObject {
     ///           │
     ///           └── deviceID present → GET /api/devices/{deviceID}
     ///                   │
-    ///                   ├── .success(device)       → resolve(registeredSnapshotDictionary(device))
-    ///                   ├── .failure(.server(404)) → KeychainStore.delete(.serverDeviceID)
-    ///                   │                             resolve(unregisteredSnapshotDictionary())
-    ///                   └── .failure(other error)  → reject(for: error, rejecter: reject)
+    ///                   ├── returns device      → resolve(registeredSnapshotDictionary(device))
+    ///                   ├── throws .server(404) → KeychainStore.delete(.serverDeviceID)
+    ///                   │                          resolve(unregisteredSnapshotDictionary())
+    ///                   └── throws other error  → reject(for: error, rejecter: reject)
     @objc func currentDeviceRegistration(_ resolve: @escaping RCTPromiseResolveBlock,
                                          rejecter reject: @escaping RCTPromiseRejectBlock) {
         guard let deviceID = KeychainStore.read(.serverDeviceID) else {
@@ -209,17 +209,17 @@ final class FilterStatusModule: NSObject {
             return
         }
 
-        APIClient.shared.sendDecoding(
-            Device.self, method: .get, path: "/api/devices/\(deviceID)"
-        ) { result in
-            switch result {
-            case .success(let device):
+        Task {
+            do {
+                let device = try await APIClient.shared.request(
+                    Device.self, method: .get, path: "/api/devices/\(deviceID)"
+                )
                 resolve(self.registeredSnapshotDictionary(device))
-            case .failure(.server(let status)) where status == 404:
+            } catch APIError.server(let status) where status == 404 {
                 KeychainStore.delete(.serverDeviceID)
                 resolve(self.unregisteredSnapshotDictionary())
-            case .failure(let error):
-                self.reject(for: error, rejecter: reject)
+            } catch {
+                self.reject(for: APIError.normalized(error), rejecter: reject)
             }
         }
     }
@@ -277,25 +277,13 @@ final class FilterStatusModule: NSObject {
     @objc func downloadProfile(_ resolve: @escaping RCTPromiseResolveBlock,
                                rejecter reject: @escaping RCTPromiseRejectBlock) {
         logger.info("begin downloadProfile")
-        APIClient.shared.sendDecoding(
-            ProfileDownloadResponse.self,
-            method: .post,
-            path: "/api/profile-downloads"
-        ) { result in
-            switch result {
-            case .failure(.server(let status)) where status == 409:
-                logger.warning("end downloadProfile: administrator has not configured a profile password")
-                reject(
-                    RejectCode.server,
-                    "Your protection profile is not ready. Contact GetBored Support.",
-                    nil
+        Task {
+            do {
+                let response = try await APIClient.shared.request(
+                    ProfileDownloadResponse.self,
+                    method: .post,
+                    path: "/api/profile-downloads"
                 )
-
-            case .failure(let error):
-                logger.error("end downloadProfile: ticket request failed")
-                self.reject(for: error, rejecter: reject)
-
-            case .success(let response):
                 guard let url = URL(string: response.downloadUrl),
                       url.scheme == "https" else {
                     logger.error("end downloadProfile: server returned an invalid HTTPS URL")
@@ -303,17 +291,24 @@ final class FilterStatusModule: NSObject {
                     return
                 }
 
-                DispatchQueue.main.async {
-                    UIApplication.shared.open(url, options: [:]) { opened in
-                        if opened {
-                            logger.info("end downloadProfile: opened profile URL")
-                            resolve(nil)
-                        } else {
-                            logger.error("end downloadProfile: iOS could not open profile URL")
-                            reject(RejectCode.server, "Could not open the profile download.", nil)
-                        }
-                    }
+                let opened = await UIApplication.shared.open(url, options: [:])
+                if opened {
+                    logger.info("end downloadProfile: opened profile URL")
+                    resolve(nil)
+                } else {
+                    logger.error("end downloadProfile: iOS could not open profile URL")
+                    reject(RejectCode.server, "Could not open the profile download.", nil)
                 }
+            } catch APIError.server(let status) where status == 409 {
+                logger.warning("end downloadProfile: administrator has not configured a profile password")
+                reject(
+                    RejectCode.server,
+                    "Your protection profile is not ready. Contact GetBored Support.",
+                    nil
+                )
+            } catch {
+                logger.error("end downloadProfile: ticket request failed")
+                self.reject(for: APIError.normalized(error), rejecter: reject)
             }
         }
     }
@@ -337,12 +332,12 @@ final class FilterStatusModule: NSObject {
     ///           │
     ///           └── deviceID present → GET /api/policy?deviceId=<deviceID>
     ///                   │
-    ///                   ├── .success(snapshot)
-    ///                   │       └── DispatchQueue.main.async
+    ///                   ├── returns snapshot
+    ///                   │       └── MainActor.run
     ///                   │               ├── IOSRuleStore.shared.applyFilterListSnapshot(...)
     ///                   │               └── resolve({sites, exceptions, allowedApps, blockedApps})
     ///                   │
-    ///                   └── .failure(error) → reject(for: error, rejecter: reject)
+    ///                   └── throws error → reject(for: error, rejecter: reject)
     ///
     /// An empty snapshot (all arrays empty) is a VALID response — it means the
     /// admin unassigned every list — and is applied exactly like a populated
@@ -359,12 +354,12 @@ final class FilterStatusModule: NSObject {
         }
 
         let query = [URLQueryItem(name: "deviceId", value: deviceID)]
-        APIClient.shared.sendDecoding(
-            PolicySnapshot.self, method: .get, path: "/api/policy", query: query
-        ) { result in
-            switch result {
-            case .success(let snapshot):
-                DispatchQueue.main.async {
+        Task {
+            do {
+                let snapshot = try await APIClient.shared.request(
+                    PolicySnapshot.self, method: .get, path: "/api/policy", query: query
+                )
+                await MainActor.run {
                     IOSRuleStore.shared.applyFilterListSnapshot(
                         mode: snapshot.filterMode,
                         entries: snapshot.entries,
@@ -382,8 +377,8 @@ final class FilterStatusModule: NSObject {
                         "blockedApps": snapshot.blockedApps.count,
                     ])
                 }
-            case .failure(let error):
-                self.reject(for: error, rejecter: reject)
+            } catch {
+                self.reject(for: APIError.normalized(error), rejecter: reject)
             }
         }
     }
@@ -411,7 +406,7 @@ final class FilterStatusModule: NSObject {
     ///
     /// Call flow:
     ///
-    ///   any APIClient completion's .failure(let error) calls reject(for: error, rejecter:)
+    ///   any caught APIClient error calls reject(for: error, rejecter:)
     ///           │
     ///           ├── .signedOut            → reject(SIGNED_OUT)          ← existing rules kept as-is
     ///           ├── .subscriptionRequired → DispatchQueue.main.async

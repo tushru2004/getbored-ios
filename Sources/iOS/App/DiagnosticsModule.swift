@@ -77,8 +77,8 @@ final class DiagnosticsModule: NSObject {
     ///           └── entries filtered to com.getbored* subsystems, newest 300 kept
     ///           ▼
     ///   Self.sendBatch(reason, events)
-    ///           ├── .success → resolve(["sent": true,  "events": N])
-    ///           └── .failure → resolve(["sent": false, "events": N])   ← never rejects
+    ///           ├── request succeeds → resolve(["sent": true,  "events": N])
+    ///           └── request fails    → resolve(["sent": false, "events": N])   ← never rejects
     @objc func reportRecentLogs(_ reason: String,
                                 resolver resolve: @escaping RCTPromiseResolveBlock,
                                 rejecter reject: @escaping RCTPromiseRejectBlock) {
@@ -161,20 +161,20 @@ final class DiagnosticsModule: NSObject {
             completion?(false)
             return
         }
-        APIClient.shared.send(
-            .post,
-            path: "/api/client-events",
-            jsonBody: body,
-            authenticated: true
-        ) { result in
-            switch result {
-            case .success:
+        Task {
+            do {
+                _ = try await APIClient.shared.send(
+                    .post,
+                    path: "/api/client-events",
+                    jsonBody: body,
+                    authenticated: true
+                )
                 logger.info("end sendBatch: batch accepted")
                 completion?(true)
-            case .failure(let error):
+            } catch {
                 // Best-effort by design: offline, signed out, server down —
                 // the report is simply lost, never surfaced as an error.
-                switch error {
+                switch APIError.normalized(error) {
                 case .network(let underlying), .decoding(let underlying):
                     logger.warning("end sendBatch: upload failed: \(underlying as NSError, privacy: .public)")
                 case .server(let status):

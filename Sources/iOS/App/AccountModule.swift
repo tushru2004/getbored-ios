@@ -56,32 +56,32 @@ final class AccountModule: NSObject {
             return
         }
 
-        APIClient.shared.sendDecoding(
-            PasswordAuthResponse.self,
-            method: .post,
-            path: path,
-            jsonBody: body,
-            authenticated: false
-        ) { result in
-            switch result {
-            case .success(let response):
+        Task {
+            do {
+                let response = try await APIClient.shared.request(
+                    PasswordAuthResponse.self,
+                    method: .post,
+                    path: path,
+                    jsonBody: body,
+                    authenticated: false
+                )
                 KeychainStore.write(response.sessionToken, for: .sessionToken)
                 logger.info("end authenticate: session stored userId=\(response.userId, privacy: .public)")
                 resolve(["userId": response.userId])
-            case .failure(.signedOut):
+            } catch APIError.signedOut {
                 reject("INVALID_CREDENTIALS", "Invalid username or password.", nil)
-            case .failure(.server(let status)) where status == 409:
+            } catch APIError.server(let status) where status == 409 {
                 reject("USERNAME_UNAVAILABLE", "That username is unavailable.", nil)
-            case .failure(.server(let status)) where status == 400:
+            } catch APIError.server(let status) where status == 400 {
                 reject(
                     "INVALID_INPUT",
                     "Use a 3-64 character username and a password of at least 8 characters.",
                     nil
                 )
-            case .failure(.server(let status)) where status == 429:
+            } catch APIError.server(let status) where status == 429 {
                 reject("RATE_LIMITED", "Too many attempts. Try again later.", nil)
-            case .failure(let error):
-                Self.rejectRequest(reject, dueTo: error)
+            } catch {
+                Self.rejectRequest(reject, dueTo: APIError.normalized(error))
             }
         }
     }
@@ -89,8 +89,14 @@ final class AccountModule: NSObject {
     @objc func signOut(_ resolve: @escaping RCTPromiseResolveBlock,
                        rejecter reject: @escaping RCTPromiseRejectBlock) {
         logger.info("begin signOut")
-        APIClient.shared.send(.post, path: "/auth/logout", authenticated: true) { result in
-            if case .failure(let error) = result {
+        Task {
+            do {
+                _ = try await APIClient.shared.send(
+                    .post,
+                    path: "/auth/logout",
+                    authenticated: true
+                )
+            } catch {
                 logger.warning("signOut: best-effort revoke failed: \(String(describing: error), privacy: .public)")
             }
             KeychainStore.delete(.sessionToken)
@@ -102,12 +108,16 @@ final class AccountModule: NSObject {
     @objc func deleteAccount(_ resolve: @escaping RCTPromiseResolveBlock,
                              rejecter reject: @escaping RCTPromiseRejectBlock) {
         logger.info("begin deleteAccount")
-        APIClient.shared.send(.delete, path: "/api/account", authenticated: true) { result in
-            switch result {
-            case .success:
+        Task {
+            do {
+                _ = try await APIClient.shared.send(
+                    .delete,
+                    path: "/api/account",
+                    authenticated: true
+                )
                 KeychainStore.delete(.sessionToken)
                 KeychainStore.delete(.serverDeviceID)
-                DispatchQueue.main.async {
+                await MainActor.run {
                     IOSRuleStore.shared.applyFilterListSnapshot(
                         mode: .blockSpecific,
                         entries: [],
@@ -118,8 +128,8 @@ final class AccountModule: NSObject {
                     logger.info("end deleteAccount: account and local policy cleared")
                     resolve(nil)
                 }
-            case .failure(let error):
-                Self.rejectRequest(reject, dueTo: error)
+            } catch {
+                Self.rejectRequest(reject, dueTo: APIError.normalized(error))
             }
         }
     }
@@ -131,21 +141,21 @@ final class AccountModule: NSObject {
             reject("SERVER", "Failed to encode the activation request", nil)
             return
         }
-        APIClient.shared.send(
-            .post,
-            path: "/api/activation/redeem",
-            jsonBody: body,
-            authenticated: true
-        ) { result in
-            switch result {
-            case .success:
+        Task {
+            do {
+                _ = try await APIClient.shared.send(
+                    .post,
+                    path: "/api/activation/redeem",
+                    jsonBody: body,
+                    authenticated: true
+                )
                 resolve(nil)
-            case .failure(.server(let status)) where status == 400:
+            } catch APIError.server(let status) where status == 400 {
                 reject("INVALID_CODE", "That activation code is invalid or unavailable.", nil)
-            case .failure(.server(let status)) where status == 429:
+            } catch APIError.server(let status) where status == 429 {
                 reject("RATE_LIMITED", "Too many attempts. Try again later.", nil)
-            case .failure(let error):
-                Self.rejectRequest(reject, dueTo: error)
+            } catch {
+                Self.rejectRequest(reject, dueTo: APIError.normalized(error))
             }
         }
     }
@@ -157,14 +167,14 @@ final class AccountModule: NSObject {
             return
         }
 
-        APIClient.shared.sendDecoding(
-            MeResponse.self,
-            method: .get,
-            path: "/api/me",
-            authenticated: true
-        ) { result in
-            switch result {
-            case .success(let me):
+        Task {
+            do {
+                let me = try await APIClient.shared.request(
+                    MeResponse.self,
+                    method: .get,
+                    path: "/api/me",
+                    authenticated: true
+                )
                 var payload: [String: Any] = [
                     "signedIn": true,
                     "userId": me.userId,
@@ -174,15 +184,15 @@ final class AccountModule: NSObject {
                 if let username = me.username { payload["username"] = username }
                 if let email = me.contactEmail ?? me.identityEmail { payload["email"] = email }
                 resolve(payload)
-            case .failure(.signedOut):
+            } catch APIError.signedOut {
                 KeychainStore.delete(.sessionToken)
                 resolve(["signedIn": false])
-            case .failure(let error):
+            } catch {
                 logger.warning("currentAccount: account state unavailable: \(String(describing: error), privacy: .public)")
                 // Fail closed. A stored token alone does not prove that the
                 // account has an active plan or is the server-owned review
                 // demo account, so the UI must not advance past its gates.
-                Self.rejectRequest(reject, dueTo: error)
+                Self.rejectRequest(reject, dueTo: APIError.normalized(error))
             }
         }
     }

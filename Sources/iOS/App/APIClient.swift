@@ -55,33 +55,31 @@ enum APIError: Error {
 
     /// The response body was 2xx but did not decode into the expected type.
     case decoding(underlying: Error)
+
+    /// Async `throws` is not typed before Swift 6, so bridge call sites use
+    /// this to preserve an `APIError` or safely wrap an unexpected error.
+    static func normalized(_ error: Error) -> APIError {
+        error as? APIError ?? .network(underlying: error)
+    }
 }
 
 /// Thin REST client wrapping `URLSession` for the GetBored backend API.
 ///
-/// Two entry points:
-///   - `send`: raw (status, Data) result — use when the caller needs the
-///     status code directly, or expects no body / a non-JSON body.
-///   - `sendDecoding`: `send` followed by `JSONDecoder`, for the common case
-///     of a JSON response decoding into a `Decodable` model.
-///
-/// Threading: `completion` is invoked on whatever queue this client's
-/// `URLSession` delivers its callbacks on — a private background queue, NOT
-/// the main queue. Callers that touch UI or other main-thread-only state
-/// MUST hop to the main queue themselves; this client never does it for them.
+/// Two async entry points:
+///   - `send`: returns the raw HTTP status + body when the caller expects no
+///     JSON body or needs the status code directly.
+///   - `request`: calls `send` and decodes the JSON response into a
+///     `Decodable` model.
 ///
 /// Usage:
 ///
-///   APIClient.shared.send(.get, path: "/api/me") { result in
-///       // runs on URLSession's background queue — hop to main if needed
-///   }
+///   let response = try await APIClient.shared.send(.get, path: "/api/me")
 ///
-///   APIClient.shared.sendDecoding(MeResponse.self, method: .get, path: "/api/me") { result in
-///       switch result {
-///       case .success(let me): ...
-///       case .failure(let error): ...
-///       }
-///   }
+///   let me = try await APIClient.shared.request(
+///       MeResponse.self,
+///       method: .get,
+///       path: "/api/me"
+///   )
 final class APIClient {
 
     static let shared = APIClient()
@@ -112,7 +110,7 @@ final class APIClient {
 
     // MARK: - send
 
-    /// Sends a request and hands back the raw HTTP status + body, mapped to
+    /// Sends a request and returns the raw HTTP status + body, throwing an
     /// `APIError` on failure.
     ///
     /// Call flow:
@@ -121,33 +119,32 @@ final class APIClient {
     ///           │
     ///           ├── authenticated == true
     ///           │       ├── KeychainStore.read(.sessionToken) == nil
-    ///           │       │       └── completion(.failure(.signedOut))   ← NO network call
+    ///           │       │       └── throw .signedOut   ← NO network call
     ///           │       └── token present → will set "Authorization: Bearer <token>"
     ///           │
     ///           ├── buildRequest(...)  ← resolves URL + method + headers + body
     ///           │       └── fails only on a malformed path
-    ///           │               → completion(.failure(.network(URLError(.badURL))))
+    ///           │               → throw .network(URLError(.badURL))
     ///           │
     ///           ▼
-    ///   session.dataTask(with: request) { data, response, transportError in ... }
+    ///   try await session.data(for: request)
     ///           │
-    ///           ├── transportError != nil → completion(.failure(.network(transportError)))
+    ///           ├── transport error → throw .network(error)
     ///           │
-    ///           ├── response is not HTTPURLResponse → completion(.failure(.network(...)))
+    ///           ├── response is not HTTPURLResponse → throw .network(...)
     ///           │
     ///           └── switch on HTTP status code:
-    ///                   ├── 200..<300 → completion(.success((status, data ?? Data())))
-    ///                   ├── 401       → completion(.failure(.signedOut))
-    ///                   ├── 402       → completion(.failure(.subscriptionRequired))
-    ///                   └── other     → completion(.failure(.server(status: status)))
+    ///                   ├── 200..<300 → return (status, data)
+    ///                   ├── 401       → throw .signedOut
+    ///                   ├── 402       → throw .subscriptionRequired
+    ///                   └── other     → throw .server(status: status)
     func send(
         _ method: Method,
         path: String,
         query: [URLQueryItem]? = nil,
         jsonBody: Data? = nil,
-        authenticated: Bool = true,
-        completion: @escaping (Result<(status: Int, data: Data), APIError>) -> Void
-    ) {
+        authenticated: Bool = true
+    ) async throws -> (status: Int, data: Data) {
         Self.logStart(method: method, path: path)
 
         var bearerToken: String?
@@ -155,9 +152,9 @@ final class APIClient {
             guard let token = KeychainStore.read(.sessionToken) else {
                 // No stored session token — treat exactly like a 401 without
                 // spending a network round trip to find that out.
-                Self.logFailure(method: method, path: path, error: .signedOut)
-                completion(.failure(.signedOut))
-                return
+                let error = APIError.signedOut
+                Self.logFailure(method: method, path: path, error: error)
+                throw error
             }
             bearerToken = token
         }
@@ -169,43 +166,44 @@ final class APIClient {
             jsonBody: jsonBody,
             bearerToken: bearerToken
         ) else {
-            Self.logFailure(method: method, path: path, error: .network(underlying: URLError(.badURL)))
-            completion(.failure(.network(underlying: URLError(.badURL))))
-            return
+            let error = APIError.network(underlying: URLError(.badURL))
+            Self.logFailure(method: method, path: path, error: error)
+            throw error
         }
 
-        session.dataTask(with: request) { data, response, transportError in
-            if let transportError {
-                let error = APIError.network(underlying: transportError)
-                Self.logFailure(method: method, path: path, error: error)
-                completion(.failure(error))
-                return
-            }
+        let data: Data
+        let response: URLResponse
+        do {
+            (data, response) = try await session.data(for: request)
+        } catch {
+            let apiError = APIError.network(underlying: error)
+            Self.logFailure(method: method, path: path, error: apiError)
+            throw apiError
+        }
 
-            guard let httpResponse = response as? HTTPURLResponse else {
-                let error = APIError.network(underlying: URLError(.badServerResponse))
-                Self.logFailure(method: method, path: path, error: error)
-                completion(.failure(error))
-                return
-            }
+        guard let httpResponse = response as? HTTPURLResponse else {
+            let error = APIError.network(underlying: URLError(.badServerResponse))
+            Self.logFailure(method: method, path: path, error: error)
+            throw error
+        }
 
-            let payload = data ?? Data()
-            switch httpResponse.statusCode {
-            case 200..<300:
-                Self.logSuccess(method: method, path: path, status: httpResponse.statusCode)
-                completion(.success((status: httpResponse.statusCode, data: payload)))
-            case 401:
-                Self.logFailure(method: method, path: path, error: .signedOut)
-                completion(.failure(.signedOut))
-            case 402:
-                Self.logFailure(method: method, path: path, error: .subscriptionRequired)
-                completion(.failure(.subscriptionRequired))
-            default:
-                let error = APIError.server(status: httpResponse.statusCode)
-                Self.logFailure(method: method, path: path, error: error)
-                completion(.failure(error))
-            }
-        }.resume()
+        switch httpResponse.statusCode {
+        case 200..<300:
+            Self.logSuccess(method: method, path: path, status: httpResponse.statusCode)
+            return (status: httpResponse.statusCode, data: data)
+        case 401:
+            let error = APIError.signedOut
+            Self.logFailure(method: method, path: path, error: error)
+            throw error
+        case 402:
+            let error = APIError.subscriptionRequired
+            Self.logFailure(method: method, path: path, error: error)
+            throw error
+        default:
+            let error = APIError.server(status: httpResponse.statusCode)
+            Self.logFailure(method: method, path: path, error: error)
+            throw error
+        }
     }
 
     // MARK: - Request/response logging
@@ -274,67 +272,71 @@ final class APIClient {
         logLine()
     }
 
-    // MARK: - sendDecoding
+    // MARK: - Decoded requests
 
-    /// `send` followed by `JSONDecoder`, for the common case of a JSON
-    /// response body decoding into a `Decodable` model.
+    /// Calls `send`, then decodes a successful JSON response into `T`.
     ///
     /// Call flow:
     ///
-    ///   sendDecoding(T.self, method, path, ...)
+    ///   request(T.self, method, path, ...)
     ///           │
     ///           ▼
-    ///   send(method, path, ...) { result in ... }
+    ///   try await send(method, path, ...)
     ///           │
-    ///           ├── .failure(let error) → completion(.failure(error))   ← passthrough, unchanged
-    ///           │
-    ///           └── .success((_, data))
-    ///                   ├── JSONDecoder().decode(T.self, from: data) succeeds
-    ///                   │       └── completion(.success(decoded))
-    ///                   └── decode throws
-    ///                           └── completion(.failure(.decoding(underlying: error)))
-    func sendDecoding<T: Decodable>(
+    ///           ├── request failure → rethrow the same `APIError`
+    ///           └── success
+    ///                   ├── decode succeeds → return decoded value
+    ///                   └── decode fails → throw .decoding(error)
+    func request<T: Decodable>(
         _ type: T.Type,
         method: Method,
         path: String,
         query: [URLQueryItem]? = nil,
         jsonBody: Data? = nil,
-        authenticated: Bool = true,
-        completion: @escaping (Result<T, APIError>) -> Void
-    ) {
-        logger.info("begin sendDecoding: \(method.rawValue, privacy: .public) \(path, privacy: .public)")
-        send(
-            method,
-            path: path,
-            query: query,
-            jsonBody: jsonBody,
-            authenticated: authenticated
-        ) { result in
-            switch result {
-            case .failure(let error):
-                switch error {
-                case .signedOut:
-                    logger.warning("end sendDecoding: signedOut for \(path, privacy: .public)")
-                case .subscriptionRequired:
-                    logger.warning("end sendDecoding: subscriptionRequired for \(path, privacy: .public)")
-                case .server(let status):
-                    logger.warning("end sendDecoding: server status=\(status, privacy: .public) for \(path, privacy: .public)")
-                case .network(let underlying):
-                    logger.warning("end sendDecoding: network failure for \(path, privacy: .public): \(underlying as NSError, privacy: .public)")
-                case .decoding(let underlying):
-                    logger.error("end sendDecoding: decoding failure for \(path, privacy: .public): \(underlying as NSError, privacy: .public)")
-                }
-                completion(.failure(error))
-            case .success(let response):
-                do {
-                    let decoded = try JSONDecoder().decode(T.self, from: response.data)
-                    logger.info("end sendDecoding: decoded response for \(path, privacy: .public)")
-                    completion(.success(decoded))
-                } catch {
-                    logger.error("end sendDecoding: decode failure for \(path, privacy: .public): \(error as NSError, privacy: .public)")
-                    completion(.failure(.decoding(underlying: error)))
-                }
-            }
+        authenticated: Bool = true
+    ) async throws -> T {
+        logger.info("begin request: \(method.rawValue, privacy: .public) \(path, privacy: .public)")
+        let response: (status: Int, data: Data)
+        do {
+            response = try await send(
+                method,
+                path: path,
+                query: query,
+                jsonBody: jsonBody,
+                authenticated: authenticated
+            )
+        } catch let error as APIError {
+            Self.logDecodingFailure(path: path, error: error)
+            throw error
+        } catch {
+            let apiError = APIError.network(underlying: error)
+            Self.logDecodingFailure(path: path, error: apiError)
+            throw apiError
+        }
+
+        do {
+            let decoded = try JSONDecoder().decode(T.self, from: response.data)
+            logger.info("end request: decoded response for \(path, privacy: .public)")
+            return decoded
+        } catch {
+            let apiError = APIError.decoding(underlying: error)
+            Self.logDecodingFailure(path: path, error: apiError)
+            throw apiError
+        }
+    }
+
+    private static func logDecodingFailure(path: String, error: APIError) {
+        switch error {
+        case .signedOut:
+            logger.warning("end request: signedOut for \(path, privacy: .public)")
+        case .subscriptionRequired:
+            logger.warning("end request: subscriptionRequired for \(path, privacy: .public)")
+        case .server(let status):
+            logger.warning("end request: server status=\(status, privacy: .public) for \(path, privacy: .public)")
+        case .network(let underlying):
+            logger.warning("end request: network failure for \(path, privacy: .public): \(underlying as NSError, privacy: .public)")
+        case .decoding(let underlying):
+            logger.error("end request: decoding failure for \(path, privacy: .public): \(underlying as NSError, privacy: .public)")
         }
     }
 
