@@ -24,9 +24,9 @@ import {colors, hardShadow, spacing, typography} from '../theme';
 import {ActiveRulesScreen} from './ActiveRulesScreen';
 import {ActivationScreen} from './ActivationScreen';
 
-// ─── Hero derivation ───────────────────────────────────────────────────────
+// ─── Home status derivation ────────────────────────────────────────────────
 
-type Hero = {
+type HomeStatus = {
   word: string;
   color: string;
   variant: 'closed' | 'open';
@@ -53,7 +53,7 @@ function formatSyncTime(syncedAtMs: number): string {
  * sync returns '' — its counts render as the stat pair instead, and its
  * timestamp lives in the footer whisper.
  *
- * Only reached from deriveHero's 'active' filter branch. Registration
+ * Only reached from deriveHomeStatus's 'active' filter branch. Registration
  * outranks sync so the one-time "Connecting…" is never masked by a stale
  * sync line:
  *
@@ -137,7 +137,7 @@ const StatPair: React.FC<{summary: SyncSummary; onPress: () => void}> = ({
  * Precedence (first match wins — a subscription lapse outranks everything,
  * then filter loading/error, then the filter's own kind):
  *
- *   deriveHero(filter, sync, registration)
+ *   deriveHomeStatus(filter, sync, registration)
  *       │
  *       ├── sync 'subscriptionRequired'      → "Paused"    (warning, no Enable)
  *       ├── filter 'loading'                 → "Checking…" (neutral)
@@ -151,11 +151,11 @@ const StatPair: React.FC<{summary: SyncSummary; onPress: () => void}> = ({
  * Only the 'inactive' branch sets showEnable — it's the one Paused state the
  * user can fix in-app; a subscription lapse is fixed off-device.
  */
-function deriveHero(
+function deriveHomeStatus(
   filter: FilterStatusState,
   sync: FilterListSyncState,
   registration: DeviceRegistrationState,
-): Hero {
+): HomeStatus {
   if (sync.kind === 'subscriptionRequired') {
     return {
       word: 'Paused',
@@ -213,11 +213,11 @@ function deriveHero(
   };
 }
 
-function heroEyebrowFor(hero: Hero): string {
-  if (hero.word === 'GetBored') {
+function homeStatusEyebrow(status: HomeStatus): string {
+  if (status.word === 'GetBored') {
     return 'This iPhone · quiet';
   }
-  if (hero.word === 'Paused') {
+  if (status.word === 'Paused') {
     return 'This iPhone · attention';
   }
   return 'This iPhone · status';
@@ -482,7 +482,7 @@ const ProfileGate: React.FC<ProfileGateProps> = ({
  *   pull-to-refresh (RefreshControl) → onPullRefresh()
  *       └──→ Promise.all([sync(), refreshStatus()])  ← 'pulling' guards the spinner
  *
- *   deriveHero(...) picks the hero; showStatPair (active + last sync succeeded)
+ *   deriveHomeStatus(...) chooses the status; showStatPair (active + last sync succeeded)
  *   swaps the rings/word block for the tappable StatPair → opens the rules modal.
  *
  * Modals (rendered always, toggled by local state; both live OUTSIDE the
@@ -530,7 +530,7 @@ export const HomeScreen: React.FC = () => {
   const showProfileGate = signedIn && !reviewDemo && !profileInstalled;
   const showMain = accountAbsent || (signedIn && (reviewDemo || profileInstalled));
 
-  const hero: Hero = reviewDemo
+  const homeStatus: HomeStatus = reviewDemo
     ? {
         word: 'Demo mode',
         color: colors.neutral,
@@ -538,27 +538,32 @@ export const HomeScreen: React.FC = () => {
         substance: 'Live filtering requires a supervised iPhone.',
         showEnable: false,
       }
-    : deriveHero(filterStatus.state, filterSync.state, registration.state);
+    : deriveHomeStatus(
+        filterStatus.state,
+        filterSync.state,
+        registration.state,
+      );
   const accountLabel =
     account.state.kind === 'signedIn' || account.state.kind === 'needsActivation'
       ? account.state.accountLabel
       : undefined;
   const syncSuccess =
     filterSync.state.kind === 'success' ? filterSync.state : null;
-  const showStatPair = hero.word === 'GetBored' && syncSuccess !== null;
+  const showStatPair = homeStatus.word === 'GetBored' && syncSuccess !== null;
   const rulesValue = syncSuccess
     ? countLabel(syncSuccess.summary.sites, 'site', 'sites')
     : '—';
   const footerText = syncSuccess
     ? `Synced automatically · ${formatSyncTime(syncSuccess.syncedAtMs)}`
     : 'This iPhone syncs automatically.';
-  const heroEyebrow = heroEyebrowFor(hero);
+  const heroEyebrow = homeStatusEyebrow(homeStatus);
   // A failed "Turn Filtering On" outranks the generic Paused copy: the
   // ticket shows WHY it failed, and stays until the user retries (the
   // status poll can't clear it — see useFilterStatus.enableError).
-  const warningText = enableError ?? hero.substance;
+  const warningText = enableError ?? homeStatus.substance;
   const showWarningTicket =
-    enableError !== null || (hero.word === 'Paused' && hero.substance !== '');
+    enableError !== null ||
+    (homeStatus.word === 'Paused' && homeStatus.substance !== '');
   const openAccount = useCallback(() => {
     setShowAccount(true);
     // Keep the existing signed-in UI in place while retrying the optional
@@ -605,16 +610,20 @@ export const HomeScreen: React.FC = () => {
               <View style={styles.hero}>
                 <StillWaterRings
                   size={112}
-                  color={hero.color}
-                  variant={hero.variant}
+                  color={homeStatus.color}
+                  variant={homeStatus.variant}
                 />
                 <View style={styles.heroCopy}>
                   <Text style={styles.heroEyebrow}>{heroEyebrow}</Text>
-                  <Text style={[styles.stateWord, {color: heroWordColor(hero)}]}>
-                    {hero.word}
+                  <Text
+                    style={[
+                      styles.stateWord,
+                      {color: homeStatusWordColor(homeStatus)},
+                    ]}>
+                    {homeStatus.word}
                   </Text>
-                  {!showWarningTicket && hero.substance !== '' && (
-                    <Text style={styles.substance}>{hero.substance}</Text>
+                  {!showWarningTicket && homeStatus.substance !== '' && (
+                    <Text style={styles.substance}>{homeStatus.substance}</Text>
                   )}
                 </View>
               </View>
@@ -633,7 +642,7 @@ export const HomeScreen: React.FC = () => {
               </View>
             )}
 
-            {hero.showEnable && (
+            {homeStatus.showEnable && (
               <Pressable
                 onPress={enable}
                 style={({pressed}) => [
@@ -692,8 +701,8 @@ export const HomeScreen: React.FC = () => {
   );
 };
 
-function heroWordColor(hero: Hero): string {
-  if (hero.word === 'Paused') {
+function homeStatusWordColor(status: HomeStatus): string {
+  if (status.word === 'Paused') {
     return colors.warning;
   }
   return colors.label;
