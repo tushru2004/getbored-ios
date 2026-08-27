@@ -1,9 +1,9 @@
 import Foundation
+import GetBoredCore
 import NetworkExtension
-import os.log
 import React
 import UIKit
-import GetBoredCore
+import os.log
 
 /// Errors logged here ride the remote-diagnostics pipeline: DiagnosticsModule
 /// snapshots this subsystem's entries from OSLogStore and ships them to
@@ -43,25 +43,27 @@ final class FilterStatusModule: NSObject {
     ///                           └── filterEnabled = NEFilterManager.isEnabled
     ///                   │
     ///                   ▼
-    ///           KMPDecisionCoreAdapter.filterStatusViewModel(
+    ///           IOSDecisionCore.filterStatusViewModel(
     ///               filterEnabled:, filterErrorMessage:,
-    ///               icloudAvailable: nil, icloudErrorMessage: nil   ← iCloud is gone; fed nil
-    ///           )                                                     only to satisfy Kotlin's
-    ///                   │                                             existing signature
+    ///               icloudAvailable: nil, icloudErrorMessage: nil   ← retained for compatibility
+    ///           )
     ///                   ▼
     ///           resolve({filterState, filterLabel, profileState, signedIn})
     ///
-    /// The Kotlin core still owns filter-state wording (active/inactive/unknown);
-    /// its icloudState/icloudLabel outputs are discarded below rather than
+    /// The native decision core owns filter-state wording (active/inactive/unknown);
+    /// its legacy icloudState/icloudLabel outputs are discarded below rather than
     /// forwarded to JS — `signedIn` (a local Keychain check) replaces them.
-    @objc func current(_ resolve: @escaping RCTPromiseResolveBlock,
-                       rejecter reject: @escaping RCTPromiseRejectBlock) {
+    @objc func current(
+        _ resolve: @escaping RCTPromiseResolveBlock,
+        rejecter reject: @escaping RCTPromiseRejectBlock
+    ) {
         let manager = NEFilterManager.shared()
         manager.loadFromPreferences { filterError in
-            let filterEnabled: Bool? = filterError == nil ? manager.isEnabled : nil
+            let didLoadPreferences = filterError == nil
+            let filterEnabled: Bool? = didLoadPreferences ? manager.isEnabled : nil
             let filterErrorMsg = filterError?.localizedDescription
             let profileState: String
-            if filterError != nil {
+            if !didLoadPreferences {
                 profileState = "unknown"
             } else if manager.providerConfiguration == nil {
                 profileState = "missing"
@@ -69,7 +71,7 @@ final class FilterStatusModule: NSObject {
                 profileState = "installed"
             }
 
-            let vm = KMPDecisionCoreAdapter.filterStatusViewModel(
+            let vm = IOSDecisionCore.filterStatusViewModel(
                 filterEnabled: filterEnabled,
                 filterErrorMessage: filterErrorMsg,
                 icloudAvailable: nil,
@@ -98,8 +100,10 @@ final class FilterStatusModule: NSObject {
     ///           │
     ///           ├── nil        → createDevice(input)              ← POST /api/devices
     ///           └── existingID → updateDevice(existingID, input)  ← PUT /api/devices/{id}
-    @objc func registerDevice(_ resolve: @escaping RCTPromiseResolveBlock,
-                              rejecter reject: @escaping RCTPromiseRejectBlock) {
+    @objc func registerDevice(
+        _ resolve: @escaping RCTPromiseResolveBlock,
+        rejecter reject: @escaping RCTPromiseRejectBlock
+    ) {
         let input = currentDeviceInput()
         guard let existingID = KeychainStore.read(.serverDeviceID) else {
             createDevice(input: input, resolve: resolve, rejecter: reject)
@@ -121,9 +125,11 @@ final class FilterStatusModule: NSObject {
     ///           ├── returns device → KeychainStore.write(device.id, for: .serverDeviceID)
     ///           │                    resolve(deviceDictionary(device))
     ///           └── throws error   → reject(for: error, rejecter: reject)
-    private func createDevice(input: DeviceInput,
-                              resolve: @escaping RCTPromiseResolveBlock,
-                              rejecter reject: @escaping RCTPromiseRejectBlock) {
+    private func createDevice(
+        input: DeviceInput,
+        resolve: @escaping RCTPromiseResolveBlock,
+        rejecter reject: @escaping RCTPromiseRejectBlock
+    ) {
         guard let body = try? JSONEncoder().encode(input) else {
             reject(RejectCode.server, "Failed to encode device registration payload.", nil)
             return
@@ -160,9 +166,11 @@ final class FilterStatusModule: NSObject {
     ///           ├── throws .server(404) → KeychainStore.delete(.serverDeviceID)
     ///           │                           createDevice(input)  ← self-heal, retries as new
     ///           └── throws other error  → reject(for: error, rejecter: reject)
-    private func updateDevice(id: String, input: DeviceInput,
-                              resolve: @escaping RCTPromiseResolveBlock,
-                              rejecter reject: @escaping RCTPromiseRejectBlock) {
+    private func updateDevice(
+        id: String, input: DeviceInput,
+        resolve: @escaping RCTPromiseResolveBlock,
+        rejecter reject: @escaping RCTPromiseRejectBlock
+    ) {
         guard let body = try? JSONEncoder().encode(input) else {
             reject(RejectCode.server, "Failed to encode device registration payload.", nil)
             return
@@ -202,8 +210,10 @@ final class FilterStatusModule: NSObject {
     ///                   ├── throws .server(404) → KeychainStore.delete(.serverDeviceID)
     ///                   │                          resolve(unregisteredSnapshotDictionary())
     ///                   └── throws other error  → reject(for: error, rejecter: reject)
-    @objc func currentDeviceRegistration(_ resolve: @escaping RCTPromiseResolveBlock,
-                                         rejecter reject: @escaping RCTPromiseRejectBlock) {
+    @objc func currentDeviceRegistration(
+        _ resolve: @escaping RCTPromiseResolveBlock,
+        rejecter reject: @escaping RCTPromiseRejectBlock
+    ) {
         guard let deviceID = KeychainStore.read(.serverDeviceID) else {
             resolve(unregisteredSnapshotDictionary())
             return
@@ -241,13 +251,17 @@ final class FilterStatusModule: NSObject {
     ///           saveToPreferences
     ///                ├── save error (incl. user denying the consent prompt) → reject(SERVER)
     ///                └── ok → resolve(nil)   ← caller re-reads current() for the new state
-    @objc func enableFilter(_ resolve: @escaping RCTPromiseResolveBlock,
-                            rejecter reject: @escaping RCTPromiseRejectBlock) {
+    @objc func enableFilter(
+        _ resolve: @escaping RCTPromiseResolveBlock,
+        rejecter reject: @escaping RCTPromiseRejectBlock
+    ) {
         logger.info("begin enableFilter")
         let manager = NEFilterManager.shared()
         manager.loadFromPreferences { loadError in
             if let loadError {
-                logger.error("end enableFilter: loadFromPreferences failed: \(loadError as NSError, privacy: .public)")
+                logger.error(
+                    "end enableFilter: loadFromPreferences failed: \(loadError as NSError, privacy: .public)"
+                )
                 reject("SERVER", loadError.localizedDescription, loadError)
                 return
             }
@@ -260,7 +274,9 @@ final class FilterStatusModule: NSObject {
             manager.isEnabled = true
             manager.saveToPreferences { saveError in
                 if let saveError {
-                    logger.error("end enableFilter: saveToPreferences failed: \(saveError as NSError, privacy: .public)")
+                    logger.error(
+                        "end enableFilter: saveToPreferences failed: \(saveError as NSError, privacy: .public)"
+                    )
                     reject("SERVER", saveError.localizedDescription, saveError)
                     return
                 }
@@ -274,8 +290,24 @@ final class FilterStatusModule: NSObject {
     /// it in the system browser. The browser download is deliberate: iOS does
     /// not let a third-party app silently install a configuration profile, so
     /// the customer completes Apple's consent flow in Settings.
-    @objc func downloadProfile(_ resolve: @escaping RCTPromiseResolveBlock,
-                               rejecter reject: @escaping RCTPromiseRejectBlock) {
+    ///
+    /// Call flow:
+    ///
+    ///   JS calls downloadProfile()
+    ///           │
+    ///           ▼
+    ///   POST /api/profile-downloads
+    ///           │
+    ///           ├── malformed/non-HTTPS URL → reject(SERVER); do not open it
+    ///           ├── valid URL → UIApplication.open(...)
+    ///           │       ├── opened → resolve(nil)
+    ///           │       └── not opened → reject(SERVER)
+    ///           ├── 409 → explain that the profile is not configured
+    ///           └── other error → reject(for:rejecter:)
+    @objc func downloadProfile(
+        _ resolve: @escaping RCTPromiseResolveBlock,
+        rejecter reject: @escaping RCTPromiseRejectBlock
+    ) {
         logger.info("begin downloadProfile")
         Task {
             do {
@@ -285,7 +317,8 @@ final class FilterStatusModule: NSObject {
                     path: "/api/profile-downloads"
                 )
                 guard let url = URL(string: response.downloadUrl),
-                      url.scheme == "https" else {
+                    url.scheme == "https"
+                else {
                     logger.error("end downloadProfile: server returned an invalid HTTPS URL")
                     reject(RejectCode.server, "The profile download link was invalid.", nil)
                     return
@@ -300,7 +333,8 @@ final class FilterStatusModule: NSObject {
                     reject(RejectCode.server, "Could not open the profile download.", nil)
                 }
             } catch APIError.server(let status) where status == 409 {
-                logger.warning("end downloadProfile: administrator has not configured a profile password")
+                logger.warning(
+                    "end downloadProfile: administrator has not configured a profile password")
                 reject(
                     RejectCode.server,
                     "Your protection profile is not ready. Contact GetBored Support.",
@@ -342,8 +376,10 @@ final class FilterStatusModule: NSObject {
     /// An empty snapshot (all arrays empty) is a VALID response — it means the
     /// admin unassigned every list — and is applied exactly like a populated
     /// one, clearing the phone's rules instead of leaving a stale snapshot.
-    @objc func syncFilterLists(_ resolve: @escaping RCTPromiseResolveBlock,
-                               rejecter reject: @escaping RCTPromiseRejectBlock) {
+    @objc func syncFilterLists(
+        _ resolve: @escaping RCTPromiseResolveBlock,
+        rejecter reject: @escaping RCTPromiseRejectBlock
+    ) {
         guard let deviceID = KeychainStore.read(.serverDeviceID) else {
             if isSignedIn() {
                 reject(RejectCode.notRegistered, "This device has not registered yet.", nil)
@@ -385,17 +421,30 @@ final class FilterStatusModule: NSObject {
 
     /// Returns the currently active filter rules from the shared App-Group store.
     /// Reads synchronously from UserDefaults — no network call required.
-    @objc func loadActiveRules(_ resolve: RCTPromiseResolveBlock,
-                               rejecter reject: RCTPromiseRejectBlock) {
+    ///
+    /// Call flow:
+    ///
+    ///   JS calls loadActiveRules()
+    ///           │
+    ///           ▼
+    ///   IOSRuleStore.shared
+    ///           │
+    ///           ├── reads the current App-Group snapshot
+    ///           └── resolves one bridge dictionary for the UI
+    @objc func loadActiveRules(
+        _ resolve: RCTPromiseResolveBlock,
+        rejecter reject: RCTPromiseRejectBlock
+    ) {
         let store = IOSRuleStore.shared
         let entries = store.loadSiteRules().map { $0.url }
-        resolve([
-            "mode":        store.getMode(),
-            "entries":     entries,
-            "exceptions":  store.loadExceptions(),
-            "allowedApps": store.loadAllowedApps(),
-            "blockedApps": store.loadBlockedApps(),
-        ] as [String: Any])
+        resolve(
+            [
+                "mode": store.getMode(),
+                "entries": entries,
+                "exceptions": store.loadExceptions(),
+                "allowedApps": store.loadAllowedApps(),
+                "blockedApps": store.loadBlockedApps(),
+            ] as [String: Any])
     }
 
     // MARK: - Shared error mapping
@@ -446,7 +495,9 @@ final class FilterStatusModule: NSObject {
             reject(RejectCode.server, "Server returned status \(status).", error)
 
         case .decoding(let underlying):
-            reject(RejectCode.server, "Failed to decode server response: \(underlying.localizedDescription)", error)
+            reject(
+                RejectCode.server,
+                "Failed to decode server response: \(underlying.localizedDescription)", error)
         }
     }
 
@@ -492,15 +543,16 @@ final class FilterStatusModule: NSObject {
     }
 
     private func appVersionString() -> String {
-        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
+        let version =
+            Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
         let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String
 
         switch (version, build) {
-        case let (version?, build?) where !version.isEmpty && !build.isEmpty:
+        case (let version?, let build?) where !version.isEmpty && !build.isEmpty:
             return "\(version) (\(build))"
-        case let (version?, _) where !version.isEmpty:
+        case (let version?, _) where !version.isEmpty:
             return version
-        case let (_, build?) where !build.isEmpty:
+        case (_, let build?) where !build.isEmpty:
             return build
         default:
             return "unknown"

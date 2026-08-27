@@ -4,7 +4,7 @@ import XCTest
 final class SharedIdentifierUsageTests: XCTestCase {
     func testSwiftCallSitesUseSharedIdentifierConstants() throws {
         let paths = [
-            "Sources/iOS/App/WhitelistManager.swift",
+            "Sources/iOS/Shared/IOSDecisionCore.swift",
             "Sources/iOS/iOSBlockHandler/BlockHandler.swift",
             "Sources/iOS/iOSFlowInspector/FlowInspector.swift",
             "Sources/iOS/SafariAppProxyProvider/SafariAppProxyProvider.swift",

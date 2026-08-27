@@ -4,12 +4,11 @@ import Network
 import NetworkExtension
 import os.log
 
-/// `NEAppProxyProvider` subclass that runs as the Safari per-app VPN extension.
+/// Safari per-app VPN provider used by the App Proxy spike.
 ///
-/// **Role in the parent-child architecture:**
-/// This is layer 1 of 3 in the Safari filter defense — it intercepts every
-/// outbound TCP flow from Safari and asks Kotlin for the relay decision using
-/// the rule snapshot plus the active Safari parent-child context.
+/// This target is not part of the Release 1.0 runtime. When its profile is
+/// installed for the spike, it receives Safari flows, reads the shared rule and
+/// page-context snapshot, then asks `IOSDecisionCore` whether to relay them.
 ///
 /// **Lifecycle:**
 /// - iOS calls `startProxy(...)` once when the per-app VPN comes up.
@@ -28,16 +27,14 @@ final class SafariAppProxyProvider: NEAppProxyProvider {
         category: "SafariAppProxyProvider"
     )
 
-    /// Reads/writes the App Group keys that hold the active Safari page context
-    /// + child registrations + spike event log. Owned by:
-    /// - `SafariChildRegistrationExtension` (writer)
-    /// - this provider (reader)
-    /// - host app `ContentView` (reader for the spike inspector UI).
+    /// Shares page context and spike events through the App Group.
+    /// The Safari registration extension writes page context, this provider
+    /// reads it, and the host app can inspect the recorded events.
     private let contextStore = SafariParentChildContextStore()
     private let ruleStore = IOSRuleStore.shared
 
-    /// Contexts older than 60s are treated as stale to prevent background tabs
-    /// from reusing old whitelists while still allowing delayed CNBC resources.
+    /// Treats page context older than 60 seconds as stale so a background tab
+    /// cannot authorize an unrelated later Safari flow.
     private let activeContextMaxAge: TimeInterval = 60
     private let activeContextRefreshMinAge: TimeInterval = 3
 
@@ -46,7 +43,8 @@ final class SafariAppProxyProvider: NEAppProxyProvider {
     /// suffix preserved for compatibility.
     private let systemAllowedSuffixes: [String] = {
         var suffixes = SystemAllowList.load(from: Bundle(for: SafariAppProxyProvider.self))
-        if !suffixes.contains("amazontrust.com") {
+        let includesAmazonTrust = suffixes.contains("amazontrust.com")
+        if !includesAmazonTrust {
             suffixes.append("amazontrust.com")
         }
         return suffixes
@@ -59,7 +57,8 @@ final class SafariAppProxyProvider: NEAppProxyProvider {
 
     /// Serial queue that owns all `NWConnection` + `relays` dict mutations.
     /// Single queue → no locks required, FIFO ordering of state transitions.
-    private let connectionQueue = DispatchQueue(label: GetBoredIdentifiers.Queue.iosSafariConnections)
+    private let connectionQueue = DispatchQueue(
+        label: GetBoredIdentifiers.Queue.iosSafariConnections)
 
     /// Strong references to in-flight relays, keyed by `ObjectIdentifier(flow)`.
     /// Without this dict, ARC would free a relay the moment `handleNewFlow`
@@ -110,14 +109,11 @@ final class SafariAppProxyProvider: NEAppProxyProvider {
     /// (per-app VPN scope means there is no system fallback path).
     ///
     /// Step-by-step:
-    /// 1. **Policy gate** (`shouldRelayFlow`) — runs the KMP direct Safari
-    ///    proxy decision (site_rules / system allowlist) + KMP parent-child
-    ///    decision (active Safari page context match).
-    ///    - `cnbc.com` is the active parent → `Decision.matchActiveParent` → allow.
-    ///    - `sb.scorecardresearch.com` is a registered child of `cnbc.com`
-    ///      within the 60s active window (`activeContextMaxAge`) →
-    ///      `Decision.matchActiveChild` → allow.
-    ///    - `random-tracker.example.com` with no parent context → block.
+    /// 1. **Policy gate** (`shouldRelayFlow`) — `IOSDecisionCore` evaluates
+    ///    the shared rules and the current Safari parent-child context.
+    ///    - An allowed host relays directly.
+    ///    - A recent registered child can inherit its active parent's access.
+    ///    - An unrelated host is not relayed.
     /// 2. **TCP-only filter** — `NEAppProxyFlow` is abstract; concrete subclasses
     ///    are `NEAppProxyTCPFlow` and `NEAppProxyUDPFlow`. This spike only
     ///    relays TCP (HTTPS = TCP/443). UDP / QUIC → drop.
@@ -164,7 +160,9 @@ final class SafariAppProxyProvider: NEAppProxyProvider {
     override func handleNewFlow(_ flow: NEAppProxyFlow) -> Bool {
         let endpoint = describeRemoteEndpoint(for: flow)
         let source = flow.metaData.sourceAppSigningIdentifier
-        logger.info("Safari App Proxy flow source=\(source, privacy: .public) endpoint=\(endpoint, privacy: .public)")
+        logger.info(
+            "Safari App Proxy flow source=\(source, privacy: .public) endpoint=\(endpoint, privacy: .public)"
+        )
         appendEvent("FLOW source=\(source) endpoint=\(endpoint)")
 
         guard shouldRelayFlow(endpoint: endpoint) else {
@@ -259,6 +257,17 @@ final class SafariAppProxyProvider: NEAppProxyProvider {
         /// `NWConnection(to:using: .tcp)` does not connect synchronously —
         /// it transitions through `.preparing` → `.ready` (or `.failed`). The
         /// `stateUpdateHandler` is where the next step happens.
+        ///
+        /// Call flow:
+        ///
+        ///   SafariAppProxyProvider.handleNewFlow stores relay → start()
+        ///           │
+        ///           ├── makeEndpoint() == nil → record unsupported endpoint → close()
+        ///           │
+        ///           └── endpoint available
+        ///                   └── NWConnection.start(queue:)  ← returns immediately
+        ///                           │
+        ///                           └── stateUpdateHandler later → handleConnectionState(_:) → openFlow()
         func start() {
             guard let endpoint = makeEndpoint() else {
                 eventSink("RELAY_UNSUPPORTED_ENDPOINT endpoint=\(flow.remoteEndpoint)")
@@ -324,7 +333,8 @@ final class SafariAppProxyProvider: NEAppProxyProvider {
             let completion: (Error?) -> Void = { [weak self] error in
                 guard let self else { return }
                 if let error {
-                    self.eventSink("FLOW_OPEN_FAILED endpoint=\(self.flow.remoteEndpoint) error=\(error)")
+                    self.eventSink(
+                        "FLOW_OPEN_FAILED endpoint=\(self.flow.remoteEndpoint) error=\(error)")
                     self.close()
                     return
                 }
@@ -372,7 +382,8 @@ final class SafariAppProxyProvider: NEAppProxyProvider {
             flow.readData { [weak self] data, error in
                 guard let self else { return }
                 if let error {
-                    self.eventSink("FLOW_READ_FAILED endpoint=\(self.flow.remoteEndpoint) error=\(error)")
+                    self.eventSink(
+                        "FLOW_READ_FAILED endpoint=\(self.flow.remoteEndpoint) error=\(error)")
                     self.close()
                     return
                 }
@@ -383,17 +394,22 @@ final class SafariAppProxyProvider: NEAppProxyProvider {
                 }
                 self.flowBytesRead += data.count
                 if self.flowBytesRead == data.count {
-                    self.eventSink("FLOW_READ_FIRST endpoint=\(self.flow.remoteEndpoint) bytes=\(data.count)")
+                    self.eventSink(
+                        "FLOW_READ_FIRST endpoint=\(self.flow.remoteEndpoint) bytes=\(data.count)")
                 }
-                self.connection?.send(content: data, completion: .contentProcessed { [weak self] error in
-                    guard let self else { return }
-                    if let error {
-                        self.eventSink("REMOTE_WRITE_FAILED endpoint=\(self.flow.remoteEndpoint) error=\(error)")
-                        self.close()
-                        return
-                    }
-                    self.readFromFlow()
-                })
+                self.connection?.send(
+                    content: data,
+                    completion: .contentProcessed { [weak self] error in
+                        guard let self else { return }
+                        if let error {
+                            self.eventSink(
+                                "REMOTE_WRITE_FAILED endpoint=\(self.flow.remoteEndpoint) error=\(error)"
+                            )
+                            self.close()
+                            return
+                        }
+                        self.readFromFlow()
+                    })
             }
         }
 
@@ -430,10 +446,12 @@ final class SafariAppProxyProvider: NEAppProxyProvider {
         ///                   │
         ///                   └── data nil/empty + !isComplete → readFromConnection()  ← re-arm (keep-alive gap)
         private func readFromConnection() {
-            connection?.receive(minimumIncompleteLength: 1, maximumLength: 64 * 1024) { [weak self] data, _, isComplete, error in
+            connection?.receive(minimumIncompleteLength: 1, maximumLength: 64 * 1024) {
+                [weak self] data, _, isComplete, error in
                 guard let self else { return }
                 if let error {
-                    self.eventSink("REMOTE_READ_FAILED endpoint=\(self.flow.remoteEndpoint) error=\(error)")
+                    self.eventSink(
+                        "REMOTE_READ_FAILED endpoint=\(self.flow.remoteEndpoint) error=\(error)")
                     self.close()
                     return
                 }
@@ -441,10 +459,14 @@ final class SafariAppProxyProvider: NEAppProxyProvider {
                     self.remoteBytesRead += data.count
                     self.remoteChunksRead += 1
                     if self.remoteBytesRead == data.count {
-                        self.eventSink("REMOTE_READ_FIRST endpoint=\(self.flow.remoteEndpoint) bytes=\(data.count)")
+                        self.eventSink(
+                            "REMOTE_READ_FIRST endpoint=\(self.flow.remoteEndpoint) bytes=\(data.count)"
+                        )
                     }
                     if Self.verboseChunkEventsEnabled {
-                        self.eventSink("FLOW_WRITE_START endpoint=\(self.flow.remoteEndpoint) chunk=\(self.remoteChunksRead) bytes=\(data.count)")
+                        self.eventSink(
+                            "FLOW_WRITE_START endpoint=\(self.flow.remoteEndpoint) chunk=\(self.remoteChunksRead) bytes=\(data.count)"
+                        )
                     }
                     self.flow.write(data) { [weak self] error in
                         guard let self else { return }
@@ -453,7 +475,9 @@ final class SafariAppProxyProvider: NEAppProxyProvider {
                             return
                         }
                         if Self.verboseChunkEventsEnabled {
-                            self.eventSink("FLOW_WRITE_DONE endpoint=\(self.flow.remoteEndpoint) chunk=\(self.remoteChunksRead) bytes=\(data.count)")
+                            self.eventSink(
+                                "FLOW_WRITE_DONE endpoint=\(self.flow.remoteEndpoint) chunk=\(self.remoteChunksRead) bytes=\(data.count)"
+                            )
                         }
                         if isComplete {
                             self.flow.closeWriteWithError(nil)
@@ -509,7 +533,9 @@ final class SafariAppProxyProvider: NEAppProxyProvider {
 
             let description = String(describing: flow.remoteEndpoint)
             let parts = description.split(separator: ":", maxSplits: 1).map(String.init)
-            guard parts.count == 2, let port = UInt16(parts[1]), let nwPort = NWEndpoint.Port(rawValue: port) else {
+            guard parts.count == 2, let port = UInt16(parts[1]),
+                let nwPort = NWEndpoint.Port(rawValue: port)
+            else {
                 return nil
             }
             return .hostPort(host: NWEndpoint.Host(parts[0]), port: nwPort)
@@ -545,9 +571,8 @@ final class SafariAppProxyProvider: NEAppProxyProvider {
 
     /// Top-level allow/block decision for an outbound flow.
     ///
-    /// Swift owns the side effects around the Kotlin decision: reading stored
-    /// context, refreshing context timestamps, saving flow observations, and
-    /// appending structured events for the host app's spike inspector.
+    /// The provider owns the runtime work around the pure decision: it reads
+    /// stored context, applies requested updates, and records spike events.
     ///
     /// Call flow:
     ///
@@ -556,7 +581,7 @@ final class SafariAppProxyProvider: NEAppProxyProvider {
     ///           ├── contextStore.loadActiveContext()       ← reads App Group UserDefaults
     ///           ├── contextStore.mergedChildren(for:)      ← merges registered child domains
     ///           │
-    ///           ├── KMPDecisionCoreAdapter.safariRelayDecision(...)
+    ///           ├── IOSDecisionCore.safariRelayDecision(...)
     ///           │       └── returns Decision (shouldRelay, events, side-effect flags)
     ///           │
     ///           ├── decision.shouldRefreshActiveContext?
@@ -577,13 +602,22 @@ final class SafariAppProxyProvider: NEAppProxyProvider {
     ///           └── return decision.shouldRelay
     private func shouldRelayFlow(endpoint: String) -> Bool {
         let active = contextStore.loadActiveContext()
-        var activeChildren: [String] = []
+        let activeChildren: [String]
         if let active {
             let mergedChildren = contextStore.mergedChildren(for: active.parentDomain)
             activeChildren = Array(mergedChildren).sorted()
+        } else {
+            activeChildren = []
         }
-        let activeContextAgeSeconds = active.map { Date().timeIntervalSince($0.receivedAt) } ?? 0
-        let decision = KMPDecisionCoreAdapter.safariRelayDecision(
+
+        let activeContextAgeSeconds: TimeInterval
+        if let active {
+            activeContextAgeSeconds = Date().timeIntervalSince(active.receivedAt)
+        } else {
+            activeContextAgeSeconds = 0
+        }
+
+        let decision = IOSDecisionCore.safariRelayDecision(
             endpoint: endpoint,
             using: loadedFilterRules(),
             systemAllowedSuffixes: systemAllowedSuffixes,
@@ -623,8 +657,7 @@ final class SafariAppProxyProvider: NEAppProxyProvider {
         return decision.shouldRelay
     }
 
-    /// Load the Swift-owned policy snapshot from App Group storage, then pass
-    /// it across the KMP adapter boundary for pure decision logic.
+    /// Loads the App Group snapshot consumed by `IOSDecisionCore`.
     private func loadedFilterRules() -> LoadedFilterRules {
         ruleStore.loadFilterRules()
     }

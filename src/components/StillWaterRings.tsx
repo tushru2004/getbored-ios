@@ -23,6 +23,7 @@ type Props = {
  * size 120), with opacity increasing toward the center.
  */
 export const StillWaterRings: React.FC<Props> = ({size, color, variant}) => {
+  const borderWidth = Math.max(2, size * 0.022);
   const ring = (diameterRatio: number, opacity: number, dashed: boolean) => {
     const diameter = size * diameterRatio;
     return (
@@ -34,7 +35,7 @@ export const StillWaterRings: React.FC<Props> = ({size, color, variant}) => {
             height: diameter,
             borderRadius: diameter / 2,
             borderColor: color,
-            borderWidth: Math.max(2, size * 0.022),
+            borderWidth,
             borderStyle: dashed ? 'dashed' : 'solid',
             opacity,
           },
@@ -60,7 +61,7 @@ export const StillWaterRings: React.FC<Props> = ({size, color, variant}) => {
             borderRadius: dotDiameter / 2,
             backgroundColor: open ? 'transparent' : color,
             borderColor: color,
-            borderWidth: open ? Math.max(2, size * 0.022) : 0,
+            borderWidth: open ? borderWidth : 0,
           },
         ]}
       />

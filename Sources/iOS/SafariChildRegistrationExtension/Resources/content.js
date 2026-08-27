@@ -1,27 +1,24 @@
 /**
  * GetBored Safari Web Extension — child-domain registration script.
  *
- * Runs at the very start of every page the user visits. Looks at the
- * page's element tree, collects every external host the page loads
- * resources from (advertising networks, trackers, fonts, image servers),
- * and sends that list to the iOS host app so the network filter can
- * decide what to allow.
+ * Safari parent-child registration spike. This target is not part of the
+ * Release 1.0 runtime. It observes a page's external hosts and sends the
+ * snapshot to the native handler for spike inspection.
  *
  *
  * Why this script exists
  * ──────────────────────
- * The iOS network filter (NEFilterDataProvider) only sees raw network
- * connections. It has no way to know that
+ * The spike tests whether native filtering could associate a raw connection
+ * with the page that requested it. A network provider alone cannot know that
  * `sb.scorecardresearch.com` was loaded BY `cnbc.com`. By telling the
  * host app
  *
  *     "the active page is cnbc.com, and it loads
  *      sb.scorecardresearch.com, ad.doubleclick.net, ..."
  *
- * the filter can apply a parent-scoped rule:
+ * the spike can record a parent-scoped relationship:
  *
- *     "if cnbc.com is the active page, allow its declared children;
- *      otherwise block them."
+ *     "cnbc.com is the active page and declared these child domains."
  *
  *
  * What gets sent, and where
@@ -44,9 +41,8 @@
  *        Saves the list to shared storage (App Group key:
  *        safari_parent_child_active_context_v1).
  *
- *   5. NEFilterDataProvider
- *        Reads that shared storage on every network connection and
- *        applies parent-scoped allow/block.
+ *   5. Safari spike providers
+ *        Read the shared context while evaluating the experiment.
  *
  * Fallback path (used when step 2 fails):
  *
@@ -67,7 +63,6 @@
  * `src` or `href` attributes and re-register, but at most once every
  * 1500 ms so a 200-element ad burst becomes ONE call.
  */
-
 
 /**
  * Take a URL string (or relative path) and return its lowercased hostname.
@@ -116,7 +111,6 @@ function hostnameFromURL(rawValue) {
     return null;
   }
 }
-
 
 /**
  * Build a snapshot of every external host the current page touches.
@@ -187,7 +181,7 @@ function collectChildDomains() {
   // Each `entry.name` is the absolute URL of one completed network
   // request, for example
   //     "https://sb.scorecardresearch.com/beacon?c1=2&c2=..."
-  for (const entry of performance.getEntriesByType("resource")) {
+  for (const entry of performance.getEntriesByType('resource')) {
     const host = hostnameFromURL(entry.name);
     if (host && host !== parentDomain) childDomains.add(host);
   }
@@ -199,20 +193,21 @@ function collectChildDomains() {
   //
   //     <img src="https://static-redesign.cnbcfm.com/foo.png">
   //     <link href="https://fonts.googleapis.com/css2?family=...">
-  for (const element of document.querySelectorAll("[src], [href]")) {
-    const host = hostnameFromURL(element.currentSrc || element.src || element.href);
+  for (const element of document.querySelectorAll('[src], [href]')) {
+    const host = hostnameFromURL(
+      element.currentSrc || element.src || element.href,
+    );
     if (host && host !== parentDomain) childDomains.add(host);
   }
 
   return {
-    type: "getbored.childRegistrationProbe",
+    type: 'getbored.childRegistrationProbe',
     url: location.href,
     parentDomain,
     childDomains: Array.from(childDomains).sort(),
-    capabilities: detectExtensionCapabilities()
+    capabilities: detectExtensionCapabilities(),
   };
 }
-
 
 /**
  * Detect which network-control extension APIs the current browser exposes.
@@ -279,8 +274,8 @@ function collectChildDomains() {
  *     //   }
  */
 function detectExtensionCapabilities() {
-  const browserGlobal = typeof browser !== "undefined" ? browser : null;
-  const chromeGlobal = typeof chrome !== "undefined" ? chrome : null;
+  const browserGlobal = typeof browser !== 'undefined' ? browser : null;
+  const chromeGlobal = typeof chrome !== 'undefined' ? chrome : null;
 
   return {
     browserProxy: Boolean(browserGlobal?.proxy),
@@ -289,96 +284,51 @@ function detectExtensionCapabilities() {
     chromeWebRequest: Boolean(chromeGlobal?.webRequest),
     browserDeclarativeNetRequest: Boolean(browserGlobal?.declarativeNetRequest),
     chromeDeclarativeNetRequest: Boolean(chromeGlobal?.declarativeNetRequest),
-    nativeMessaging: Boolean(browserGlobal?.runtime?.sendNativeMessage)
+    nativeMessaging: Boolean(browserGlobal?.runtime?.sendNativeMessage),
   };
 }
 
-
 /**
- * Send the current page's parent + child host list to the iOS host app.
- *
- * Called from
- * ───────────
- *   1. The bottom of this file, once at page start. The page exists
- *      but most resources have not loaded yet, so the list is small
- *      (about 5–10 hosts on cnbc.com).
- *   2. The MutationObserver callback at the bottom of this file. When
- *      a new src/href lands, the observer arms a 1500 ms timer.
- *      Further changes that arrive while the timer is running are
- *      ignored, so a burst of 200 ad mutations becomes one re-send.
- *
- * Builds a fresh list every call. The host app overwrites the previous
- * registration, so we don't need to track diffs here.
- *
- * Two paths to the host app
- * ─────────────────────────
- *   Primary (uses background.js as a relay):
- *     content.js
- *       → browser.runtime.sendMessage()
- *       → background.js
- *       → browser.runtime.sendNativeMessage()
- *       → SafariWebExtensionHandler.swift
- *
- *   Fallback (used when background.js is dead — see below):
- *     content.js
- *       → browser.runtime.sendNativeMessage()
- *       → SafariWebExtensionHandler.swift
- *
- * Why the fallback exists
- * ───────────────────────
- *   iOS Safari shuts down background.js after about 30 seconds of
- *   idle time (Apple bug report FB127681420). When the user comes
- *   back to a backgrounded tab and we try to re-register, the primary
- *   `sendMessage` rejects. We then call the fallback, which talks to
- *   the native handler directly — see
- *   `registerChildDomainsViaNativeFallback` below.
- *
- * The probeStage field
- * ────────────────────
- *   `probeStage` is a debug breadcrumb stamped into the payload so
- *   the host app inspector can tell which path delivered any given
- *   message:
- *     - "content-script"               → primary path succeeded
- *     - "content-script-direct-native" → fallback path was used
- *
- * @example
- *   // Healthy case — background.js alive, page just loaded:
- *   registerChildDomains()
- *     // → console.log "GetBored child-registration probe sent"
- *     //   App Group write:
- *     //     safari_parent_child_active_context_v1 = {
- *     //       parentDomain: "cnbc.com",
- *     //       childDomains: [65 hosts...],
- *     //       receivedAt: 2026-05-09T16:08:48Z
- *     //     }
- *
- *   // Failure case — background.js killed by iOS,
- *   //                user returns to a backgrounded tab:
- *   registerChildDomains()
- *     // → console.warn "GetBored background probe failed; trying native direct"
- *     // → registerChildDomainsViaNativeFallback runs
- *     //   (tries 3 application identifiers in turn)
+ * Returns the available extension runtime API. Safari exposes `browser`, while
+ * some compatible hosts expose `chrome`; callers use the same messaging shape
+ * after this lookup succeeds.
  */
 function extensionRuntime() {
-  if (typeof browser !== "undefined" && browser?.runtime) return browser.runtime;
-  if (typeof chrome !== "undefined" && chrome?.runtime) return chrome.runtime;
+  if (typeof browser !== 'undefined' && browser?.runtime)
+    return browser.runtime;
+  if (typeof chrome !== 'undefined' && chrome?.runtime) return chrome.runtime;
   return null;
 }
-
 
 let lastRegistrationStartedAt = 0;
 const MIN_REGISTRATION_INTERVAL_MS = 1000;
 
-
-function registerChildDomains(trigger = "manual") {
+/**
+ * Sends the current page's parent and child-host snapshot to the native spike.
+ *
+ * Call flow:
+ *
+ *   page start, visible refresh, or mutation observer → registerChildDomains()
+ *       │
+ *       ├── runtime messaging unavailable → direct native fallback
+ *       ├── previous send started < 1 s ago → return  ← coalesces bursts
+ *       └── collectChildDomains() → runtime.sendMessage(message)
+ *               │
+ *               ├── background relay resolves → log success
+ *               └── throws or rejects → direct native fallback
+ *
+ * The `probeStage` field tells the native spike inspector whether the
+ * background relay or the direct fallback delivered the snapshot.
+ */
+function registerChildDomains(trigger = 'manual') {
   const runtime = extensionRuntime();
   if (!runtime?.sendMessage) {
-    console.warn("GetBored child-registration runtime unavailable", { trigger });
+    console.warn('GetBored child-registration runtime unavailable', {trigger});
     registerChildDomainsViaNativeFallback({
       ...collectChildDomains(),
-      probeStage: "content-script-direct-native",
+      probeStage: 'content-script-direct-native',
       probeTrigger: trigger,
-      backgroundError: "runtime.sendMessage unavailable"
+      backgroundError: 'runtime.sendMessage unavailable',
     });
     return;
   }
@@ -389,97 +339,41 @@ function registerChildDomains(trigger = "manual") {
 
   const message = {
     ...collectChildDomains(),
-    probeStage: "content-script",
-    probeTrigger: trigger
+    probeStage: 'content-script',
+    probeTrigger: trigger,
   };
 
   let sendResult;
   try {
     sendResult = runtime.sendMessage(message);
   } catch (error) {
-    console.warn("GetBored background probe threw; trying native direct", error);
+    console.warn(
+      'GetBored background probe threw; trying native direct',
+      error,
+    );
     registerChildDomainsViaNativeFallback({
       ...message,
-      probeStage: "content-script-direct-native",
-      backgroundError: String(error?.message ?? error)
+      probeStage: 'content-script-direct-native',
+      backgroundError: String(error?.message ?? error),
     });
     return;
   }
 
   Promise.resolve(sendResult).then(
-    (response) => console.log("GetBored child-registration probe sent", response),
-    (error) => {
-      console.warn("GetBored background probe failed; trying native direct", error);
+    response => console.log('GetBored child-registration probe sent', response),
+    error => {
+      console.warn(
+        'GetBored background probe failed; trying native direct',
+        error,
+      );
       registerChildDomainsViaNativeFallback({
         ...message,
-        probeStage: "content-script-direct-native",
-        backgroundError: String(error?.message ?? error)
+        probeStage: 'content-script-direct-native',
+        backgroundError: String(error?.message ?? error),
       });
-    }
+    },
   );
 }
-
-
-/**
- * Tell the host app the current page is gone — drop its child mapping.
- *
- * Called from
- * ───────────
- *   NOTHING YET. This function is defined for completeness but is not
- *   wired up to any event in this repository. The intended callers
- *   are:
- *     - a `window.addEventListener("pagehide", ...)` listener,
- *     - the navigation hook for single-page apps that change pages
- *       without a real reload (a `history.pushState` wrapper).
- *
- *   Until one of those is added, the host app relies entirely on the
- *   next page's `registerChildDomains` to overwrite stale state.
- *
- * Why we'd want this
- * ──────────────────
- *   Without an explicit clear, the network filter keeps applying the
- *   cnbc.com child whitelist even after the user has navigated to
- *   nytimes.com. A tracker like sb.scorecardresearch.com loaded on
- *   BOTH sites would be granted under the wrong parent — leaks one
- *   site's allowlist to the next.
- *
- * No fallback path here. We go through background.js only. Losing a
- * clear is annoying but not security-critical, because the next page's
- * register call will overwrite the parent → children mapping anyway.
- *
- * @param {string} reason - debug tag identifying the trigger
- *   ("pagehide", "spa-navigation", etc.). Echoed back in the message
- *   for the host app inspector.
- *
- * @example
- *   // Wire up once at script start (would go in this file or
- *   // background.js):
- *   window.addEventListener("pagehide", () => unregisterChildDomains("pagehide"));
- *
- *   // User clicks a link cnbc.com → nytimes.com:
- *   unregisterChildDomains("pagehide")
- *     // → message: {
- *     //     type: "getbored.childRegistrationProbeCleared",
- *     //     url: "https://cnbc.com/markets",
- *     //     parentDomain: "cnbc.com",
- *     //     reason: "pagehide"
- *     //   }
- *     // → App Group: removes "cnbc.com" entry from
- *     //   safari_parent_child_active_context_v1
- */
-function unregisterChildDomains(reason) {
-  const message = {
-    type: "getbored.childRegistrationProbeCleared",
-    url: location.href,
-    parentDomain: location.hostname.toLowerCase(),
-    reason
-  };
-
-  browser.runtime.sendMessage(message).catch((error) => {
-    console.warn("GetBored active page clear failed", { reason, error });
-  });
-}
-
 
 /**
  * Bypass background.js when it's dead — talk to the native handler directly.
@@ -548,27 +442,32 @@ function unregisterChildDomains(reason) {
 async function registerChildDomainsViaNativeFallback(message) {
   const runtime = extensionRuntime();
   if (!runtime?.sendNativeMessage) {
-    console.warn("GetBored native direct probe unavailable");
+    console.warn('GetBored native direct probe unavailable');
     return;
   }
 
   const nativeApplicationIds = [
-    "com.getbored.filter",
-    "com.getbored.filter.safarichildregistration",
-    "application.id"
+    'com.getbored.filter',
+    'com.getbored.filter.safarichildregistration',
+    'application.id',
   ];
 
   for (const applicationId of nativeApplicationIds) {
     try {
       const response = await runtime.sendNativeMessage(applicationId, message);
-      console.log("GetBored native direct probe stored", { applicationId, response });
+      console.log('GetBored native direct probe stored', {
+        applicationId,
+        response,
+      });
       return;
     } catch (error) {
-      console.warn("GetBored native direct probe failed", { applicationId, error });
+      console.warn('GetBored native direct probe failed', {
+        applicationId,
+        error,
+      });
     }
   }
 }
-
 
 // ─── Initial registration ──────────────────────────────────────────────
 //
@@ -576,19 +475,18 @@ async function registerChildDomainsViaNativeFallback(message) {
 // at this point but most resources have NOT loaded yet, so this first
 // snapshot is small (about 5–10 hosts on cnbc.com). The mutation
 // observer below catches the rest as they arrive.
-registerChildDomains("initial-load");
-
+registerChildDomains('initial-load');
 
 // ─── Visible-page freshness refresh ────────────────────────────────────
 //
-// AppProxy intentionally rejects contexts older than a few seconds. Safari can
-// restore an already-open tab without re-running document_start, so refresh the
-// active parent while the page is visible even if the DOM is otherwise quiet.
+// Safari can restore an already-open tab without re-running document_start.
+// Refresh the spike's active parent while that page is visible even when its
+// DOM is otherwise quiet.
 const VISIBLE_REFRESH_INTERVAL_MS = 3000;
 let visibleRefreshTimer = null;
 
 function pageIsVisible() {
-  return document.visibilityState !== "hidden";
+  return document.visibilityState !== 'hidden';
 }
 
 function refreshActiveContext(trigger) {
@@ -599,7 +497,7 @@ function refreshActiveContext(trigger) {
 function startVisibleRefreshLoop() {
   if (visibleRefreshTimer || !pageIsVisible()) return;
   visibleRefreshTimer = setInterval(() => {
-    refreshActiveContext("visible-heartbeat");
+    refreshActiveContext('visible-heartbeat');
   }, VISIBLE_REFRESH_INTERVAL_MS);
 }
 
@@ -609,20 +507,19 @@ function stopVisibleRefreshLoop() {
   visibleRefreshTimer = null;
 }
 
-document.addEventListener("visibilitychange", () => {
+document.addEventListener('visibilitychange', () => {
   if (pageIsVisible()) {
-    refreshActiveContext("visibilitychange-visible");
+    refreshActiveContext('visibilitychange-visible');
     startVisibleRefreshLoop();
   } else {
     stopVisibleRefreshLoop();
   }
 });
 
-window.addEventListener("pageshow", () => refreshActiveContext("pageshow"));
-window.addEventListener("focus", () => refreshActiveContext("focus"));
+window.addEventListener('pageshow', () => refreshActiveContext('pageshow'));
+window.addEventListener('focus', () => refreshActiveContext('focus'));
 
 startVisibleRefreshLoop();
-
 
 // ─── Page mutation observer — re-register on new resources ─────────────
 //
@@ -665,7 +562,9 @@ function startMutationObserver() {
   if (observerStarted) return;
   const root = document.documentElement;
   if (!root) {
-    document.addEventListener("DOMContentLoaded", startMutationObserver, { once: true });
+    document.addEventListener('DOMContentLoaded', startMutationObserver, {
+      once: true,
+    });
     return;
   }
 
@@ -675,7 +574,7 @@ function startMutationObserver() {
     pending = true;
     setTimeout(() => {
       pending = false;
-      registerChildDomains("resource-mutation");
+      registerChildDomains('resource-mutation');
     }, 1500);
   });
 
@@ -683,7 +582,7 @@ function startMutationObserver() {
     childList: true,
     subtree: true,
     attributes: true,
-    attributeFilter: ["src", "href"]
+    attributeFilter: ['src', 'href'],
   });
 }
 

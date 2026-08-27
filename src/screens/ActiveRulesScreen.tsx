@@ -221,9 +221,7 @@ export const ActiveRulesScreen: React.FC<Props> = ({visible, onClose}) => {
 
           {state.kind === 'ready' && <RulesContent rules={state.rules} />}
 
-          <Text style={styles.footer}>
-            Synced from your account
-          </Text>
+          <Text style={styles.footer}>Synced from your account</Text>
         </ScrollView>
       </SafeAreaView>
     </Modal>

@@ -1,6 +1,6 @@
 import Foundation
-import os.log
 import GetBoredCore
+import os.log
 
 /// Every request/response outcome below is written here before returning to
 /// the caller — DiagnosticsModule ships this subsystem's OSLogStore entries
@@ -24,9 +24,9 @@ private let diagnosticsUploadPath = "/api/client-events"
 /// staging backend; RELEASE builds (App Store / TestFlight) talk to production.
 enum APIEnvironment {
     #if DEBUG
-    static let baseURL = URL(string: "https://dashboard.staging.getbored.online")!
+        static let baseURL = URL(string: "https://dashboard.staging.getbored.online")!
     #else
-    static let baseURL = URL(string: "https://dashboard.getbored.online")!
+        static let baseURL = URL(string: "https://dashboard.getbored.online")!
     #endif
 }
 
@@ -159,13 +159,15 @@ final class APIClient {
             bearerToken = token
         }
 
-        guard let request = buildRequest(
-            method: method,
-            path: path,
-            query: query,
-            jsonBody: jsonBody,
-            bearerToken: bearerToken
-        ) else {
+        guard
+            let request = buildRequest(
+                method: method,
+                path: path,
+                query: query,
+                jsonBody: jsonBody,
+                bearerToken: bearerToken
+            )
+        else {
             let error = APIError.network(underlying: URLError(.badURL))
             Self.logFailure(method: method, path: path, error: error)
             throw error
@@ -215,7 +217,8 @@ final class APIClient {
 
     private static func logStart(method: Method, path: String) {
         if isDiagnosticsUpload(path) {
-            logger.debug("begin send: \(method.rawValue, privacy: .public) \(path, privacy: .public)")
+            logger.debug(
+                "begin send: \(method.rawValue, privacy: .public) \(path, privacy: .public)")
             return
         }
         logger.info("begin send: \(method.rawValue, privacy: .public) \(path, privacy: .public)")
@@ -223,25 +226,39 @@ final class APIClient {
 
     private static func logSuccess(method: Method, path: String, status: Int) {
         if isDiagnosticsUpload(path) {
-            logger.debug("end send: status=\(status, privacy: .public) \(method.rawValue, privacy: .public) \(path, privacy: .public)")
+            logger.debug(
+                "end send: status=\(status, privacy: .public) \(method.rawValue, privacy: .public) \(path, privacy: .public)"
+            )
             return
         }
-        logger.info("end send: status=\(status, privacy: .public) \(method.rawValue, privacy: .public) \(path, privacy: .public)")
+        logger.info(
+            "end send: status=\(status, privacy: .public) \(method.rawValue, privacy: .public) \(path, privacy: .public)"
+        )
     }
 
     private static func logFailure(method: Method, path: String, error: APIError) {
         if isDiagnosticsUpload(path) {
             switch error {
             case .signedOut:
-                logger.debug("end send: signedOut for \(method.rawValue, privacy: .public) \(path, privacy: .public)")
+                logger.debug(
+                    "end send: signedOut for \(method.rawValue, privacy: .public) \(path, privacy: .public)"
+                )
             case .subscriptionRequired:
-                logger.debug("end send: subscriptionRequired for \(method.rawValue, privacy: .public) \(path, privacy: .public)")
+                logger.debug(
+                    "end send: subscriptionRequired for \(method.rawValue, privacy: .public) \(path, privacy: .public)"
+                )
             case .server(let status):
-                logger.debug("end send: server status=\(status, privacy: .public) for \(method.rawValue, privacy: .public) \(path, privacy: .public)")
+                logger.debug(
+                    "end send: server status=\(status, privacy: .public) for \(method.rawValue, privacy: .public) \(path, privacy: .public)"
+                )
             case .network(let underlying):
-                logger.debug("end send: network failure for \(method.rawValue, privacy: .public) \(path, privacy: .public): \(underlying as NSError, privacy: .public)")
+                logger.debug(
+                    "end send: network failure for \(method.rawValue, privacy: .public) \(path, privacy: .public): \(underlying as NSError, privacy: .public)"
+                )
             case .decoding(let underlying):
-                logger.debug("end send: decoding failure for \(method.rawValue, privacy: .public) \(path, privacy: .public): \(underlying as NSError, privacy: .public)")
+                logger.debug(
+                    "end send: decoding failure for \(method.rawValue, privacy: .public) \(path, privacy: .public): \(underlying as NSError, privacy: .public)"
+                )
             }
             return
         }
@@ -250,23 +267,33 @@ final class APIClient {
         switch error {
         case .signedOut:
             logLine = {
-                logger.warning("end send: signedOut for \(method.rawValue, privacy: .public) \(path, privacy: .public)")
+                logger.warning(
+                    "end send: signedOut for \(method.rawValue, privacy: .public) \(path, privacy: .public)"
+                )
             }
         case .subscriptionRequired:
             logLine = {
-                logger.warning("end send: subscriptionRequired for \(method.rawValue, privacy: .public) \(path, privacy: .public)")
+                logger.warning(
+                    "end send: subscriptionRequired for \(method.rawValue, privacy: .public) \(path, privacy: .public)"
+                )
             }
         case .server(let status):
             logLine = {
-                logger.warning("end send: server status=\(status, privacy: .public) for \(method.rawValue, privacy: .public) \(path, privacy: .public)")
+                logger.warning(
+                    "end send: server status=\(status, privacy: .public) for \(method.rawValue, privacy: .public) \(path, privacy: .public)"
+                )
             }
         case .network(let underlying):
             logLine = {
-                logger.warning("end send: network failure for \(method.rawValue, privacy: .public) \(path, privacy: .public): \(underlying as NSError, privacy: .public)")
+                logger.warning(
+                    "end send: network failure for \(method.rawValue, privacy: .public) \(path, privacy: .public): \(underlying as NSError, privacy: .public)"
+                )
             }
         case .decoding(let underlying):
             logLine = {
-                logger.error("end send: decoding failure for \(method.rawValue, privacy: .public) \(path, privacy: .public): \(underlying as NSError, privacy: .public)")
+                logger.error(
+                    "end send: decoding failure for \(method.rawValue, privacy: .public) \(path, privacy: .public): \(underlying as NSError, privacy: .public)"
+                )
             }
         }
         logLine()
@@ -332,11 +359,17 @@ final class APIClient {
         case .subscriptionRequired:
             logger.warning("end request: subscriptionRequired for \(path, privacy: .public)")
         case .server(let status):
-            logger.warning("end request: server status=\(status, privacy: .public) for \(path, privacy: .public)")
+            logger.warning(
+                "end request: server status=\(status, privacy: .public) for \(path, privacy: .public)"
+            )
         case .network(let underlying):
-            logger.warning("end request: network failure for \(path, privacy: .public): \(underlying as NSError, privacy: .public)")
+            logger.warning(
+                "end request: network failure for \(path, privacy: .public): \(underlying as NSError, privacy: .public)"
+            )
         case .decoding(let underlying):
-            logger.error("end request: decoding failure for \(path, privacy: .public): \(underlying as NSError, privacy: .public)")
+            logger.error(
+                "end request: decoding failure for \(path, privacy: .public): \(underlying as NSError, privacy: .public)"
+            )
         }
     }
 
@@ -367,18 +400,27 @@ final class APIClient {
     ) -> URLRequest? {
         let isDiagnosticsUpload = Self.isDiagnosticsUpload(path)
         if isDiagnosticsUpload {
-            logger.debug("begin buildRequest: \(method.rawValue, privacy: .public) \(path, privacy: .public)")
+            logger.debug(
+                "begin buildRequest: \(method.rawValue, privacy: .public) \(path, privacy: .public)"
+            )
         } else {
-            logger.info("begin buildRequest: \(method.rawValue, privacy: .public) \(path, privacy: .public)")
+            logger.info(
+                "begin buildRequest: \(method.rawValue, privacy: .public) \(path, privacy: .public)"
+            )
         }
 
         let normalizedPath = path.hasPrefix("/") ? path : "/\(path)"
 
-        guard var components = URLComponents(string: APIEnvironment.baseURL.absoluteString + normalizedPath) else {
+        guard
+            var components = URLComponents(
+                string: APIEnvironment.baseURL.absoluteString + normalizedPath)
+        else {
             if isDiagnosticsUpload {
-                logger.debug("end buildRequest: invalid URL components for \(path, privacy: .public)")
+                logger.debug(
+                    "end buildRequest: invalid URL components for \(path, privacy: .public)")
             } else {
-                logger.error("end buildRequest: invalid URL components for \(path, privacy: .public)")
+                logger.error(
+                    "end buildRequest: invalid URL components for \(path, privacy: .public)")
             }
             return nil
         }

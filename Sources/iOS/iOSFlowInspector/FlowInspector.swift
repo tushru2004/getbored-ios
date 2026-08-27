@@ -12,7 +12,8 @@ import os.log
 
 class FlowInspector: NEFilterDataProvider {
 
-    private let logger = OSLog(subsystem: GetBoredIdentifiers.Logging.iOS, category: "FlowInspector")
+    private let logger = OSLog(
+        subsystem: GetBoredIdentifiers.Logging.iOS, category: "FlowInspector")
     private let safariParentChildContextStore = SafariParentChildContextStore()
     private let safariParentChildObservationMaxAge: TimeInterval = 10
 
@@ -28,11 +29,12 @@ class FlowInspector: NEFilterDataProvider {
     /// Apple infrastructure domains that must always be allowed.
     /// Blocking these breaks iCloud, App Store, certificate validation, etc.
     /// Reference: https://support.apple.com/en-us/101555
-    private let systemAllowedSuffixes: [String] = SystemAllowList.load(from: Bundle(for: FlowInspector.self))
+    private let systemAllowedSuffixes: [String] = SystemAllowList.load(
+        from: Bundle(for: FlowInspector.self))
 
     /// Check if a host is an Apple system domain that should never be blocked
     private func isSystemAllowed(_ host: String) -> Bool {
-        return KMPDecisionCoreAdapter.isSystemAllowed(host, systemAllowedSuffixes: systemAllowedSuffixes)
+        return IOSDecisionCore.isSystemAllowed(host, systemAllowedSuffixes: systemAllowedSuffixes)
     }
 
     // MARK: - Lifecycle
@@ -46,19 +48,31 @@ class FlowInspector: NEFilterDataProvider {
     }
 
     /// Called by iOS when the content filter is deactivated.
-    override func stopFilter(with reason: NEProviderStopReason, completionHandler: @escaping () -> Void) {
+    override func stopFilter(
+        with reason: NEProviderStopReason, completionHandler: @escaping () -> Void
+    ) {
         os_log("Filter stopped: %{public}@", log: logger, type: .info, String(describing: reason))
         completionHandler()
     }
 
     // MARK: - Telemetry Helpers
 
-    /// Log a blocked app event. Fallback telemetry when the normal
-    /// CP logging path (via .needRules()) doesn't reliably surface the app.
-    private func logBlockedAppTelemetry(sourceApp: String?, domain: String, reason: String, resolutionSource: String) {
+    /// Logs a direct-drop outcome when no Control Provider escalation occurs.
+    ///
+    /// Call flow:
+    ///
+    ///   handleOutboundData detects blocked SNI or HTTP host
+    ///           │
+    ///           └── logBlockedAppTelemetry(sourceApp:domain:reason:resolutionSource:)
+    ///                   ├── sourceApp nil/empty → return  ← no app identity to record
+    ///                   └── IOSActivityLogger.shared.log(...)  ← currently a release-1.0 no-op
+    private func logBlockedAppTelemetry(
+        sourceApp: String?, domain: String, reason: String, resolutionSource: String
+    ) {
         guard let sourceApp, !sourceApp.isEmpty else { return }
-        os_log("logBlockedAppTelemetry: sourceApp=%{public}@ domain=%{public}@",
-               log: logger, type: .info, sourceApp, domain)
+        os_log(
+            "logBlockedAppTelemetry: sourceApp=%{public}@ domain=%{public}@",
+            log: logger, type: .info, sourceApp, domain)
         IOSActivityLogger.shared.log(
             domain: domain,
             blocked: true,
@@ -72,44 +86,48 @@ class FlowInspector: NEFilterDataProvider {
 
     // MARK: - Host Classification
 
-    /// The decision engine. Returns (shouldBlock, reason) for a given hostname.
-    /// Called every time we extract a hostname from a network flow.
+    /// Classifies a hostname using the current App Group snapshot.
     ///
     /// The same site rules list means different things depending on mode:
     /// - blockSpecific: the list is a BLOCKLIST (block what's listed)
     /// - whiteList: the list is an ALLOWLIST (allow what's listed, block everything else)
     ///
-    /// v1 SHIPS BLOCK MODE ONLY: the parent-child Safari whitelist machinery this branch
-    /// feeds (allowedSafariParent, the two Safari extensions, the App-Proxy provider) was
-    /// removed from this build. `loadedFilterRules.filterMode` can never actually be
-    /// `.whiteList` here — IOSRuleStore.loadFilterRules() (via decodedFilterMode()) coerces
-    /// any `.whiteList` config back to `.blockSpecific` before it reaches this function. The
-    /// `mode == .whiteList` branch below is kept only as defense in depth; do not re-enable
-    /// the whitelist machinery by relying on it.
+    /// Release 1.0 only ships block mode. `IOSRuleStore` converts a stored
+    /// `.whiteList` value to `.blockSpecific` before it reaches this method.
+    /// The allow-list branch remains for the separate Safari spike targets; it
+    /// is not a shipped release path.
     ///
     /// Call flow:
     ///
     ///   classifyHost(host)
     ///           │
-    ///           ├── loadFilterRules()              ← re-read every call; a server policy sync can change it anytime
-    ///           │                                     (.whiteList is already coerced to .blockSpecific here)
-    ///           ├── currentMode = rules.filterMode ← side effect: cache mode for telemetry/logging
+    ///           ├── loadFilterRules()              ← reads the latest shared snapshot
+    ///           ├── currentMode = rules.filterMode ← keeps telemetry in sync
     ///           │
-    ///           ├── mode == .whiteList     → allowedSafariParent(forChildHost: host) (dead in v1; see above)
-    ///           └── mode == .blockSpecific → allowedParent = nil (skip parent-child lookup)
+    ///           ├── mode == .whiteList     → allowedSafariParent(forChildHost: host) (Safari spike only)
+    ///           └── mode == .blockSpecific → allowedParent = nil
     ///                   │
     ///                   ▼
-    ///           KMPDecisionCoreAdapter.classifyHost(host, rules, systemAllowedSuffixes, allowedParent)
+    ///           IOSDecisionCore.classifyHost(host, rules, systemAllowedSuffixes, allowedParent)
     ///                   → (decision.blocked, decision.reason)
     private func classifyHost(_ host: String) -> (blocked: Bool, reason: String) {
         // Always re-read the mode — it could change at any time when the app
         // applies a fresh server policy snapshot (GET /api/policy → applyFilterListSnapshot).
         let loadedFilterRules = IOSRuleStore.shared.loadFilterRules()
         currentMode = loadedFilterRules.filterMode.rawValue
-        let allowedParent = loadedFilterRules.filterMode == .whiteList
-            ? allowedSafariParent(forChildHost: host, using: loadedFilterRules)
-            : nil
-        let decision = KMPDecisionCoreAdapter.classifyHost(
+
+        let isAllowListMode = loadedFilterRules.filterMode == .whiteList
+        let allowedParent: String?
+        if isAllowListMode {
+            allowedParent = allowedSafariParent(
+                forChildHost: host,
+                using: loadedFilterRules
+            )
+        } else {
+            allowedParent = nil
+        }
+
+        let decision = IOSDecisionCore.classifyHost(
             host,
             using: loadedFilterRules,
             systemAllowedSuffixes: systemAllowedSuffixes,
@@ -118,11 +136,9 @@ class FlowInspector: NEFilterDataProvider {
         return (decision.blocked, decision.reason)
     }
 
-    /// Returns the allowed parent domain for a child hostname in whiteList mode, or nil if the child should be blocked.
+    /// Safari-spike helper that finds an allowed parent for a child hostname.
     ///
-    /// Only called from classifyHost() when mode == .whiteList. The purpose is to allow
-    /// subresource requests (e.g. cdn.instagram.com) that originate from a parent page
-    /// (e.g. instagram.com) that is itself on the allowlist.
+    /// This only runs in allow-list mode, which Release 1.0 does not expose.
     ///
     /// Call flow:
     ///
@@ -131,41 +147,46 @@ class FlowInspector: NEFilterDataProvider {
     ///           └── allowedSafariParent(forChildHost: host, using: rules)
     ///                   │
     ///                   ├── safariParentChildContextStore.allowedSafariParentForChild(host, ...)
-    ///                   │       ├── returns nil  → no recent parent observation found → return nil (block child)
+    ///                   │       ├── returns nil  → no recent parent observation → return nil
     ///                   │       └── returns decision
     ///                   │               │
     ///                   │               ├── appendEvent(decision.event)  ← side-effect: records this lookup
     ///                   │               │
     ///                   │               ├── decision.shouldAllow == false
-    ///                   │               │       → log "parent not in allowlist" → return nil (block child)
+    ///                   │               │       → record the lookup → return nil
     ///                   │               │
     ///                   │               └── decision.shouldAllow == true
-    ///                   │                       → log "allowing child via parent" → return decision.parentDomain
+    ///                   │                       → return decision.parentDomain
     ///                   │
-    ///                   └── caller (classifyHost) passes parentDomain to KMPDecisionCoreAdapter
+    ///                   └── caller (classifyHost) passes parentDomain to IOSDecisionCore
     ///                           so the child host inherits the parent's allow status
     ///
-    /// NOTE: appendEvent() is always called even when shouldAllow is false — it records
-    /// that the child was seen, so future lookups for the same child can be de-duplicated.
-    private func allowedSafariParent(forChildHost host: String, using loadedFilterRules: LoadedFilterRules) -> String? {
-        guard let decision = safariParentChildContextStore.allowedSafariParentForChild(
-            host,
-            using: loadedFilterRules,
-            maxAge: safariParentChildObservationMaxAge
-        ) else {
+    /// The event is recorded for both outcomes so the spike inspector shows each lookup.
+    private func allowedSafariParent(
+        forChildHost host: String, using loadedFilterRules: LoadedFilterRules
+    ) -> String? {
+        guard
+            let decision = safariParentChildContextStore.allowedSafariParentForChild(
+                host,
+                using: loadedFilterRules,
+                maxAge: safariParentChildObservationMaxAge
+            )
+        else {
             return nil
         }
 
         safariParentChildContextStore.appendEvent(decision.event)
 
         guard decision.shouldAllow else {
-            os_log("allowedSafariParent: rejecting child=%{public}@ parent=%{public}@ because parent is not in allowlist",
-                   log: logger, type: .info, decision.requestHost, decision.parentDomain)
+            os_log(
+                "allowedSafariParent: rejecting child=%{public}@ parent=%{public}@ because parent is not in allowlist",
+                log: logger, type: .info, decision.requestHost, decision.parentDomain)
             return nil
         }
 
-        os_log("allowedSafariParent: allowing child=%{public}@ parent=%{public}@ age=%.1f",
-               log: logger, type: .info, decision.requestHost, decision.parentDomain, decision.age)
+        os_log(
+            "allowedSafariParent: allowing child=%{public}@ parent=%{public}@ age=%.1f",
+            log: logger, type: .info, decision.requestHost, decision.parentDomain, decision.age)
         return decision.parentDomain
     }
 
@@ -187,14 +208,21 @@ class FlowInspector: NEFilterDataProvider {
     ///                   │
     ///                   ▼
     ///               logBlockedAppTelemetry(domain: "app:<sourceApp>", …)
-    private func logBlockedAppProbeIfNeeded(sourceApp: String?, using loadedFilterRules: LoadedFilterRules) {
+    private func logBlockedAppProbeIfNeeded(
+        sourceApp: String?, using loadedFilterRules: LoadedFilterRules
+    ) {
         guard let sourceApp, !sourceApp.isEmpty else { return }
-        guard KMPDecisionCoreAdapter.shouldLogBlockedAppProbe(sourceApp, using: loadedFilterRules) else {
+        guard IOSDecisionCore.shouldLogBlockedAppProbe(sourceApp, using: loadedFilterRules) else {
             return
         }
         let appKey = sourceApp.lowercased()
         let now = Date()
-        if let last = lastAppProbeLogAt[appKey], now.timeIntervalSince(last) < appProbeCooldown {
+        let lastProbeAt = lastAppProbeLogAt[appKey]
+        let probeIsWithinCooldown =
+            lastProbeAt.map {
+                now.timeIntervalSince($0) < appProbeCooldown
+            } ?? false
+        if probeIsWithinCooldown {
             return
         }
         lastAppProbeLogAt[appKey] = now
@@ -207,31 +235,33 @@ class FlowInspector: NEFilterDataProvider {
     }
 
     #if DEBUG
-    /// Spike-only probe for deciding whether parent-child enforcement can live
-    /// in the existing content filter instead of the Safari App Proxy.
-    private func logParentChildOwnerProbe(flow: NEFilterFlow, host: String, url: URL) {
-        let sourceApp = flow.sourceAppIdentifier ?? "nil"
-        if let browserFlow = flow as? NEFilterBrowserFlow {
-            let parentURL = browserFlow.parentURL?.absoluteString ?? "nil"
-            let requestURL = browserFlow.request?.url?.absoluteString ?? "nil"
-            os_log("PARENT_CHILD_OWNER_PROBE layer=DataProvider type=NEFilterBrowserFlow host=%{public}@ url=%{public}@ requestURL=%{public}@ parentURL=%{public}@ sourceApp=%{public}@",
-                   log: logger,
-                   type: .info,
-                   host,
-                   url.absoluteString,
-                   requestURL,
-                   parentURL,
-                   sourceApp)
-        } else {
-            os_log("PARENT_CHILD_OWNER_PROBE layer=DataProvider type=%{public}@ host=%{public}@ url=%{public}@ parentURL=unavailable sourceApp=%{public}@",
-                   log: logger,
-                   type: .info,
-                   String(describing: type(of: flow)),
-                   host,
-                   url.absoluteString,
-                   sourceApp)
+        /// Spike-only probe for deciding whether parent-child enforcement can live
+        /// in the existing content filter instead of the Safari App Proxy.
+        private func logParentChildOwnerProbe(flow: NEFilterFlow, host: String, url: URL) {
+            let sourceApp = flow.sourceAppIdentifier ?? "nil"
+            if let browserFlow = flow as? NEFilterBrowserFlow {
+                let parentURL = browserFlow.parentURL?.absoluteString ?? "nil"
+                let requestURL = browserFlow.request?.url?.absoluteString ?? "nil"
+                os_log(
+                    "PARENT_CHILD_OWNER_PROBE layer=DataProvider type=NEFilterBrowserFlow host=%{public}@ url=%{public}@ requestURL=%{public}@ parentURL=%{public}@ sourceApp=%{public}@",
+                    log: logger,
+                    type: .info,
+                    host,
+                    url.absoluteString,
+                    requestURL,
+                    parentURL,
+                    sourceApp)
+            } else {
+                os_log(
+                    "PARENT_CHILD_OWNER_PROBE layer=DataProvider type=%{public}@ host=%{public}@ url=%{public}@ parentURL=unavailable sourceApp=%{public}@",
+                    log: logger,
+                    type: .info,
+                    String(describing: type(of: flow)),
+                    host,
+                    url.absoluteString,
+                    sourceApp)
+            }
         }
-    }
     #endif
 
     // MARK: - Flow Handling (Chunk 4)
@@ -285,25 +315,29 @@ class FlowInspector: NEFilterDataProvider {
 
         // ── Step 1 & 2: Per-app checks ──────────────────────────────────
         if let sourceApp {
-            os_log("handleNewFlow: checking sourceApp=%{public}@", log: logger, type: .info, sourceApp)
+            os_log(
+                "handleNewFlow: checking sourceApp=%{public}@", log: logger, type: .info, sourceApp)
 
-            // 1 & 2. KMP policy keeps own-app, Apple-system-app, and user app allow logic together.
-            if KMPDecisionCoreAdapter.shouldAllowApp(sourceApp, using: loadedFilterRules) {
-                if KMPDecisionCoreAdapter.matchesAllowedApp(sourceApp, using: loadedFilterRules) {
-                    os_log("handleNewFlow: allowing whitelisted app: %{public}@",
-                           log: logger, type: .info, sourceApp)
+            // `IOSDecisionCore` keeps own-app, Apple-system-app, and configured-app access together.
+            if IOSDecisionCore.shouldAllowApp(sourceApp, using: loadedFilterRules) {
+                if IOSDecisionCore.matchesAllowedApp(sourceApp, using: loadedFilterRules) {
+                    os_log(
+                        "handleNewFlow: allowing whitelisted app: %{public}@",
+                        log: logger, type: .info, sourceApp)
                 }
                 return .allow()
             }
 
             // 3. Explicit app block — allow wins above, so own-app/system/allowed are already safe.
-            if KMPDecisionCoreAdapter.isAppBlocked(sourceApp, using: loadedFilterRules) {
-                os_log("handleNewFlow: dropping blocked app: %{public}@", log: logger, type: .info, sourceApp)
+            if IOSDecisionCore.isAppBlocked(sourceApp, using: loadedFilterRules) {
+                os_log(
+                    "handleNewFlow: dropping blocked app: %{public}@", log: logger, type: .info,
+                    sourceApp)
                 return .drop()
             }
 
             // 4. App not allowed + whiteList → emit one app probe per cooldown window
-            if KMPDecisionCoreAdapter.shouldLogBlockedAppProbe(sourceApp, using: loadedFilterRules) {
+            if IOSDecisionCore.shouldLogBlockedAppProbe(sourceApp, using: loadedFilterRules) {
                 logBlockedAppProbeIfNeeded(sourceApp: sourceApp, using: loadedFilterRules)
             }
         }
@@ -313,17 +347,19 @@ class FlowInspector: NEFilterDataProvider {
         // but iOS can still provide the hostname on the socket flow. Prefer
         // remoteHostname because the endpoint hostname can be only an IP.
         if let socketFlow = flow as? NEFilterSocketFlow,
-           let endpoint = socketFlow.remoteEndpoint as? NWHostEndpoint,
-           endpoint.port == "443",
-           socketFlow.socketType == Int32(SOCK_DGRAM) {
+            let endpoint = socketFlow.remoteEndpoint as? NWHostEndpoint,
+            endpoint.port == "443",
+            socketFlow.socketType == Int32(SOCK_DGRAM)
+        {
             let host = socketFlow.remoteHostname ?? endpoint.hostname
             if isSystemAllowed(host) {
                 return .allow()
             }
             let result = classifyHost(host)
             if result.blocked {
-                os_log("handleNewFlow: QUIC BLOCKED %{public}@ endpoint=%{public}@ → routing to CP",
-                       log: logger, type: .info, host, endpoint.hostname)
+                os_log(
+                    "handleNewFlow: QUIC BLOCKED %{public}@ endpoint=%{public}@ → routing to CP",
+                    log: logger, type: .info, host, endpoint.hostname)
                 return .needRules()
             }
             return .allow()
@@ -332,7 +368,7 @@ class FlowInspector: NEFilterDataProvider {
         // ── Step 6: Browser flows (have a URL) ──────────────────────────
         if let url = flow.url, let host = url.host?.lowercased() {
             #if DEBUG
-            logParentChildOwnerProbe(flow: flow, host: host, url: url)
+                logParentChildOwnerProbe(flow: flow, host: host, url: url)
             #endif
             if isSystemAllowed(host) {
                 return .allow()
@@ -340,13 +376,15 @@ class FlowInspector: NEFilterDataProvider {
             let result = classifyHost(host)
             if result.blocked {
                 // Check URL path exceptions (e.g. "instagram.com/school-account")
-                if KMPDecisionCoreAdapter.matchesException(url.absoluteString, using: loadedFilterRules) {
-                    os_log("handleNewFlow: exception match for %{public}@",
-                           log: logger, type: .info, url.absoluteString)
+                if IOSDecisionCore.matchesException(url.absoluteString, using: loadedFilterRules) {
+                    os_log(
+                        "handleNewFlow: exception match for %{public}@",
+                        log: logger, type: .info, url.absoluteString)
                     return .allow()
                 }
-                os_log("handleNewFlow: BLOCKED %{public}@ (%{public}@) → routing to CP",
-                       log: logger, type: .info, host, result.reason)
+                os_log(
+                    "handleNewFlow: BLOCKED %{public}@ (%{public}@) → routing to CP",
+                    log: logger, type: .info, host, result.reason)
                 return .needRules()
             }
             return .allow()
@@ -390,16 +428,19 @@ class FlowInspector: NEFilterDataProvider {
     ///           │       └── otherwise             → .allow()
     ///           │
     ///           └── neither TLS nor HTTP (DNS, mDNS, system traffic) → .allow()
-    override func handleOutboundData(from flow: NEFilterFlow,
-                                     readBytesStartOffset offset: Int,
-                                     readBytes: Data) -> NEFilterDataVerdict {
+    override func handleOutboundData(
+        from flow: NEFilterFlow,
+        readBytesStartOffset offset: Int,
+        readBytes: Data
+    ) -> NEFilterDataVerdict {
         // ── Try 1: TLS ClientHello → extract SNI hostname ───────────────
-        if let sni = KMPDecisionCoreAdapter.extractSNI(from: readBytes) {
+        if let sni = IOSDecisionCore.extractSNI(from: readBytes) {
             if isSystemAllowed(sni) { return .allow() }
             let result = classifyHost(sni)
             if result.blocked {
-                os_log("handleOutboundData: BLOCKED SNI %{public}@ (%{public}@)",
-                       log: logger, type: .info, sni, result.reason)
+                os_log(
+                    "handleOutboundData: BLOCKED SNI %{public}@ (%{public}@)",
+                    log: logger, type: .info, sni, result.reason)
                 logBlockedAppTelemetry(
                     sourceApp: flow.sourceAppIdentifier,
                     domain: sni,
@@ -412,20 +453,22 @@ class FlowInspector: NEFilterDataProvider {
         }
 
         // ── Try 2: HTTP request → extract Host header ───────────────────
-        if let host = KMPDecisionCoreAdapter.extractHTTPHost(from: readBytes) {
+        if let host = IOSDecisionCore.extractHTTPHost(from: readBytes) {
             if isSystemAllowed(host) { return .allow() }
             let result = classifyHost(host)
             if result.blocked {
                 // Check URL path exceptions for HTTP
-                if let fullURL = KMPDecisionCoreAdapter.extractHTTPFullURL(from: readBytes) {
+                if let fullURL = IOSDecisionCore.extractHTTPFullURL(from: readBytes) {
                     let exceptionRules = IOSRuleStore.shared.loadFilterRules()
-                    let isException = KMPDecisionCoreAdapter.matchesException(fullURL, using: exceptionRules)
+                    let isException = IOSDecisionCore.matchesException(
+                        fullURL, using: exceptionRules)
                     if isException {
                         return .allow()
                     }
                 }
-                os_log("handleOutboundData: BLOCKED HTTP %{public}@ (%{public}@)",
-                       log: logger, type: .info, host, result.reason)
+                os_log(
+                    "handleOutboundData: BLOCKED HTTP %{public}@ (%{public}@)",
+                    log: logger, type: .info, host, result.reason)
                 logBlockedAppTelemetry(
                     sourceApp: flow.sourceAppIdentifier,
                     domain: host,

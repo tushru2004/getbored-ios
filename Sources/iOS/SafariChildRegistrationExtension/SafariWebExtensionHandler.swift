@@ -40,7 +40,7 @@ final class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
         response.userInfo = [
             messageKey: [
                 "ack": stored,
-                "storedKey": SafariParentChildContextStore.activeContextDataKey
+                "storedKey": SafariParentChildContextStore.activeContextDataKey,
             ]
         ]
         context.completeRequest(returningItems: [response], completionHandler: nil)
@@ -60,7 +60,8 @@ final class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
     /// Branch point for an inbound Safari extension message: either clear the
     /// active context or store a new one. Always returns `true` — the ack sent
     /// back to the web extension reports "message received", NOT "context was
-    /// persisted" (`saveActiveContext` silently no-ops if KMP rejects the input).
+    /// persisted" (`saveActiveContext` silently no-ops if `IOSDecisionCore`
+    /// rejects the input).
     ///
     /// Call flow:
     ///
@@ -70,7 +71,7 @@ final class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
     ///           │
     ///           └── normal message:
     ///                   ├── read parentDomain / childDomains / url  (missing → "" / [])
-    ///                   ├── contextStore.saveActiveContext(...)  ← may no-op if KMP rejects it
+    ///                   ├── contextStore.saveActiveContext(...)  ← may no-op if IOSDecisionCore rejects it
     ///                   └── return true
     @discardableResult
     private func storeProbe(_ message: Any?) -> Bool {
@@ -90,7 +91,9 @@ final class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
 
         let parent = dictionary["parentDomain"] as? String ?? "unknown"
         let children = dictionary["childDomains"] as? [String] ?? []
-        logger.info("Stored Safari extension active context parent=\(parent, privacy: .public) children=\(children.count, privacy: .public)")
+        logger.info(
+            "Stored Safari extension active context parent=\(parent, privacy: .public) children=\(children.count, privacy: .public)"
+        )
         return true
     }
 
@@ -103,6 +106,14 @@ final class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
     /// `parentDomain` so the store only wipes context it still owns (see
     /// `SafariParentChildContextStore.clearActiveContext`). A missing/nil
     /// parentDomain lets the store clear unconditionally.
+    ///
+    /// Call flow:
+    ///
+    ///   storeProbe identifies cleared message → clearActiveContext(message)
+    ///           │
+    ///           ├── read optional parentDomain from message
+    ///           └── contextStore.clearActiveContext(clearingParent:)
+    ///                   └── clears only context owned by that parent, then records the probe
     private func clearActiveContext(_ message: Any?) {
         let dictionary = message as? [String: Any] ?? [:]
         contextStore.clearActiveContext(clearingParent: dictionary["parentDomain"] as? String)

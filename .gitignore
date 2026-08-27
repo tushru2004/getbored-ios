@@ -44,12 +44,6 @@ coverage/
 Pods/
 *.xcworkspace/xcuserdata/
 
-# Kotlin Multiplatform build output
-shared-kotlin/build/
-.kotlin/
-.gradle/
-local.properties
-
 # React Native
 .xcode.env.local
 

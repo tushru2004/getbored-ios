@@ -238,11 +238,7 @@ const BrandMasthead: React.FC = () => (
         Bored minds{`\n`}go interesting places.
       </Text>
     </View>
-    <StillWaterRings
-      size={72}
-      color={colors.surface}
-      variant="closed"
-    />
+    <StillWaterRings size={72} color={colors.surface} variant="closed" />
   </View>
 );
 
@@ -258,18 +254,36 @@ const Welcome: React.FC<WelcomeProps> = ({account, onSignIn, onSignUp}) => {
   const [mode, setMode] = useState<'login' | 'signup'>('login');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const signingUp = mode === 'signup';
   const busy =
     account.kind === 'checking' ||
     account.kind === 'signingIn' ||
     account.kind === 'deleting';
   const isDeleting = account.kind === 'deleting';
   const valid = username.trim().length >= 3 && password.length >= 8;
+  const authenticationDisabled = busy || !valid;
+  const passwordAutoComplete = signingUp ? 'new-password' : 'current-password';
+  const passwordTextContentType = signingUp ? 'newPassword' : 'password';
+  const submitLabel = signingUp ? 'Create account' : 'Sign in';
+  const modeSwitchLabel = signingUp
+    ? 'Already have an account? Sign in'
+    : 'Create a new account';
+  /**
+   * Normalizes the username once, then picks the account action matching the
+   * visible form mode. The account hook owns its resulting loading and error
+   * states, which return here through the `account` prop.
+   *
+   *   form submit → submit()
+   *       ├── login  → onSignIn(normalizedUsername, password)
+   *       └── signup → onSignUp(normalizedUsername, password)
+   */
   const submit = useCallback(() => {
     const normalizedUsername = username.trim().toLowerCase();
-    return mode === 'login'
-      ? onSignIn(normalizedUsername, password)
-      : onSignUp(normalizedUsername, password);
-  }, [mode, onSignIn, onSignUp, password, username]);
+    if (signingUp) {
+      return onSignUp(normalizedUsername, password);
+    }
+    return onSignIn(normalizedUsername, password);
+  }, [onSignIn, onSignUp, password, signingUp, username]);
   const submitFromKeyboardOrPress = useCallback(() => {
     if (!valid || busy) {
       return;
@@ -303,7 +317,7 @@ const Welcome: React.FC<WelcomeProps> = ({account, onSignIn, onSignUp}) => {
         <Text style={styles.authFieldLabel}>Password</Text>
         <TextInput
           autoCapitalize="none"
-          autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
+          autoComplete={passwordAutoComplete}
           autoCorrect={false}
           editable={!busy}
           maxLength={128}
@@ -312,33 +326,29 @@ const Welcome: React.FC<WelcomeProps> = ({account, onSignIn, onSignUp}) => {
           returnKeyType="done"
           secureTextEntry
           style={styles.authInput}
-          textContentType={mode === 'signup' ? 'newPassword' : 'password'}
+          textContentType={passwordTextContentType}
           value={password}
         />
         <Pressable
-          disabled={busy || !valid}
+          disabled={authenticationDisabled}
           onPress={submitFromKeyboardOrPress}
           style={({pressed}) => [
             styles.authButton,
-            (pressed || busy || !valid) && styles.pressedDim,
+            (pressed || authenticationDisabled) && styles.pressedDim,
           ]}>
           {busy ? (
             <ActivityIndicator color="#FFFFFF" />
           ) : (
-            <Text style={styles.authButtonText}>
-              {mode === 'login' ? 'Sign in' : 'Create account'}
-            </Text>
+            <Text style={styles.authButtonText}>{submitLabel}</Text>
           )}
         </Pressable>
         <Pressable
           disabled={busy}
-          onPress={() => setMode(current => (current === 'login' ? 'signup' : 'login'))}
+          onPress={() =>
+            setMode(current => (current === 'login' ? 'signup' : 'login'))
+          }
           style={styles.authModeButton}>
-          <Text style={styles.authModeText}>
-            {mode === 'login'
-              ? 'Create a new account'
-              : 'Already have an account? Sign in'}
-          </Text>
+          <Text style={styles.authModeText}>{modeSwitchLabel}</Text>
         </Pressable>
       </View>
     </View>
@@ -355,6 +365,30 @@ type ProfileGateProps = {
   onSignOut: () => void;
 };
 
+function profileGateCopy(checking: boolean, missing: boolean) {
+  if (checking) {
+    return {
+      title: 'Checking protection…',
+      detail: 'Looking for the managed GetBored filter profile on this iPhone.',
+      eyebrow: 'This iPhone · checking',
+    };
+  }
+  if (missing) {
+    return {
+      title: 'Protection missing',
+      detail:
+        'Download the profile, then open Settings → Profile Downloaded → Install.',
+      eyebrow: 'This iPhone · needs attention',
+    };
+  }
+  return {
+    title: 'Unable to verify setup',
+    detail:
+      'GetBored could not read the managed filter profile. Check device management, then try again.',
+    eyebrow: 'This iPhone · needs attention',
+  };
+}
+
 const ProfileGate: React.FC<ProfileGateProps> = ({
   filter,
   accountLabel,
@@ -367,19 +401,16 @@ const ProfileGate: React.FC<ProfileGateProps> = ({
   const checking = filter.kind === 'loading';
   const missing =
     filter.kind === 'ready' && filter.status.profile.kind === 'missing';
-  const title = checking
-    ? 'Checking protection…'
-    : missing
-      ? 'Protection missing'
-      : 'Unable to verify setup';
-  const detail = missing
-    ? 'Download the profile, then open Settings → Profile Downloaded → Install.'
-    : checking
-      ? 'Looking for the managed GetBored filter profile on this iPhone.'
-      : 'GetBored could not read the managed filter profile. Check device management, then try again.';
-  const eyebrow = checking
-    ? 'This iPhone · checking'
-    : 'This iPhone · needs attention';
+  const {title, detail, eyebrow} = profileGateCopy(checking, missing);
+  /**
+   * Requests the native profile download and retains a failure in this gate.
+   * Downloading opens the system browser; the user completes installation in
+   * Settings, then uses Check Again to refresh native filter status.
+   *
+   *   Download press → onDownload() → system browser
+   *       │
+   *       └── rejection → downloadError → inline error text
+   */
   const download = useCallback(async () => {
     setDownloading(true);
     setDownloadError(null);
@@ -391,6 +422,50 @@ const ProfileGate: React.FC<ProfileGateProps> = ({
       setDownloading(false);
     }
   }, [onDownload]);
+
+  let profileAction: React.ReactNode;
+  if (checking) {
+    profileAction = (
+      <ActivityIndicator
+        color={colors.label}
+        style={styles.profileGateActivity}
+      />
+    );
+  } else if (missing) {
+    profileAction = (
+      <>
+        <Pressable
+          disabled={downloading}
+          onPress={download}
+          style={({pressed}) => [
+            styles.cta,
+            styles.profileGateRefresh,
+            (pressed || downloading) && styles.pressedDim,
+          ]}>
+          {downloading ? (
+            <ActivityIndicator color={colors.label} />
+          ) : (
+            <Text style={styles.ctaText}>Download &amp; Install Profile</Text>
+          )}
+        </Pressable>
+        <Pressable onPress={onRefresh} style={styles.profileGateCheckAgain}>
+          <Text style={styles.profileGateCheckAgainText}>Check Again</Text>
+        </Pressable>
+      </>
+    );
+  } else {
+    profileAction = (
+      <Pressable
+        onPress={onRefresh}
+        style={({pressed}) => [
+          styles.cta,
+          styles.profileGateRefresh,
+          pressed && styles.pressedDim,
+        ]}>
+        <Text style={styles.ctaText}>Check Again</Text>
+      </Pressable>
+    );
+  }
 
   return (
     <View style={styles.profileGate}>
@@ -413,42 +488,7 @@ const ProfileGate: React.FC<ProfileGateProps> = ({
         {downloadError !== null && (
           <Text style={styles.profileGateError}>{downloadError}</Text>
         )}
-        {checking ? (
-          <ActivityIndicator
-            color={colors.label}
-            style={styles.profileGateActivity}
-          />
-        ) : missing ? (
-          <>
-            <Pressable
-              disabled={downloading}
-              onPress={download}
-              style={({pressed}) => [
-                styles.cta,
-                styles.profileGateRefresh,
-                (pressed || downloading) && styles.pressedDim,
-              ]}>
-              {downloading ? (
-                <ActivityIndicator color={colors.label} />
-              ) : (
-                <Text style={styles.ctaText}>Download &amp; Install Profile</Text>
-              )}
-            </Pressable>
-            <Pressable onPress={onRefresh} style={styles.profileGateCheckAgain}>
-              <Text style={styles.profileGateCheckAgainText}>Check Again</Text>
-            </Pressable>
-          </>
-        ) : (
-          <Pressable
-            onPress={onRefresh}
-            style={({pressed}) => [
-              styles.cta,
-              styles.profileGateRefresh,
-              pressed && styles.pressedDim,
-            ]}>
-            <Text style={styles.ctaText}>Check Again</Text>
-          </Pressable>
-        )}
+        {profileAction}
         <Pressable onPress={onSignOut} style={styles.profileGateSignOut}>
           <Text style={styles.profileGateSignOutText}>Sign out</Text>
         </Pressable>
@@ -530,7 +570,8 @@ export const HomeScreen: React.FC = () => {
     filterStatus.state.kind === 'ready' &&
     filterStatus.state.status.profile.kind === 'installed';
   const showProfileGate = signedIn && !reviewDemo && !profileInstalled;
-  const showMain = accountAbsent || (signedIn && (reviewDemo || profileInstalled));
+  const showMain =
+    accountAbsent || (signedIn && (reviewDemo || profileInstalled));
 
   const homeStatus: HomeStatus = reviewDemo
     ? {
@@ -546,7 +587,8 @@ export const HomeScreen: React.FC = () => {
         registration.state,
       );
   const accountLabel =
-    account.state.kind === 'signedIn' || account.state.kind === 'needsActivation'
+    account.state.kind === 'signedIn' ||
+    account.state.kind === 'needsActivation'
       ? account.state.accountLabel
       : undefined;
   const syncSuccess =
@@ -574,32 +616,41 @@ export const HomeScreen: React.FC = () => {
     refreshAccount(false);
   }, [refreshAccount]);
 
+  let gatedContent: React.ReactNode = null;
+  if (!showMain) {
+    if (needsActivation) {
+      gatedContent = (
+        <ActivationScreen
+          accountLabel={accountLabel}
+          onActivate={account.redeemActivationCode}
+          onSignOut={account.signOut}
+        />
+      );
+    } else if (showProfileGate) {
+      gatedContent = (
+        <ProfileGate
+          filter={filterStatus.state}
+          accountLabel={accountLabel}
+          onDownload={downloadProfile}
+          onRefresh={refreshStatus}
+          onSignOut={account.signOut}
+        />
+      );
+    } else {
+      gatedContent = (
+        <Welcome
+          account={account.state}
+          onSignIn={account.signIn}
+          onSignUp={account.signUp}
+        />
+      );
+    }
+  }
+
   return (
     <SafeAreaView style={styles.root}>
       <ErrorBoundary>
-        {!showMain && (
-          needsActivation ? (
-            <ActivationScreen
-              accountLabel={accountLabel}
-              onActivate={account.redeemActivationCode}
-              onSignOut={account.signOut}
-            />
-          ) : showProfileGate ? (
-            <ProfileGate
-              filter={filterStatus.state}
-              accountLabel={accountLabel}
-              onDownload={downloadProfile}
-              onRefresh={refreshStatus}
-              onSignOut={account.signOut}
-            />
-          ) : (
-            <Welcome
-              account={account.state}
-              onSignIn={account.signIn}
-              onSignUp={account.signUp}
-            />
-          )
-        )}
+        {gatedContent}
 
         {showMain && (
           <ScrollView

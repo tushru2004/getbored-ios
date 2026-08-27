@@ -9,7 +9,12 @@ export type AccountState =
   | {kind: 'signedOut'}
   | {kind: 'signingIn'}
   | {kind: 'needsActivation'; userId?: string; accountLabel?: string}
-  | {kind: 'signedIn'; userId?: string; accountLabel?: string; reviewDemo: boolean}
+  | {
+      kind: 'signedIn';
+      userId?: string;
+      accountLabel?: string;
+      reviewDemo: boolean;
+    }
   | {kind: 'deleting'}
   | {kind: 'error'; message: string};
 
@@ -98,17 +103,18 @@ export function useAccount(): UseAccount {
       const summary = await AccountBridge.currentAccount();
       if (summary.signedIn) {
         setState(previous => {
-          const previousUserId =
-            previous.kind === 'signedIn' || previous.kind === 'needsActivation'
-              ? previous.userId
-              : undefined;
-          const previousAccountLabel =
-            previous.kind === 'signedIn' || previous.kind === 'needsActivation'
-              ? previous.accountLabel
-              : undefined;
+          const previousHasAccountDetails =
+            previous.kind === 'signedIn' || previous.kind === 'needsActivation';
+          const previousUserId = previousHasAccountDetails
+            ? previous.userId
+            : undefined;
+          const previousAccountLabel = previousHasAccountDetails
+            ? previous.accountLabel
+            : undefined;
           const accountDetails = {
             userId: summary.userId ?? previousUserId,
-            accountLabel: summary.username ?? summary.email ?? previousAccountLabel,
+            accountLabel:
+              summary.username ?? summary.email ?? previousAccountLabel,
           };
           const reviewDemo = summary.accountKind === 'review_demo';
           if (reviewDemo) {
@@ -132,8 +138,19 @@ export function useAccount(): UseAccount {
   }, []);
 
   /**
-   * Shared by sign-in and sign-up: same lifecycle and error handling; only
-   * the native endpoint differs.
+   * Runs the shared sign-in/sign-up lifecycle after the caller selects the
+   * native endpoint.
+   *
+   * Call flow:
+   *
+   *   Welcome submit → signIn() or signUp()
+   *       │
+   *       ▼
+   *   runSignIn(start)
+   *       │
+   *       ├── start resolves → refresh() → current account state
+   *       ├── CANCELLED      → {signedOut}  ← user dismissed native UI
+   *       └── other error    → {error, message}
    */
   const runSignIn = useCallback(
     async (start: () => Promise<unknown>) => {

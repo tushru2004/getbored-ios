@@ -11,18 +11,20 @@
 //
 
 import Foundation
-import OSLog
-
 import GetBoredCore
+import OSLog
 
 // MARK: - IOSRuleStore
 
-/// Central data hub shared between the iOS app, Data Provider, and Control Provider.
-/// All 3 targets read/write through shared UserDefaults via the App Group.
-/// This is the single source of truth for all filter configuration.
+/// Shared App Group storage for the iOS filter policy.
+///
+/// The app writes the server policy here. The Data and Control Providers read
+/// the same snapshot, then `IOSDecisionCore` evaluates it. This store moves
+/// data between targets; it does not make allow or block decisions.
 class IOSRuleStore {
     static let shared = IOSRuleStore()
-    private let logger = Logger(subsystem: GetBoredIdentifiers.Logging.iOS, category: "IOSRuleStore")
+    private let logger = Logger(
+        subsystem: GetBoredIdentifiers.Logging.iOS, category: "IOSRuleStore")
 
     /// App Group identifier — must match the entitlement on all 3 targets
     private let appGroupIdentifier = GetBoredIdentifiers.AppGroup.ios
@@ -76,7 +78,11 @@ class IOSRuleStore {
     /// that another process may have written since the last read.
     private var sharedDefaults: UserDefaults? {
         let now = Date()
-        if _cachedDefaults == nil || now.timeIntervalSince(_defaultsCacheTime) > defaultsCacheInterval {
+        let cacheIsMissing = _cachedDefaults == nil
+        let cacheAge = now.timeIntervalSince(_defaultsCacheTime)
+        let cacheIsStale = cacheAge > defaultsCacheInterval
+
+        if cacheIsMissing || cacheIsStale {
             _cachedDefaults = UserDefaults(suiteName: appGroupIdentifier)
             _defaultsCacheTime = now
         }
@@ -96,7 +102,8 @@ class IOSRuleStore {
     /// Load all site rules from shared UserDefaults
     func loadSiteRules() -> [SiteRule] {
         guard let data = sharedDefaults?.data(forKey: siteRulesKey),
-              let items = try? JSONDecoder().decode([SiteRule].self, from: data) else {
+            let items = try? JSONDecoder().decode([SiteRule].self, from: data)
+        else {
             logger.debug("loadSiteRules: no data found or decode failed, returning empty")
             return []
         }
@@ -106,7 +113,7 @@ class IOSRuleStore {
 
     /// Load the full policy snapshot expected by the shared decision core.
     ///
-    /// This is the single chokepoint all consumers (FlowInspector, KMPDecisionCoreAdapter,
+    /// This is the single chokepoint all consumers (FlowInspector, IOSDecisionCore,
     /// isListed/isExcepted/isAppAllowed/isAppBlocked below) go through to get a filter mode —
     /// see decodedFilterMode() for the block-mode-only safety guard applied here.
     ///
@@ -121,7 +128,7 @@ class IOSRuleStore {
     ///           └── loadBlockedApps()  → [String] from UserDefaults
     ///                   │
     ///                   ▼
-    ///               LoadedFilterRules (passed to KMPDecisionCoreAdapter for every decision)
+    ///               LoadedFilterRules (passed to IOSDecisionCore for every decision)
     ///
     /// All five reads hit the same cached UserDefaults instance (5-second TTL).
     func loadFilterRules() -> LoadedFilterRules {
@@ -146,11 +153,22 @@ class IOSRuleStore {
         defaults?.synchronize()
     }
 
-    /// Save the server-generated Safari parent-child map to shared UserDefaults.
-    /// The AppProxy and Data Provider decode the typed schema when making decisions.
+    /// Validates and publishes the server-generated Safari parent-child map.
+    /// The App Proxy and Data Provider later decode the typed schema when making
+    /// spike decisions.
+    ///
+    /// Call flow:
+    ///
+    ///   policy sync receives parent-child JSON → saveParentChildMapJSON(json)
+    ///           │
+    ///           ├── IOSDecisionCore.isValidParentChildMapJSON(json) == false
+    ///           │       └── log error → return false  ← preserve the previous map
+    ///           │
+    ///           └── JSON is valid
+    ///                   └── defaults[parentChildMapKey] = json → synchronize() → return true
     @discardableResult
     func saveParentChildMapJSON(_ json: String) -> Bool {
-        guard KMPDecisionCoreAdapter.isValidParentChildMapJSON(json) else {
+        guard IOSDecisionCore.isValidParentChildMapJSON(json) else {
             logger.error("saveParentChildMapJSON: invalid JSON")
             return false
         }
@@ -164,7 +182,7 @@ class IOSRuleStore {
 
     /// Check if a host matches any site rule (exact or subdomain match)
     func isListed(url: String) -> Bool {
-        KMPDecisionCoreAdapter.matchesSiteRule(url, using: loadFilterRules())
+        IOSDecisionCore.matchesSiteRule(url, using: loadFilterRules())
     }
 
     /// Returns true if there are any site rules configured
@@ -174,11 +192,10 @@ class IOSRuleStore {
 
     // MARK: - Filter List Snapshot
 
-    /// Atomically overwrites the full filter policy with a server-merged snapshot.
+    /// Replaces the full filter policy with a server-merged snapshot.
     ///
-    /// The merge (whitelist-wins, ordered-unique across a device's assigned lists)
-    /// happens server-side now; `syncFilterLists` fetches the already-merged result
-    /// from `GET /api/policy` and hands it straight to this writer.
+    /// `syncFilterLists` fetches the already-merged result from `GET /api/policy`
+    /// and hands it straight to this writer.
     ///
     /// Call flow:
     ///
@@ -193,7 +210,8 @@ class IOSRuleStore {
     ///           ├── defaults.synchronize()  ← flush cross-process so extension sees new values
     ///           └── invalidateDefaultsCache()  ← force next read to re-create UserDefaults instance
     ///
-    /// All five keys are written before synchronize() so the extension never sees a partial state.
+    /// All five keys are written before `synchronize()` asks the shared defaults
+    /// store to publish the new snapshot to the extension processes.
     func applyFilterListSnapshot(
         mode: FilterListMode,
         entries: [String],
@@ -216,7 +234,9 @@ class IOSRuleStore {
 
         invalidateDefaultsCache()
 
-        logger.info("applyFilterListSnapshot: \(entries.count, privacy: .public) entries, mode=\(filterMode.rawValue, privacy: .public), \(exceptions.count, privacy: .public) exceptions, \(allowedApps.count, privacy: .public) allowedApps, \(blockedApps.count, privacy: .public) blockedApps")
+        logger.info(
+            "applyFilterListSnapshot: \(entries.count, privacy: .public) entries, mode=\(filterMode.rawValue, privacy: .public), \(exceptions.count, privacy: .public) exceptions, \(allowedApps.count, privacy: .public) allowedApps, \(blockedApps.count, privacy: .public) blockedApps"
+        )
     }
 
     // MARK: - Filter Mode
@@ -261,12 +281,15 @@ class IOSRuleStore {
     private func decodedFilterMode() -> FilterMode {
         let rawMode = sharedDefaults?.string(forKey: modeKey) ?? FilterMode.blockSpecific.rawValue
         let decodedMode = FilterMode(rawValue: rawMode) ?? .blockSpecific
+        let requiresBlockModeCoercion = decodedMode == .whiteList
 
-        guard decodedMode == .whiteList else {
+        guard requiresBlockModeCoercion else {
             return decodedMode
         }
 
-        logger.warning("decodedFilterMode: whiteList mode received in block-mode-only build; coercing to block-mode default (whitelist machinery removed in v1)")
+        logger.warning(
+            "decodedFilterMode: whiteList mode received in block-mode-only build; coercing to block-mode default (whitelist machinery removed in v1)"
+        )
         return .blockSpecific
     }
 
@@ -286,7 +309,7 @@ class IOSRuleStore {
 
     /// Check if a full URL matches any exception pattern
     func isExcepted(fullURL: String) -> Bool {
-        KMPDecisionCoreAdapter.matchesException(fullURL, using: loadFilterRules())
+        IOSDecisionCore.matchesException(fullURL, using: loadFilterRules())
     }
 
     // MARK: - Allowed Apps (per-app bypass)
@@ -308,7 +331,7 @@ class IOSRuleStore {
     /// Check if an app is in the allowed list.
     /// Handles team ID prefix — "EQHXZ8M8AV.com.google.Gmail" matches stored "com.google.Gmail"
     func isAppAllowed(_ bundleID: String) -> Bool {
-        let result = KMPDecisionCoreAdapter.matchesAllowedApp(bundleID, using: loadFilterRules())
+        let result = IOSDecisionCore.matchesAllowedApp(bundleID, using: loadFilterRules())
         if result {
             logger.info("isAppAllowed: \(bundleID) is allowed")
         }
@@ -334,7 +357,7 @@ class IOSRuleStore {
     /// Check if an app is in the blocked list.
     /// Handles team ID prefix — "EQHXZ8M8AV.com.tiktok.TikTok" matches stored "com.tiktok.TikTok"
     func isAppBlocked(_ bundleID: String) -> Bool {
-        let result = KMPDecisionCoreAdapter.isAppBlocked(bundleID, using: loadFilterRules())
+        let result = IOSDecisionCore.isAppBlocked(bundleID, using: loadFilterRules())
         if result {
             logger.info("isAppBlocked: \(bundleID) is blocked")
         }
@@ -347,9 +370,11 @@ class IOSRuleStore {
     func isRelatedToAllowedEntry(host: String) -> Bool {
         let items = loadSiteRules()
         guard !items.isEmpty else { return false }
-        return KMPDecisionCoreAdapter.hostContainsAnyRelatedKeyword(
+
+        let ruleDomains = items.map(\.url)
+        return IOSDecisionCore.hostContainsAnyRelatedKeyword(
             host,
-            domains: items.map(\.url)
+            domains: ruleDomains
         )
     }
 }
@@ -378,19 +403,21 @@ class IOSActivityLogger {
     private var lastFlush = Date()
 
     /// Serial queue for thread-safe writes
-    private let queue = DispatchQueue(label: GetBoredIdentifiers.Queue.iosActivityLogger, qos: .utility)
+    private let queue = DispatchQueue(
+        label: GetBoredIdentifiers.Queue.iosActivityLogger, qos: .utility)
 
     private var sharedDefaults: UserDefaults? {
         UserDefaults(suiteName: appGroupIdentifier)
     }
 
-    private let writeLogger = OSLog(subsystem: GetBoredIdentifiers.Logging.iOS, category: "IOSActivityLogger")
+    private let writeLogger = OSLog(
+        subsystem: GetBoredIdentifiers.Logging.iOS, category: "IOSActivityLogger")
 
     // MARK: - Team ID Stripping
 
-    /// Strip team ID prefix from sourceAppIdentifier. Delegates to Kotlin ActivityLogPolicy.
+    /// Strip the team ID prefix from a source application identifier.
     private func stripTeamID(_ identifier: String?) -> String? {
-        KMPDecisionCoreAdapter.activityLogStripTeamID(identifier)
+        IOSDecisionCore.activityLogStripTeamID(identifier)
     }
 
     // MARK: - Logging
@@ -416,7 +443,7 @@ class IOSActivityLogger {
     ///                       │
     ///                       ├── defaults.synchronize()  ← pull cross-process writes first
     ///                       ├── decode existing [ActivityLogEntry]
-    ///                       ├── KMPDecisionCoreAdapter.activityLogMergeAndTrim (cap at 500)
+    ///                       ├── IOSDecisionCore.activityLogMergeAndTrim (cap at 500)
     ///                       └── encode + defaults.set + defaults.synchronize()
     ///
     /// All writes are serialized on `queue` (serial, .utility QoS) to avoid data races.
@@ -427,62 +454,33 @@ class IOSActivityLogger {
     // re-enabling: the 2 s flushInterval is only evaluated on the NEXT log()
     // call — no timer is ever scheduled, so a lone entry can sit in memory
     // until the extension process dies.
-    func log(domain: String,
-             blocked: Bool,
-             reason: String,
-             sourceApp: String? = nil,
-             rawEndpoint: String? = nil,
-             resolutionSource: String = "legacy",
-             isResolvableHostname: Bool = true) {
-        /*
-        let entry = ActivityLogEntry(
-            displayDomain: domain,
-            blocked: blocked,
-            reason: reason,
-            sourceApp: stripTeamID(sourceApp),
-            rawEndpoint: rawEndpoint,
-            resolutionSource: resolutionSource,
-            isResolvableHostname: isResolvableHostname
-        )
-        queue.async { [weak self] in
-            guard let self else { return }
-            self.pendingEntries.append(entry)
-            let shouldFlush = self.pendingEntries.count >= self.batchSize ||
-                Date().timeIntervalSince(self.lastFlush) >= self.flushInterval
-            if shouldFlush {
-                self._flushPending()
-            }
-        }
-        */
+    func log(
+        domain: String,
+        blocked: Bool,
+        reason: String,
+        sourceApp: String? = nil,
+        rawEndpoint: String? = nil,
+        resolutionSource: String = "legacy",
+        isResolvableHostname: Bool = true
+    ) {
+        // Disabled implementation retained as documentation:
+        // build an ActivityLogEntry, append it on `queue`, and flush when the
+        // batch reaches `batchSize` or `flushInterval` has elapsed.
     }
 
     /// Force-flush pending entries to disk (async). Disabled — see log().
     func flush() {
-        /*
-        queue.async { [weak self] in
-            self?._flushPending()
-        }
-        */
+        // Disabled implementation: enqueue `_flushPending()` on `queue`.
     }
 
     /// Synchronously flush pending entries. Disabled — see log().
     func flushSync() {
-        /*
-        queue.sync { [weak self] in
-            self?._flushPending()
-        }
-        */
+        // Disabled implementation: synchronously run `_flushPending()` on `queue`.
     }
 
     /// Must be called on `queue`. Disabled — see log().
     private func _flushPending() {
-        /*
-        guard !pendingEntries.isEmpty else { return }
-        let toWrite = pendingEntries
-        pendingEntries = []
-        lastFlush = Date()
-        writeEntries(toWrite)
-        */
+        // Disabled implementation: drain pending entries, advance `lastFlush`, then write them.
     }
 
     /// Read-merge-trim-write cycle on the shared activity log.
@@ -491,49 +489,20 @@ class IOSActivityLogger {
     /// reading the log for upload) may have written a tombstone or trim since this process
     /// last read. Without it we'd re-inflate entries that were already cleared.
     private func writeEntries(_ newEntries: [ActivityLogEntry]) {
-        /*
-        guard let defaults = sharedDefaults else {
-            os_log("IOSActivityLogger.writeEntries: sharedDefaults is nil!", log: writeLogger, type: .error)
-            return
-        }
-        defaults.synchronize()
-
-        var existing: [ActivityLogEntry] = []
-        if let data = defaults.data(forKey: logKey) {
-            existing = (try? JSONDecoder().decode([ActivityLogEntry].self, from: data)) ?? []
-        }
-
-        existing = KMPDecisionCoreAdapter.activityLogMergeAndTrim(
-            existing: existing,
-            newEntries: newEntries,
-            maxTotal: maxEntries
-        )
-
-        if let data = try? JSONEncoder().encode(existing) {
-            defaults.set(data, forKey: logKey)
-            defaults.synchronize()
-        }
-        */
+        // Disabled implementation: synchronize, merge and trim entries with
+        // `IOSDecisionCore`, then persist the encoded result in the App Group.
     }
 
     // MARK: - Reading
 
     /// Read the activity log (called from the iOS app). Disabled — see log().
     func loadEntries() -> [ActivityLogEntry] {
-        /*
-        guard let defaults = sharedDefaults else { return [] }
-        defaults.synchronize()
-        guard let data = defaults.data(forKey: logKey) else { return [] }
-        return (try? JSONDecoder().decode([ActivityLogEntry].self, from: data)) ?? []
-        */
+        // Disabled implementation: synchronize App Group defaults and decode `logKey`.
         return []
     }
 
     /// Clear all log entries. Disabled — see log().
     func clearLog() {
-        /*
-        sharedDefaults?.removeObject(forKey: logKey)
-        sharedDefaults?.synchronize()
-        */
+        // Disabled implementation: remove `logKey` and synchronize App Group defaults.
     }
 }

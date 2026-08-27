@@ -41,6 +41,18 @@ export const ActivationScreen: React.FC<Props> = ({
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  /**
+   * Sends the normalized code to the account hook and keeps the failure local
+   * to this screen. A successful redemption changes account state in the hook,
+   * so `HomeScreen` replaces this gate on the next render.
+   *
+   * Call flow:
+   *
+   *   Activate press → activate()
+   *       │
+   *       ├── onActivate(code.trim()) resolves → account refresh → dashboard
+   *       └── rejects → activationError(...) → inline error text
+   */
   async function activate() {
     setPending(true);
     setError(null);
@@ -54,6 +66,7 @@ export const ActivationScreen: React.FC<Props> = ({
   }
 
   const isCodeEmpty = code.trim() === '';
+  const activationDisabled = pending || isCodeEmpty;
   const signedInSuffix = accountLabel ? ` Signed in as ${accountLabel}.` : '';
 
   return (
@@ -96,11 +109,11 @@ export const ActivationScreen: React.FC<Props> = ({
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
         <Pressable
-          disabled={pending || isCodeEmpty}
+          disabled={activationDisabled}
           onPress={activate}
           style={({pressed}) => [
             styles.activateButton,
-            (pressed || pending || isCodeEmpty) && styles.dimmed,
+            (pressed || activationDisabled) && styles.dimmed,
           ]}>
           {pending ? (
             <ActivityIndicator color={colors.surface} />
@@ -109,7 +122,10 @@ export const ActivationScreen: React.FC<Props> = ({
           )}
         </Pressable>
 
-        <Pressable disabled={pending} onPress={onSignOut} style={styles.signOutButton}>
+        <Pressable
+          disabled={pending}
+          onPress={onSignOut}
+          style={styles.signOutButton}>
           <Text style={styles.signOutText}>Use a different account</Text>
         </Pressable>
       </View>

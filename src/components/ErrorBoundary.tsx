@@ -12,6 +12,24 @@ type State = {
   error: Error | null;
 };
 
+/**
+ * Contains a render error so the app can offer a local retry instead of
+ * leaving React Native on its default error screen.
+ *
+ * Call flow:
+ *
+ *   child render throws
+ *       │
+ *       ▼
+ *   getDerivedStateFromError(error) → state.error
+ *       │
+ *       ├── componentDidCatch(...) → console error for diagnosis
+ *       └── render()
+ *               ├── caller fallback supplied → fallback(error, reset)
+ *               └── otherwise                → <DefaultFallback>
+ *
+ *   Retry press → reset() → state.error = null → children render again
+ */
 export class ErrorBoundary extends Component<Props, State> {
   state: State = {error: null};
 
@@ -29,8 +47,12 @@ export class ErrorBoundary extends Component<Props, State> {
 
   render(): ReactNode {
     const {error} = this.state;
-    if (!error) return this.props.children;
-    if (this.props.fallback) return this.props.fallback(error, this.reset);
+    if (!error) {
+      return this.props.children;
+    }
+    if (this.props.fallback) {
+      return this.props.fallback(error, this.reset);
+    }
     return <DefaultFallback error={error} onRetry={this.reset} />;
   }
 }

@@ -1,19 +1,11 @@
-// WhitelistManagerParityTest.swift
+// LegacyWhitelistPolicyTests.swift
 //
-// Parity tests for WhitelistManager's 6 public decision methods.
+// These contract tests preserve the behavior of the original whitelist policy
+// while its production implementation now lives in IOSDecisionCore. The helpers
+// remain independent so a mistaken production refactor cannot make both the
+// implementation and its compatibility tests pass for the same wrong reason.
 //
-// INSTANTIATION STRATEGY: WhitelistManager lives in Sources/iOS/App which is NOT
-// part of the GetBoredIOSCore SwiftPM target — it is only compiled by Xcode.
-// The refactored WhitelistManager will forward to KMPDecisionCoreAdapter, whose
-// Kotlin backend (GetBoredSharedCore) requires an iOS simulator/device and is
-// unavailable in a macOS SwiftPM test run.
-//
-// Therefore this file tests the PURE decision logic by re-implementing the
-// same algorithms inline, using the exact same rules that both the current Swift
-// WhitelistManager and the future KMP-forwarding version must satisfy. Any
-// refactored implementation that alters these outcomes will break these tests.
-//
-// The 6 logical "methods" tested correspond to the WhitelistManager public API:
+// The six behavior groups correspond to the former public whitelist API:
 //   isExcepted(fullURL:)            → testIsExcepted*
 //   isAppAllowed(_:)                → testIsAppAllowed*
 //   baseKeyword(from:)              → testBaseKeyword*
@@ -23,7 +15,7 @@
 
 import XCTest
 
-// MARK: - Pure helpers (mirrors WhitelistManager implementation)
+// MARK: - Independent compatibility helpers
 
 private func extractDomain(from input: String) -> String {
     var s = input
@@ -104,7 +96,7 @@ private func isRelatedToAllowedEntry(host: String, items: [String]) -> Bool {
 
 // MARK: - Test class
 
-final class WhitelistManagerParityTest: XCTestCase {
+final class LegacyWhitelistPolicyTests: XCTestCase {
 
     // MARK: extractDomain(from:)
 
@@ -187,7 +179,8 @@ final class WhitelistManagerParityTest: XCTestCase {
     // MARK: isExcepted(fullURL:)
 
     func testIsExcepted_exactMatch() {
-        XCTAssertTrue(isExcepted(fullURL: "https://news.ycombinator.com", exceptions: ["news.ycombinator.com"]))
+        XCTAssertTrue(
+            isExcepted(fullURL: "https://news.ycombinator.com", exceptions: ["news.ycombinator.com"]))
     }
 
     func testIsExcepted_wwwStripped() {

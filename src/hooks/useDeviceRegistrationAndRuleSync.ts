@@ -106,12 +106,7 @@ export function useDeviceRegistrationAndRuleSync(): DeviceRegistrationAndRuleSyn
       autoRegisterArmed.current = false;
       register();
     }
-  }, [
-    signedIn,
-    registrationCheckedForSession,
-    registrationIdle,
-    register,
-  ]);
+  }, [signedIn, registrationCheckedForSession, registrationIdle, register]);
 
   // Sync when the device BECOMES connected (fresh registration — including
   // the auto-connect above), and once per session when it already was

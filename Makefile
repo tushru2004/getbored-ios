@@ -10,14 +10,10 @@ DEVICE_UDID     ?= 00008020-0004695621DA002E
 # iPhone 13 mini — production Release installs
 PROD_DEVICE_UDID ?= 00008110-0016786001D2401E
 
-# Java for Gradle (KMP XCFramework builds)
-JAVA_HOME       ?= /opt/homebrew/opt/openjdk
-export JAVA_HOME
-
 # Port for kill-port (defaults to Metro)
 PORT            ?= 8081
 
-.PHONY: all build build-release build-device install install-only install-release preflight preflight-release swift-test clean kmp kmp-clean kill-port agents-api-wake agents-wake-api agents-api-wake-kill agents-wake-api-kill
+.PHONY: all build build-release build-device install install-only install-release preflight preflight-release swift-test clean kill-port agents-api-wake agents-wake-api agents-api-wake-kill agents-wake-api-kill
 
 all: build
 
@@ -108,13 +104,6 @@ kill-port:
 
 swift-test:
 	swift test --filter IOSContractTests
-
-# Rebuild the Kotlin GetBoredSharedCore.xcframework (run after editing shared-kotlin/**)
-kmp:
-	./gradlew :shared-kotlin:assembleGetBoredSharedCoreXCFramework
-
-kmp-clean:
-	./gradlew :shared-kotlin:clean
 
 clean:
 	rm -rf $(DERIVED_DATA)

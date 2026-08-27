@@ -25,7 +25,6 @@ require_framework() {
 }
 
 # Hermes is a dynamic framework embedded by CocoaPods and required at runtime.
-# GetBoredSharedCore.xcframework is static and must not be embedded here.
 require_framework "hermes"
 
 check_binary() {

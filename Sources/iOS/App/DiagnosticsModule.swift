@@ -1,9 +1,9 @@
 import Foundation
+import GetBoredCore
 import MetricKit
 import OSLog
-import UIKit
 import React
-import GetBoredCore
+import UIKit
 
 private let logger = Logger(
     subsystem: GetBoredIdentifiers.Logging.iOSFilterApp,
@@ -79,18 +79,23 @@ final class DiagnosticsModule: NSObject {
     ///   Self.sendBatch(reason, events)
     ///           ├── request succeeds → resolve(["sent": true,  "events": N])
     ///           └── request fails    → resolve(["sent": false, "events": N])   ← never rejects
-    @objc func reportRecentLogs(_ reason: String,
-                                resolver resolve: @escaping RCTPromiseResolveBlock,
-                                rejecter reject: @escaping RCTPromiseRejectBlock) {
+    @objc func reportRecentLogs(
+        _ reason: String,
+        resolver resolve: @escaping RCTPromiseResolveBlock,
+        rejecter reject: @escaping RCTPromiseRejectBlock
+    ) {
         logger.info("begin reportRecentLogs: reason=\(reason, privacy: .public)")
         DispatchQueue.global(qos: .utility).async {
             let events = Self.collectRecentEvents()
             logger.info("reportRecentLogs: collected events=\(events.count, privacy: .public)")
             Self.sendBatch(reason: reason, events: events) { sent in
                 if sent {
-                    logger.info("end reportRecentLogs: accepted events=\(events.count, privacy: .public)")
+                    logger.info(
+                        "end reportRecentLogs: accepted events=\(events.count, privacy: .public)")
                 } else {
-                    logger.warning("end reportRecentLogs: upload failed events=\(events.count, privacy: .public)")
+                    logger.warning(
+                        "end reportRecentLogs: upload failed events=\(events.count, privacy: .public)"
+                    )
                 }
                 resolve(["sent": sent, "events": events.count])
             }
@@ -111,15 +116,17 @@ final class DiagnosticsModule: NSObject {
             var events: [ClientLogEvent] = []
             for entry in try store.getEntries(at: position) {
                 guard let log = entry as? OSLogEntryLog,
-                      log.subsystem.hasPrefix("com.getbored") else {
+                    log.subsystem.hasPrefix("com.getbored")
+                else {
                     continue
                 }
-                events.append(ClientLogEvent(
-                    timestamp: formatter.string(from: log.date),
-                    level: levelName(log.level),
-                    category: "\(log.subsystem)/\(log.category)",
-                    message: log.composedMessage
-                ))
+                events.append(
+                    ClientLogEvent(
+                        timestamp: formatter.string(from: log.date),
+                        level: levelName(log.level),
+                        category: "\(log.subsystem)/\(log.category)",
+                        message: log.composedMessage
+                    ))
             }
             let recentEvents = Array(events.suffix(maxEventsPerBatch))
             logger.info("end collectRecentEvents: events=\(recentEvents.count, privacy: .public)")
@@ -127,7 +134,8 @@ final class DiagnosticsModule: NSObject {
         } catch {
             // No log access (old OS, store failure): report proceeds with an
             // empty batch so at least the reason + device context arrive.
-            logger.warning("end collectRecentEvents: OSLogStore failed: \(error as NSError, privacy: .public)")
+            logger.warning(
+                "end collectRecentEvents: OSLogStore failed: \(error as NSError, privacy: .public)")
             return []
         }
     }
@@ -147,10 +155,26 @@ final class DiagnosticsModule: NSObject {
 
     /// POSTs one batch. Shared by the JS-triggered snapshot above and the
     /// MetricKit subscriber below.
-    fileprivate static func sendBatch(reason: String,
-                                      events: [ClientLogEvent],
-                                      completion: ((Bool) -> Void)? = nil) {
-        logger.info("begin sendBatch: reason=\(reason, privacy: .public) events=\(events.count, privacy: .public)")
+    ///
+    /// Call flow:
+    ///
+    ///   reportRecentLogs / MetricKitReporter.didReceive
+    ///           │
+    ///           ▼
+    ///   sendBatch(reason, events, completion)
+    ///           │
+    ///           ├── JSON encoding fails → completion(false) synchronously
+    ///           └── Task → APIClient.shared.send(...)
+    ///                   ├── success → completion(true)
+    ///                   └── any failure → log + completion(false)  ← never surfaces to JS
+    fileprivate static func sendBatch(
+        reason: String,
+        events: [ClientLogEvent],
+        completion: ((Bool) -> Void)? = nil
+    ) {
+        logger.info(
+            "begin sendBatch: reason=\(reason, privacy: .public) events=\(events.count, privacy: .public)"
+        )
         let request = ClientEventsRequest(
             reason: reason,
             context: currentContext(),
@@ -176,7 +200,8 @@ final class DiagnosticsModule: NSObject {
                 // the report is simply lost, never surfaced as an error.
                 switch APIError.normalized(error) {
                 case .network(let underlying), .decoding(let underlying):
-                    logger.warning("end sendBatch: upload failed: \(underlying as NSError, privacy: .public)")
+                    logger.warning(
+                        "end sendBatch: upload failed: \(underlying as NSError, privacy: .public)")
                 case .server(let status):
                     logger.warning("end sendBatch: server status=\(status, privacy: .public)")
                 case .signedOut:
@@ -192,9 +217,11 @@ final class DiagnosticsModule: NSObject {
     private static func currentContext() -> ClientContext {
         logger.info("begin currentContext")
         let info = Bundle.main.infoDictionary
+        let appVersion = info?["CFBundleShortVersionString"] as? String ?? "unknown"
+        let build = info?["CFBundleVersion"] as? String ?? "unknown"
         let context = ClientContext(
-            appVersion: info?["CFBundleShortVersionString"] as? String ?? "unknown",
-            build: info?["CFBundleVersion"] as? String ?? "unknown",
+            appVersion: appVersion,
+            build: build,
             iosVersion: UIDevice.current.systemVersion,
             deviceModel: hardwareModel()
         )
@@ -252,7 +279,8 @@ final class MetricKitReporter: NSObject, MXMetricManagerSubscriber {
     }
 
     func didReceive(_ payloads: [MXDiagnosticPayload]) {
-        logger.info("begin MetricKitReporter.didReceive: payloads=\(payloads.count, privacy: .public)")
+        logger.info(
+            "begin MetricKitReporter.didReceive: payloads=\(payloads.count, privacy: .public)")
         let formatter = ISO8601DateFormatter()
         let events = payloads.map { payload in
             ClientLogEvent(

@@ -1,7 +1,9 @@
 import {NativeModules} from 'react-native';
 
 type NativeDiagnostics = {
-  reportRecentLogs: (reason: string) => Promise<{sent: boolean; events: number}>;
+  reportRecentLogs: (
+    reason: string,
+  ) => Promise<{sent: boolean; events: number}>;
 };
 
 const native = (NativeModules as {Diagnostics?: NativeDiagnostics}).Diagnostics;

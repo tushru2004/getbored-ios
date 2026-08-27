@@ -2,12 +2,11 @@
 //  BlockHandler.swift
 //  GetBored
 //
-//  Handles escalated flows from the Data Provider and local activity logging.
+//  Handles flows escalated by the Data Provider.
 //
-//  The CP exists because the DP (Data Provider) runs in a restricted sandbox
-//  and CANNOT write to UserDefaults. When DP blocks a flow, it returns
-//  .needRules() which routes the flow here. The CP can write, so it logs
-//  the block via IOSActivityLogger. Block logs stay local to the iOS app.
+//  For a blocked browser or QUIC flow, the Data Provider returns `.needRules()`.
+//  iOS then calls this Control Provider to make the final allow/drop verdict.
+//  It also supplies the local block-log call site.
 //
 
 import GetBoredCore
@@ -25,21 +24,23 @@ class BlockHandler: NEFilterControlProvider {
         completionHandler(nil)
     }
 
-    override func stopFilter(with reason: NEProviderStopReason, completionHandler: @escaping () -> Void) {
-        os_log("Control provider stopped: %{public}@", log: logger, type: .info, String(describing: reason))
+    override func stopFilter(
+        with reason: NEProviderStopReason, completionHandler: @escaping () -> Void
+    ) {
+        os_log(
+            "Control provider stopped: %{public}@", log: logger, type: .info,
+            String(describing: reason))
         completionHandler()
     }
 
     // MARK: - Handle Report (Post-Verdict Logging)
 
-    /// Called by iOS AFTER the DP makes a verdict.
-    /// This is how we log blocks that the DP handled directly.
+    /// Receives a post-verdict report for a flow the Data Provider handled directly.
     ///
     /// Hostname resolution cascade (in resolveBlockedHost):
     ///   1. flow.url.host         → e.g. "instagram.com" (browser flows)
     ///   2. socket endpoint       → e.g. "api.tiktok.com" (non-browser)
-    ///   3. reverse DNS of IP     → e.g. "142.250.80.14" → "google.com"
-    ///   4. fallback to sourceApp → e.g. "app:com.unknown.app"
+    ///   3. fallback to sourceApp → e.g. "app:com.unknown.app"
     ///
     /// Call flow:
     ///
@@ -88,16 +89,10 @@ class BlockHandler: NEFilterControlProvider {
 
     // MARK: - Handle New Flow (CP Version — Escalated from DP)
 
-    /// Called when DP returns .needRules() — iOS routes the flow here.
+    /// Handles a flow escalated when the Data Provider returns `.needRules()`.
     ///
-    /// This is DIFFERENT from DP's handleNewFlow:
-    ///   - DP's handleNewFlow: inspects every flow, decides block/allow
-    ///   - CP's handleNewFlow: only receives flows DP already decided to block
-    ///                         but couldn't log (DP can't write to UserDefaults)
-    ///
-    /// Why does DP use .needRules() instead of .drop()?
-    ///   .needRules() routes the flow to CP where we CAN log.
-    ///   .drop() would block silently with no logging.
+    /// `FlowInspector` evaluates every new flow. It uses this provider for
+    /// blocked browser and QUIC flows so iOS can request the final verdict.
     ///
     /// Call flow:
     ///
@@ -109,35 +104,39 @@ class BlockHandler: NEFilterControlProvider {
     ///           │       └── YES → completionHandler(.allow)  ← parent added app between DP and CP
     ///           │
     ///           └── NO (still blocked)
-    ///                   ├── IOSActivityLogger.shared.log(blocked: true, …)  ← the whole reason CP exists
+    ///                   ├── IOSActivityLogger.shared.log(blocked: true, …)
     ///                   └── completionHandler(.drop)
-    override func handleNewFlow(_ flow: NEFilterFlow, completionHandler: @escaping (NEFilterControlVerdict) -> Void) {
+    override func handleNewFlow(
+        _ flow: NEFilterFlow, completionHandler: @escaping (NEFilterControlVerdict) -> Void
+    ) {
 
         let sourceApp = flow.sourceAppIdentifier
 
         // Try to get hostname: first from URL (browser), then from socket endpoint (non-browser)
-        let urlHost = flow.url?.host?.lowercased()
-        let socketHost = (flow as? NEFilterSocketFlow)
+        let browserURLHost = flow.url?.host?.lowercased()
+        let socketEndpointHost = (flow as? NEFilterSocketFlow)
             .flatMap { ($0.remoteEndpoint as? NWHostEndpoint)?.hostname.lowercased() }
-        let host = urlHost ?? socketHost ?? "unknown"
+        let resolvedHost = browserURLHost ?? socketEndpointHost ?? "unknown"
 
         // Safety check: the parent might have added this app to the allowed list
         // between when DP made its decision and when CP received the flow.
         // This is a rare race condition but worth handling.
         if let sourceApp, IOSRuleStore.shared.isAppAllowed(sourceApp) {
-            os_log("CP handleNewFlow: app is now allowed, passing through: %{public}@",
-                   log: logger, type: .info, sourceApp)
+            os_log(
+                "CP handleNewFlow: app is now allowed, passing through: %{public}@",
+                log: logger, type: .info, sourceApp)
             completionHandler(.allow(withUpdateRules: false))
             return
         }
 
-        os_log("CP handleNewFlow: blocking host=%{public}@ sourceApp=%{public}@",
-               log: logger, type: .info, host, sourceApp ?? "nil")
+        os_log(
+            "CP handleNewFlow: blocking host=%{public}@ sourceApp=%{public}@",
+            log: logger, type: .info, resolvedHost, sourceApp ?? "nil")
 
         // Log the block — this is the whole reason CP exists.
         // DP can't write to UserDefaults, but CP can.
         IOSActivityLogger.shared.log(
-            domain: host,
+            domain: resolvedHost,
             blocked: true,
             reason: "Blocked by filter",
             sourceApp: sourceApp
@@ -147,18 +146,27 @@ class BlockHandler: NEFilterControlProvider {
         completionHandler(.drop(withUpdateRules: false))
     }
 
-    /// Tries to figure out what domain was blocked, using a cascade of strategies.
+    /// Resolves a reportable domain for a blocked flow without performing network I/O.
     ///
     /// Resolution cascade (stops at first success):
     ///   1. flow.url.host         → "instagram.com" (browser flows)
     ///   2. socket endpoint       → "api.tiktok.com" (non-browser TCP)
     ///   3. [disabled] reverse DNS of IP → too slow/unreliable for filter extension
     ///   4. fallback to sourceApp → "app:com.unknown.app" (last resort)
-    private func resolveBlockedHost(from flow: NEFilterFlow?, sourceApp: String?) -> KMPDecisionCoreAdapter.BlockedHostResolution {
+    ///
+    /// Call flow:
+    ///
+    ///   handle(report) → resolveBlockedHost(flow, sourceApp)
+    ///           │
+    ///           ├── extract URL host and socket endpoint when present
+    ///           └── IOSDecisionCore.resolveBlockedHost(...) → display domain + resolution metadata
+    private func resolveBlockedHost(from flow: NEFilterFlow?, sourceApp: String?)
+        -> IOSDecisionCore.BlockedHostResolution
+    {
         let rawURLHost = flow?.url?.host
         let rawEndpoint = (flow as? NEFilterSocketFlow)
             .flatMap { ($0.remoteEndpoint as? NWHostEndpoint)?.hostname }
-        return KMPDecisionCoreAdapter.resolveBlockedHost(
+        return IOSDecisionCore.resolveBlockedHost(
             rawURLHost: rawURLHost,
             rawEndpoint: rawEndpoint,
             sourceApp: sourceApp

@@ -39,11 +39,11 @@
 		7E215C8357E59B878A2681A8 /* icon-512.png in Resources */ = {isa = PBXBuildFile; fileRef = A77015159D559FE37F614107 /* icon-512.png */; };
 		9036624EEAF9F16AAEA89B96 /* content.js in Resources */ = {isa = PBXBuildFile; fileRef = 28220110C03D8DA025447634 /* content.js */; };
 		92A110529D6E62B466F97BC5 /* NetworkExtension.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 54D9BAA543B47311891D1707 /* NetworkExtension.framework */; };
-		A1B2C3D4E5F60718293A4B5D /* KMPDecisionCoreAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4B5C /* KMPDecisionCoreAdapter.swift */; };
-		A1B2C3D4E5F60718293A4B5E /* KMPDecisionCoreAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4B5C /* KMPDecisionCoreAdapter.swift */; };
-		A1B2C3D4E5F60718293A4B5F /* KMPDecisionCoreAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4B5C /* KMPDecisionCoreAdapter.swift */; };
-		A1B2C3D4E5F60718293A4B60 /* KMPDecisionCoreAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4B5C /* KMPDecisionCoreAdapter.swift */; };
-		A1B2C3D4E5F60718293A4B61 /* KMPDecisionCoreAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4B5C /* KMPDecisionCoreAdapter.swift */; };
+		A1B2C3D4E5F60718293A4B5D /* IOSDecisionCore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4B5C /* IOSDecisionCore.swift */; };
+		A1B2C3D4E5F60718293A4B5E /* IOSDecisionCore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4B5C /* IOSDecisionCore.swift */; };
+		A1B2C3D4E5F60718293A4B5F /* IOSDecisionCore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4B5C /* IOSDecisionCore.swift */; };
+		A1B2C3D4E5F60718293A4B60 /* IOSDecisionCore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4B5C /* IOSDecisionCore.swift */; };
+		A1B2C3D4E5F60718293A4B61 /* IOSDecisionCore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4B5C /* IOSDecisionCore.swift */; };
 		A48FE532A8FC5A1BBBFC1069 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CAF0878EF27A9625CCD0F666 /* Foundation.framework */; };
 		ACCTOBJC0100000000000001 /* AccountModule.m in Sources */ = {isa = PBXBuildFile; fileRef = ACCTOBJC0000000000000001 /* AccountModule.m */; };
 		ACCTSW010000000000000001 /* AccountModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACCTSW000000000000000001 /* AccountModule.swift */; };
@@ -53,11 +53,6 @@
 		C0ADED7A0F4875C91432609E /* IOSRuleStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54405896F6E80832028947EF /* IOSRuleStore.swift */; };
 		C916BF9EC78F2ED52F403727 /* icon-256.png in Resources */ = {isa = PBXBuildFile; fileRef = 1C37D159CC53DB5E921D9621 /* icon-256.png */; };
 		CD1A4BD68A1FDCBCE94D93DA /* icon-128.png in Resources */ = {isa = PBXBuildFile; fileRef = 2E1593454C4A4A047824CB58 /* icon-128.png */; };
-		D10000000000000000000002 /* GetBoredSharedCore.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = D10000000000000000000001 /* GetBoredSharedCore.xcframework */; };
-		D10000000000000000000003 /* GetBoredSharedCore.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = D10000000000000000000001 /* GetBoredSharedCore.xcframework */; };
-		D10000000000000000000004 /* GetBoredSharedCore.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = D10000000000000000000001 /* GetBoredSharedCore.xcframework */; };
-		D10000000000000000000005 /* GetBoredSharedCore.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = D10000000000000000000001 /* GetBoredSharedCore.xcframework */; };
-		D10000000000000000000006 /* GetBoredSharedCore.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = D10000000000000000000001 /* GetBoredSharedCore.xcframework */; };
 		D20000000000000000000001 /* IOSRuleStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54405896F6E80832028947EF /* IOSRuleStore.swift */; };
 		DC2BFCC6E40C73EACED483AF /* SafariWebExtensionHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = C40B8E6852EC46DF4308D18E /* SafariWebExtensionHandler.swift */; };
 		DIAGOBJC0100000000000001 /* DiagnosticsModule.m in Sources */ = {isa = PBXBuildFile; fileRef = DIAGOBJC0000000000000001 /* DiagnosticsModule.m */; };
@@ -170,7 +165,7 @@
 		8E00374ACD51EBAADF87F6CD /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; name = PrivacyInfo.xcprivacy; path = Sources/iOS/iOSFlowInspector/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		90EB16EBC4784D4BA92EF651 /* SafariTestHarnessApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SafariTestHarnessApp.swift; sourceTree = "<group>"; };
 		971B4EA717467C724F2B0077 /* libPods-GetBored iOS.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-GetBored iOS.a"; sourceTree = BUILT_PRODUCTS_DIR; };
-		A1B2C3D4E5F60718293A4B5C /* KMPDecisionCoreAdapter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = KMPDecisionCoreAdapter.swift; path = Sources/iOS/Shared/KMPDecisionCoreAdapter.swift; sourceTree = SOURCE_ROOT; };
+		A1B2C3D4E5F60718293A4B5C /* IOSDecisionCore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = IOSDecisionCore.swift; path = Sources/iOS/Shared/IOSDecisionCore.swift; sourceTree = SOURCE_ROOT; };
 		A60E5D972187DF777B271D91 /* SafariChildRegistrationExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = SafariChildRegistrationExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		A77015159D559FE37F614107 /* icon-512.png */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = image.png; name = "icon-512.png"; path = "images/icon-512.png"; sourceTree = "<group>"; };
 		A9FF4B276136B5CDFD7D1A32 /* messages.json */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.json; name = messages.json; path = _locales/en/messages.json; sourceTree = "<group>"; };
@@ -182,7 +177,6 @@
 		C593D80EFC0A35D9BF0760F2 /* Pods-GetBored iOS.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-GetBored iOS.release.xcconfig"; path = "Target Support Files/Pods-GetBored iOS/Pods-GetBored iOS.release.xcconfig"; sourceTree = "<group>"; };
 		CA494B67AF3745B9807C86D8 /* SafariDeviceUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SafariDeviceUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		CAF0878EF27A9625CCD0F666 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
-		D10000000000000000000001 /* GetBoredSharedCore.xcframework */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = wrapper.xcframework; name = GetBoredSharedCore.xcframework; path = "shared-kotlin/build/XCFrameworks/debug/GetBoredSharedCore.xcframework"; sourceTree = SOURCE_ROOT; };
 		D32C98119DF940089D1CF5B9 /* Info.plist */ = {isa = PBXFileReference; explicitFileType = text.plist.xml; path = Info.plist; sourceTree = SOURCE_ROOT; };
 		D3C2B2DFF9189D73FFBB0547 /* background.js */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.javascript; path = background.js; sourceTree = "<group>"; };
 		DIAGOBJC0000000000000001 /* DiagnosticsModule.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = DiagnosticsModule.m; path = Sources/iOS/App/DiagnosticsModule.m; sourceTree = SOURCE_ROOT; };
@@ -204,7 +198,6 @@
 			files = (
 				ED1D7B0230D5E22C8F1D6245 /* Foundation.framework in Frameworks */,
 				SPMBUILDFILE000000000004 /* GetBoredCore in Frameworks */,
-				D10000000000000000000003 /* GetBoredSharedCore.xcframework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -215,7 +208,6 @@
 				BBBC86F552A8C1E7A52D3AEC /* Foundation.framework in Frameworks */,
 				92A110529D6E62B466F97BC5 /* NetworkExtension.framework in Frameworks */,
 				SPMBUILDFILE000000000006 /* GetBoredCore in Frameworks */,
-				D10000000000000000000005 /* GetBoredSharedCore.xcframework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -226,7 +218,6 @@
 				4A68D160529876E915DC147F /* Foundation.framework in Frameworks */,
 				6D3BCB0DC703B1F9D3AAB797 /* System/Library/Frameworks/NetworkExtension.framework in Frameworks */,
 				SPMBUILDFILE000000000005 /* GetBoredCore in Frameworks */,
-				D10000000000000000000004 /* GetBoredSharedCore.xcframework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -237,7 +228,6 @@
 				A48FE532A8FC5A1BBBFC1069 /* Foundation.framework in Frameworks */,
 				1294D34A1C4055A46E38B6CA /* SafariServices.framework in Frameworks */,
 				SPMBUILDFILE000000000007 /* GetBoredCore in Frameworks */,
-				D10000000000000000000006 /* GetBoredSharedCore.xcframework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -247,7 +237,6 @@
 			files = (
 				5894B360584FA5BCCA9AF7AE /* Foundation.framework in Frameworks */,
 				SPMBUILDFILE000000000003 /* GetBoredCore in Frameworks */,
-				D10000000000000000000002 /* GetBoredSharedCore.xcframework in Frameworks */,
 				443040EDA4807A81C2B76CF1 /* libPods-GetBored iOS.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -480,7 +469,6 @@
 			isa = PBXGroup;
 			children = (
 				70F836B76AC7E84EF305E396 /* iOS */,
-				D10000000000000000000001 /* GetBoredSharedCore.xcframework */,
 				729E48CD1BFC77ED88933AC0 /* System/Library/Frameworks/NetworkExtension.framework */,
 				FC7C9C45648F8CA624EEC1E0 /* SafariServices.framework */,
 				54D9BAA543B47311891D1707 /* NetworkExtension.framework */,
@@ -502,7 +490,7 @@
 			isa = PBXGroup;
 			children = (
 				54405896F6E80832028947EF /* IOSRuleStore.swift */,
-				A1B2C3D4E5F60718293A4B5C /* KMPDecisionCoreAdapter.swift */,
+				A1B2C3D4E5F60718293A4B5C /* IOSDecisionCore.swift */,
 				0A6797321316119EAA7F2E11 /* SafariParentChildContextStore.swift */,
 			);
 			name = Shared;
@@ -515,7 +503,6 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 66CC248E7029FE762DD08AA9 /* Build configuration list for PBXNativeTarget "iOSBlockHandler" */;
 			buildPhases = (
-				D1F000000000000000000003 /* Verify GetBoredSharedCore XCFramework */,
 				41947A62280D872B880DC0B3 /* Sources */,
 				ADEBBDB5095FC5ECDFA5333A /* Frameworks */,
 				43CB9BEDCB8CEB74D38F4F27 /* Resources */,
@@ -536,7 +523,6 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 76571D58AFEE7AC6B1599CDE /* Build configuration list for PBXNativeTarget "iOSFlowInspector" */;
 			buildPhases = (
-				D1F000000000000000000002 /* Verify GetBoredSharedCore XCFramework */,
 				7D4D882803D95285B5038473 /* Sources */,
 				08FDAD93015789FD38A86771 /* Frameworks */,
 				6F134E1E964377A187B95711 /* Resources */,
@@ -574,7 +560,6 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 09B25F63BBBE9892F4368B3A /* Build configuration list for PBXNativeTarget "SafariChildRegistrationExtension" */;
 			buildPhases = (
-				D1F000000000000000000005 /* Verify GetBoredSharedCore XCFramework */,
 				9E0B437B5C4BD649A0D77B37 /* Sources */,
 				AED9ADB26055B7A02A2A5E83 /* Frameworks */,
 				C9131309C52B6730B7717C2A /* Resources */,
@@ -595,7 +580,6 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 7A3B37A2FE526061E0C22CAD /* Build configuration list for PBXNativeTarget "SafariAppProxyProvider" */;
 			buildPhases = (
-				D1F000000000000000000004 /* Verify GetBoredSharedCore XCFramework */,
 				25232264DC073CDF0D5AFB43 /* Sources */,
 				12F74CC6789891117F8179FF /* Frameworks */,
 				517EEC8984A7C3C92F51C74E /* Resources */,
@@ -634,7 +618,6 @@
 			buildConfigurationList = 0A1FF606E797A36097FAABC7 /* Build configuration list for PBXNativeTarget "GetBored iOS" */;
 			buildPhases = (
 				27105499A9EC32329B9316B1 /* [CP] Check Pods Manifest.lock */,
-				62511AD301625DDD5A3D2857 /* Build GetBoredSharedCore XCFramework */,
 				21A6FBD05149665FD3543DAC /* Sources */,
 				E75E238758A0043A8ABC3E68 /* Frameworks */,
 				1B9914CB140DC9905B606221 /* [CP] Embed Pods Frameworks */,
@@ -880,101 +863,6 @@
 			shellScript = "set -e\n\nif [ \"${CONFIGURATION}\" = \"Debug\" ]; then\n  PLIST=\"${BUILT_PRODUCTS_DIR}/${INFOPLIST_PATH}\"\n\n  /usr/libexec/PlistBuddy -c \"Delete :NSAppTransportSecurity\" \"${PLIST}\" 2>/dev/null || true\n  /usr/libexec/PlistBuddy -c \"Add :NSAppTransportSecurity dict\" \"${PLIST}\"\n  /usr/libexec/PlistBuddy -c \"Add :NSAppTransportSecurity:NSAllowsLocalNetworking bool true\" \"${PLIST}\"\n\n  /usr/libexec/PlistBuddy -c \"Delete :NSLocalNetworkUsageDescription\" \"${PLIST}\" 2>/dev/null || true\n  /usr/libexec/PlistBuddy -c \"Add :NSLocalNetworkUsageDescription string \\\"GetBored connects to the Metro packager on your Mac to load the JS bundle during development.\\\"\" \"${PLIST}\"\n\n  /usr/libexec/PlistBuddy -c \"Delete :NSBonjourServices\" \"${PLIST}\" 2>/dev/null || true\n  /usr/libexec/PlistBuddy -c \"Add :NSBonjourServices array\" \"${PLIST}\"\n  /usr/libexec/PlistBuddy -c \"Add :NSBonjourServices:0 string _http._tcp\" \"${PLIST}\"\nfi\n";
 			showEnvVarsInLog = 0;
 		};
-		62511AD301625DDD5A3D2857 /* Build GetBoredSharedCore XCFramework */ = {
-			isa = PBXShellScriptBuildPhase;
-			alwaysOutOfDate = 1;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-			);
-			name = "Build GetBoredSharedCore XCFramework";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "set -eu\n\nexport JAVA_HOME=\"${JAVA_HOME:-/opt/homebrew/opt/openjdk}\"\n\ncd \"${SRCROOT}\"\n./gradlew :shared-kotlin:assembleGetBoredSharedCoreXCFramework --quiet\n";
-		};
-		D1F000000000000000000002 /* Verify GetBoredSharedCore XCFramework */ = {
-			isa = PBXShellScriptBuildPhase;
-			alwaysOutOfDate = 1;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-			);
-			name = "Verify GetBoredSharedCore XCFramework";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "set -eu\n\nxcframework=\"${SRCROOT}/shared-kotlin/build/XCFrameworks/debug/GetBoredSharedCore.xcframework\"\nheader=\"${xcframework}/ios-arm64_x86_64-simulator/GetBoredSharedCore.framework/Headers/GetBoredSharedCore.h\"\n\nif [ ! -d \"${xcframework}\" ]; then\n  echo \"error: Missing GetBoredSharedCore.xcframework at ${xcframework}\" >&2\n  echo \"error: Run ./gradlew :shared-kotlin:assembleGetBoredSharedCoreDebugXCFramework before building Xcode targets that import Kotlin.\" >&2\n  exit 1\nfi\n\nif [ ! -f \"${header}\" ]; then\n  echo \"error: GetBoredSharedCore.xcframework exists but expected Swift import header is missing: ${header}\" >&2\n  exit 1\nfi\n";
-		};
-		D1F000000000000000000003 /* Verify GetBoredSharedCore XCFramework */ = {
-			isa = PBXShellScriptBuildPhase;
-			alwaysOutOfDate = 1;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-			);
-			name = "Verify GetBoredSharedCore XCFramework";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "set -eu\n\nxcframework=\"${SRCROOT}/shared-kotlin/build/XCFrameworks/debug/GetBoredSharedCore.xcframework\"\nheader=\"${xcframework}/ios-arm64_x86_64-simulator/GetBoredSharedCore.framework/Headers/GetBoredSharedCore.h\"\n\nif [ ! -d \"${xcframework}\" ]; then\n  echo \"error: Missing GetBoredSharedCore.xcframework at ${xcframework}\" >&2\n  echo \"error: Run ./gradlew :shared-kotlin:assembleGetBoredSharedCoreDebugXCFramework before building Xcode targets that import Kotlin.\" >&2\n  exit 1\nfi\n\nif [ ! -f \"${header}\" ]; then\n  echo \"error: GetBoredSharedCore.xcframework exists but expected Swift import header is missing: ${header}\" >&2\n  exit 1\nfi\n";
-		};
-		D1F000000000000000000004 /* Verify GetBoredSharedCore XCFramework */ = {
-			isa = PBXShellScriptBuildPhase;
-			alwaysOutOfDate = 1;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-			);
-			name = "Verify GetBoredSharedCore XCFramework";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "set -eu\n\nxcframework=\"${SRCROOT}/shared-kotlin/build/XCFrameworks/debug/GetBoredSharedCore.xcframework\"\nheader=\"${xcframework}/ios-arm64_x86_64-simulator/GetBoredSharedCore.framework/Headers/GetBoredSharedCore.h\"\n\nif [ ! -d \"${xcframework}\" ]; then\n  echo \"error: Missing GetBoredSharedCore.xcframework at ${xcframework}\" >&2\n  echo \"error: Run ./gradlew :shared-kotlin:assembleGetBoredSharedCoreDebugXCFramework before building Xcode targets that import Kotlin.\" >&2\n  exit 1\nfi\n\nif [ ! -f \"${header}\" ]; then\n  echo \"error: GetBoredSharedCore.xcframework exists but expected Swift import header is missing: ${header}\" >&2\n  exit 1\nfi\n";
-		};
-		D1F000000000000000000005 /* Verify GetBoredSharedCore XCFramework */ = {
-			isa = PBXShellScriptBuildPhase;
-			alwaysOutOfDate = 1;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-			);
-			name = "Verify GetBoredSharedCore XCFramework";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "set -eu\n\nxcframework=\"${SRCROOT}/shared-kotlin/build/XCFrameworks/debug/GetBoredSharedCore.xcframework\"\nheader=\"${xcframework}/ios-arm64_x86_64-simulator/GetBoredSharedCore.framework/Headers/GetBoredSharedCore.h\"\n\nif [ ! -d \"${xcframework}\" ]; then\n  echo \"error: Missing GetBoredSharedCore.xcframework at ${xcframework}\" >&2\n  echo \"error: Run ./gradlew :shared-kotlin:assembleGetBoredSharedCoreDebugXCFramework before building Xcode targets that import Kotlin.\" >&2\n  exit 1\nfi\n\nif [ ! -f \"${header}\" ]; then\n  echo \"error: GetBoredSharedCore.xcframework exists but expected Swift import header is missing: ${header}\" >&2\n  exit 1\nfi\n";
-		};
 		D1F000000000000000000010 /* Bundle React Native code and images */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
@@ -1012,7 +900,7 @@
 				6D69476D2FBBC22A009321E3 /* FilterStatusModule.m in Sources */,
 				6D1ADAD72FB7C038002D6CBB /* AppDelegate.swift in Sources */,
 				3866DA922000B43E04EFB167 /* IOSRuleStore.swift in Sources */,
-				A1B2C3D4E5F60718293A4B5D /* KMPDecisionCoreAdapter.swift in Sources */,
+				A1B2C3D4E5F60718293A4B5D /* IOSDecisionCore.swift in Sources */,
 				F5E6F7089012ABCDF1A2B3C4 /* FilterListModels.swift in Sources */,
 				KCSTORE01000000000000001 /* KeychainStore.swift in Sources */,
 				APICLI010000000000000001 /* APIClient.swift in Sources */,
@@ -1031,7 +919,7 @@
 				0A6797321316119EAA7F2E0E /* Sources/iOS/SafariAppProxyProvider/SafariAppProxyProvider.swift in Sources */,
 				0A6797321316119EAA7F2E10 /* SafariParentChildContextStore.swift in Sources */,
 				D20000000000000000000001 /* IOSRuleStore.swift in Sources */,
-				A1B2C3D4E5F60718293A4B5E /* KMPDecisionCoreAdapter.swift in Sources */,
+				A1B2C3D4E5F60718293A4B5E /* IOSDecisionCore.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1041,7 +929,7 @@
 			files = (
 				7AA00CA8F6AC1C3DF9923E28 /* Sources/iOS/iOSBlockHandler/BlockHandler.swift in Sources */,
 				B1C2D3E4F5A60718B2C3D4E5 /* IOSRuleStore.swift in Sources */,
-				A1B2C3D4E5F60718293A4B5F /* KMPDecisionCoreAdapter.swift in Sources */,
+				A1B2C3D4E5F60718293A4B5F /* IOSDecisionCore.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1060,7 +948,7 @@
 				C0ADED7A0F4875C91432609E /* IOSRuleStore.swift in Sources */,
 				0A6797321316119EAA7F2E12 /* SafariParentChildContextStore.swift in Sources */,
 				7C821DCF586174EFFC02CDA3 /* FlowInspector.swift in Sources */,
-				A1B2C3D4E5F60718293A4B60 /* KMPDecisionCoreAdapter.swift in Sources */,
+				A1B2C3D4E5F60718293A4B60 /* IOSDecisionCore.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1079,7 +967,7 @@
 			files = (
 				DC2BFCC6E40C73EACED483AF /* SafariWebExtensionHandler.swift in Sources */,
 				0A6797321316119EAA7F2E13 /* SafariParentChildContextStore.swift in Sources */,
-				A1B2C3D4E5F60718293A4B61 /* KMPDecisionCoreAdapter.swift in Sources */,
+				A1B2C3D4E5F60718293A4B61 /* IOSDecisionCore.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

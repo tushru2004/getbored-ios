@@ -23,7 +23,8 @@ struct SafariParentChildContextStore {
     static let legacyLastMessageDateKey = "safari_extension_spike_last_message_at"
     static let legacyActiveContextKey = "safari_extension_spike_active_page_context"
     static let legacyActiveContextDateKey = "safari_extension_spike_active_page_context_at"
-    static let legacyActiveContextClearedDateKey = "safari_extension_spike_active_page_context_cleared_at"
+    static let legacyActiveContextClearedDateKey =
+        "safari_extension_spike_active_page_context_cleared_at"
     static let legacyParentChildRegistryKey = "safari_extension_spike_parent_child_registry"
     static let legacyFlowLogKey = "safari_app_proxy_spike_flows"
 
@@ -46,7 +47,7 @@ struct SafariParentChildContextStore {
     ///   Safari extension sends page context → saveActiveContext(...)
     ///           │
     ///           ▼
-    ///       KMPDecisionCoreAdapter.normalizedActivePageContext(...)
+    ///       IOSDecisionCore.normalizedActivePageContext(...)
     ///           │
     ///           ├── returns nil → return (invalid/empty context, nothing written)
     ///           │
@@ -63,16 +64,20 @@ struct SafariParentChildContextStore {
     ///                   │
     ///                   └── defaults.synchronize()
     ///
-    /// Dual-write (v1 key + legacy keys) keeps the AppProxy and older readers working
-    /// during the rollout period before all targets read from activeContextDataKey.
-    func saveActiveContext(parentDomain: String, childDomains: [String], url: String, receivedAt: Date) {
+    /// The typed v1 value is the current read path. Compatibility keys preserve
+    /// older stored payloads and the Safari spike inspector.
+    func saveActiveContext(
+        parentDomain: String, childDomains: [String], url: String, receivedAt: Date
+    ) {
         guard let defaults else { return }
-        guard let normalized = KMPDecisionCoreAdapter.normalizedActivePageContext(
-            parentDomain: parentDomain,
-            childDomains: childDomains,
-            url: url,
-            receivedAtSwiftRefSeconds: receivedAt.timeIntervalSinceReferenceDate
-        ) else {
+        guard
+            let normalized = IOSDecisionCore.normalizedActivePageContext(
+                parentDomain: parentDomain,
+                childDomains: childDomains,
+                url: url,
+                receivedAtSwiftRefSeconds: receivedAt.timeIntervalSinceReferenceDate
+            )
+        else {
             return
         }
         let context = ActivePageContext(
@@ -88,8 +93,10 @@ struct SafariParentChildContextStore {
 
         let legacyPayload = legacyPayload(for: context)
         if JSONSerialization.isValidJSONObject(legacyPayload),
-           let data = try? JSONSerialization.data(withJSONObject: legacyPayload, options: [.prettyPrinted, .sortedKeys]),
-           let json = String(data: data, encoding: .utf8) {
+            let data = try? JSONSerialization.data(
+                withJSONObject: legacyPayload, options: [.prettyPrinted, .sortedKeys]),
+            let json = String(data: data, encoding: .utf8)
+        {
             defaults.set(json, forKey: Self.legacyLastMessageKey)
             defaults.set(receivedAt, forKey: Self.legacyLastMessageDateKey)
             defaults.set(json, forKey: Self.legacyActiveContextKey)
@@ -112,7 +119,7 @@ struct SafariParentChildContextStore {
     ///           ├── defaults nil → return  (no App Group)
     ///           │
     ///           ▼
-    ///       KMPDecisionCoreAdapter.shouldClearActiveContext(activeContextJson:clearingParent:)
+    ///       IOSDecisionCore.shouldClearActiveContext(activeContextJson:clearingParent:)
     ///           │
     ///           ├── false → return  (clearingParent doesn't match stored parent → keep context)
     ///           │
@@ -125,8 +132,8 @@ struct SafariParentChildContextStore {
     func clearActiveContext(clearingParent: String?) {
         guard let defaults else { return }
 
-        if !KMPDecisionCoreAdapter.shouldClearActiveContext(
-            activeContextJson: loadActiveContextJSONForKotlin(),
+        if !IOSDecisionCore.shouldClearActiveContext(
+            activeContextJson: loadActiveContextJSON(),
             clearingParent: clearingParent
         ) {
             return
@@ -148,26 +155,33 @@ struct SafariParentChildContextStore {
     ///           └── v1 key absent → legacy fallback:
     ///                   │
     ///                   ▼
-    ///               KMPDecisionCoreAdapter.activePageContextFromLegacyPayloadJSON(
+    ///               IOSDecisionCore.activePageContextFromLegacyPayloadJSON(
     ///                   legacyActiveContextKey,       ← debug-shape JSON string
     ///                   legacyActiveContextDateKey    ← stored Date object
     ///               )
     ///                   │
-    ///                   ├── Kotlin returns nil → return nil
-    ///                   └── Kotlin returns context → wrap in ActivePageContext, return
+    ///                   ├── decision core returns nil → return nil
+    ///                   └── decision core returns context → wrap in ActivePageContext, return
     ///
     /// The legacy path exists because older app installs wrote the context as a debug
     /// payload dict; the v1 path is the typed Codable encoding introduced later.
     func loadActiveContext() -> ActivePageContext? {
         if let data = defaults?.data(forKey: Self.activeContextDataKey),
-           let context = try? decoder.decode(ActivePageContext.self, from: data) {
+            let context = try? decoder.decode(ActivePageContext.self, from: data)
+        {
             return context
         }
 
-        guard let context = KMPDecisionCoreAdapter.activePageContextFromLegacyPayloadJSON(
-            defaults?.string(forKey: Self.legacyActiveContextKey),
-            receivedAtSwiftRefSeconds: (defaults?.object(forKey: Self.legacyActiveContextDateKey) as? Date ?? Date.distantPast).timeIntervalSinceReferenceDate
-        ) else {
+        let legacyPayloadJSON = defaults?.string(forKey: Self.legacyActiveContextKey)
+        let legacyReceivedAt = defaults?.object(forKey: Self.legacyActiveContextDateKey) as? Date
+        let legacyReceivedAtSeconds = (legacyReceivedAt ?? Date.distantPast)
+            .timeIntervalSinceReferenceDate
+        guard
+            let context = IOSDecisionCore.activePageContextFromLegacyPayloadJSON(
+                legacyPayloadJSON,
+                receivedAtSwiftRefSeconds: legacyReceivedAtSeconds
+            )
+        else {
             return nil
         }
 
@@ -180,23 +194,23 @@ struct SafariParentChildContextStore {
     }
 
     /// Unions the child domains for `parentDomain` across all three storage
-    /// sources so a child registered by any path is honored. Pure delegation —
-    /// Swift only gathers the JSON; Kotlin owns the merge.
+    /// sources so a child registered by any path is honored. The store gathers
+    /// the JSON and delegates the pure merge to `IOSDecisionCore`.
     ///
     /// Call flow:
     ///
     ///   shouldRelayFlow → mergedChildren(for:)
     ///           │
     ///           ├── loadParentChildMapJson()         ← server-pushed static map
-    ///           ├── loadActiveContextJSONForKotlin() ← current page's childDomains
+    ///           ├── loadActiveContextJSON()          ← current page's childDomains
     ///           ├── loadRegistryJson()               ← accumulated runtime registry
     ///           │
     ///           ▼
-    ///       KMPDecisionCoreAdapter.parentChildMergedChildren(...) → Set<String>
+    ///       IOSDecisionCore.parentChildMergedChildren(...) → Set<String>
     func mergedChildren(for parentDomain: String) -> Set<String> {
-        return KMPDecisionCoreAdapter.parentChildMergedChildren(
+        return IOSDecisionCore.parentChildMergedChildren(
             parentChildMapJson: loadParentChildMapJson(),
-            activeContextJson: loadActiveContextJSONForKotlin(),
+            activeContextJson: loadActiveContextJSON(),
             registryJson: loadRegistryJson(),
             parentDomain: parentDomain
         )
@@ -212,20 +226,27 @@ struct SafariParentChildContextStore {
     ///           │
     ///           ├── defaults nil → return
     ///           │
-    ///           ├── KMPDecisionCoreAdapter.normalizedFlowObservation(...) == nil → return  (invalid input dropped)
+    ///           ├── IOSDecisionCore.normalizedFlowObservation(...) == nil → return  (invalid input dropped)
     ///           │
     ///           └── normalized → encode FlowObservation
     ///                   ├── encode fails → return  (no write)
     ///                   └── encode ok → defaults[flowObservationDataKey] = data → synchronize()
-    func saveFlowObservation(requestHost: String, parentDomain: String, decision: String, endpoint: String, observedAt: Date) {
-        guard let defaults,
-              let normalized = KMPDecisionCoreAdapter.normalizedFlowObservation(
+    func saveFlowObservation(
+        requestHost: String, parentDomain: String, decision: String, endpoint: String,
+        observedAt: Date
+    ) {
+        guard let defaults else { return }
+
+        let observedAtSeconds = observedAt.timeIntervalSinceReferenceDate
+        guard
+            let normalized = IOSDecisionCore.normalizedFlowObservation(
                 requestHost: requestHost,
                 parentDomain: parentDomain,
                 decision: decision,
                 endpoint: endpoint,
-                observedAtSwiftRefSeconds: observedAt.timeIntervalSinceReferenceDate
-              ) else {
+                observedAtSwiftRefSeconds: observedAtSeconds
+            )
+        else {
             return
         }
 
@@ -242,19 +263,19 @@ struct SafariParentChildContextStore {
         }
     }
 
-    /// The central gating function for Safari child-domain allow decisions.
+    /// Looks up a recent Safari parent for a child-domain decision.
     ///
     /// Call flow:
     ///
     ///   AppProxy or FlowInspector calls allowedSafariParentForChild(requestHost:...)
     ///           │
     ///           ├── loadFlowObservationJson()     → last observed parent↔child flow
-    ///           ├── loadActiveContextJSONForKotlin() → current page context (v1 or legacy re-encoded)
+    ///           ├── loadActiveContextJSON()       → current page context (v1 or legacy re-encoded)
     ///           ├── loadParentChildMapJson()       → server-pushed static map
     ///           └── loadRegistryJson()             → accumulated runtime registry
     ///                   │
     ///                   ▼
-    ///               KMPDecisionCoreAdapter.allowedSafariParentForChild(
+    ///               IOSDecisionCore.allowedSafariParentForChild(
     ///                   ...,
     ///                   requestHost: requestHost,
     ///                   maxAgeSeconds: maxAge,      ← caller controls staleness window
@@ -262,20 +283,20 @@ struct SafariParentChildContextStore {
     ///                   using: loadedFilterRules
     ///               )
     ///                   │
-    ///                   ├── nil  → no parent found / context too old → block or pass through
-    ///                   └── AllowedSafariParentDecision → caller allows the request
+    ///                   ├── nil  → no usable parent context
+    ///                   └── decision → caller applies the returned allow result
     ///
     /// `maxAge` is the staleness window: if the active context is older than maxAge seconds
-    /// the Kotlin layer returns nil, preventing stale context from allowing unrelated requests.
+    /// the decision core returns nil, preventing stale context from allowing unrelated requests.
     func allowedSafariParentForChild(
         _ requestHost: String,
         using loadedFilterRules: LoadedFilterRules,
         maxAge: TimeInterval,
         now: Date = Date()
-    ) -> KMPDecisionCoreAdapter.AllowedSafariParentDecision? {
-        KMPDecisionCoreAdapter.allowedSafariParentForChild(
+    ) -> IOSDecisionCore.AllowedSafariParentDecision? {
+        IOSDecisionCore.allowedSafariParentForChild(
             flowObservationJson: loadFlowObservationJson(),
-            activeContextJson: loadActiveContextJSONForKotlin(),
+            activeContextJson: loadActiveContextJSON(),
             parentChildMapJson: loadParentChildMapJson(),
             registryJson: loadRegistryJson(),
             requestHost: requestHost,
@@ -286,8 +307,8 @@ struct SafariParentChildContextStore {
     }
 
     /// Appends one timestamped line to the spike event ring buffer that the host
-    /// app's inspector tail-reads. Kotlin owns the ring-buffer trim so every
-    /// target caps the log identically.
+    /// app's inspector tail-reads. `IOSDecisionCore` owns the ring-buffer trim
+    /// so every target caps the log identically.
     ///
     /// Call flow:
     ///
@@ -295,7 +316,7 @@ struct SafariParentChildContextStore {
     ///           │
     ///           ├── defaults nil → return
     ///           │
-    ///           └── KMPDecisionCoreAdapter.parentChildAppendEvent(
+    ///           └── IOSDecisionCore.parentChildAppendEvent(
     ///                   existingEvents: defaults[legacyFlowLogKey],
     ///                   event: event truncated to maxEventLength (512),  ← bounds UserDefaults growth
     ///                   maxEvents: 50)                                   ← drops oldest beyond cap
@@ -303,7 +324,7 @@ struct SafariParentChildContextStore {
     func appendEvent(_ event: String, maxEvents: Int = 50, now: Date = Date()) {
         guard let defaults else { return }
         let timestamp = Self.eventDateFormatter.string(from: now)
-        let events = KMPDecisionCoreAdapter.parentChildAppendEvent(
+        let events = IOSDecisionCore.parentChildAppendEvent(
             existingEvents: defaults.stringArray(forKey: Self.legacyFlowLogKey) ?? [],
             timestamp: timestamp,
             event: String(event.prefix(Self.maxEventLength)),
@@ -317,7 +338,7 @@ struct SafariParentChildContextStore {
         return String(data: data, encoding: .utf8)
     }
 
-    /// Returns the active context as JSON in the shape Kotlin's decoder expects.
+    /// Returns the active context as JSON in the decision core's expected shape.
     ///
     /// Call flow:
     ///
@@ -331,15 +352,16 @@ struct SafariParentChildContextStore {
     ///               return UTF-8 string
     ///
     /// The re-encode step is necessary because the legacy storage format (debug payload dict)
-    /// doesn't match the Codable schema Kotlin reads — this function normalizes it.
-    private func loadActiveContextJSONForKotlin() -> String? {
+    /// doesn't match the current Codable schema — this function normalizes it.
+    private func loadActiveContextJSON() -> String? {
         if let data = defaults?.data(forKey: Self.activeContextDataKey) {
             return String(data: data, encoding: .utf8)
         }
 
-        // Legacy storage uses the debug payload shape; Kotlin expects ActivePageContext Codable JSON.
+        // Legacy storage uses the debug payload shape; the decision core expects Codable JSON.
         guard let context = loadActiveContext(),
-              let data = try? encoder.encode(context) else {
+            let data = try? encoder.encode(context)
+        else {
             return nil
         }
         return String(data: data, encoding: .utf8)
@@ -359,7 +381,19 @@ struct SafariParentChildContextStore {
     ///   Tier 3: stored as NSDictionary (oldest path that used UserDefaults native dict)
     ///           → compactMapValues to [String: [String]], then re-serialise to JSON
     ///
-    /// All three tiers normalize to the same JSON string for Kotlin.
+    /// All three tiers normalize to the same JSON string for the decision core.
+    ///
+    /// Call flow:
+    ///
+    ///   parent-child decision calls loadRegistryJson()
+    ///           │
+    ///           ├── current String value exists → return it unchanged
+    ///           ├── earlier Data value exists    → decode UTF-8 → return JSON string
+    ///           │
+    ///           └── oldest dictionary value exists
+    ///                   ├── retain only [String] child arrays
+    ///                   ├── serialize the typed dictionary to JSON
+    ///                   └── return JSON string, or nil if serialization fails
     private func loadRegistryJson() -> String? {
         if let json = defaults?.string(forKey: Self.legacyParentChildRegistryKey) {
             return json
@@ -367,7 +401,8 @@ struct SafariParentChildContextStore {
         if let data = defaults?.data(forKey: Self.legacyParentChildRegistryKey) {
             return String(data: data, encoding: .utf8)
         }
-        guard let rawRegistry = defaults?.dictionary(forKey: Self.legacyParentChildRegistryKey) else {
+        guard let rawRegistry = defaults?.dictionary(forKey: Self.legacyParentChildRegistryKey)
+        else {
             return nil
         }
         let typed = rawRegistry.compactMapValues { value -> [String]? in
@@ -379,9 +414,9 @@ struct SafariParentChildContextStore {
         return String(data: data, encoding: .utf8)
     }
 
-    /// Merge-appends the current page's children into the persistent
-    /// parent→children registry — it does NOT overwrite. The registry accumulates
-    /// across page loads so a child seen on an earlier visit stays whitelisted.
+    /// Adds the current page's children to the persistent parent-to-children
+    /// registry instead of replacing older entries. The Safari spike can then
+    /// recognize a child first seen on an earlier page load.
     ///
     /// Call flow:
     ///
@@ -389,12 +424,12 @@ struct SafariParentChildContextStore {
     ///           │
     ///           ├── defaults nil → return
     ///           │
-    ///           └── KMPDecisionCoreAdapter.parentChildUpdatedRegistryJSON(
+    ///           └── IOSDecisionCore.parentChildUpdatedRegistryJSON(
     ///                   registryJson: loadRegistryJson(), ...)  ← reads existing, unions children
     ///                   └── defaults[legacyParentChildRegistryKey] = merged JSON
     private func updateRegistry(parentDomain: String, childDomains: [String]) {
         guard let defaults else { return }
-        let updated = KMPDecisionCoreAdapter.parentChildUpdatedRegistryJSON(
+        let updated = IOSDecisionCore.parentChildUpdatedRegistryJSON(
             registryJson: loadRegistryJson(),
             parentDomain: parentDomain,
             childDomains: childDomains
@@ -403,7 +438,7 @@ struct SafariParentChildContextStore {
     }
 
     private func legacyPayload(for context: ActivePageContext) -> [String: Any] {
-        KMPDecisionCoreAdapter.parentChildLegacyPayload(
+        IOSDecisionCore.parentChildLegacyPayload(
             parentDomain: context.parentDomain,
             childDomains: context.childDomains,
             url: context.url,
