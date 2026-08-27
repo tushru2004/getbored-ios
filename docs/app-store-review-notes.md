@@ -12,14 +12,30 @@ owns the device voluntarily chooses which websites and apps distract them, and
 GetBored blocks those on that same device. It is not parental control, not
 device monitoring, and it does not manage anyone else's device.
 
-**Supported device:** iPhone only. The app is not designed or entitled for
-iPad, and iPad should not be selected as a supported device in this submission.
+**Supported device:** This app is for iPhone.
 
-**Review access:** Use the username and password supplied in App Store Connect's
-App Review Information fields. That server-designated review account opens the
-complete app and any synchronized account data without asking for a customer activation
-code or managed profile. Review mode is identified clearly in the app and does
-not claim that filtering is active on an unsupervised device.
+**Review access and device assignment:** Use the username and password supplied
+in App Store Connect's App Review Information fields, then follow these steps in
+this order:
+
+1. Open GetBored Companion on the review iPhone, enter the supplied credentials,
+   and tap **Sign in**. Wait for the app to complete the login and show the main
+   screen. The iPhone registers itself with the review account automatically
+   after sign-in.
+2. In a web browser, open **https://dashboard.getbored.online** and sign in with
+   the same username and password.
+3. Open **Devices** and confirm that the review iPhone is listed. If it has not
+   appeared yet, return to the iPhone app briefly and then reload the dashboard.
+4. Open **Lists**, click **New list**, select **Block List**, name it
+   **Block videos**, and create the list.
+5. Under **Step 1 of 3 · Sites**, add `youtube.com` and `vimeo.com`.
+6. Continue to **Step 2 of 3 · Apps** without adding an app, then continue to
+   **Step 3 of 3 · Devices**.
+7. Select the newly registered iPhone and click **Apply**.
+8. Return to the iPhone app. The assigned rules synchronize automatically and
+   can be inspected under **Active rules**.
+
+The app does not claim that filtering is active on an unsupervised device.
 
 **Why live blocking cannot run on a standard review iPhone:**
 
@@ -30,12 +46,11 @@ device**, via a Web Content Filter configuration profile. This is an Apple
 platform requirement — the app itself cannot switch the filter on with its own
 API on a standard, unsupervised device.
 
-On a stock review iPhone, the supplied review account intentionally bypasses
-the customer-only activation and profile-installation gates so the dashboard,
-account management, device registration, synchronized rules, and related UI
-can be reviewed. The app labels this state **Review demo** and explains that
-filtering itself requires a supervised customer iPhone. It does not silently
-simulate an active Network Extension.
+On a stock review iPhone, the supplied review account lets the dashboard,
+account management, device registration, synchronized rules, and related UI be
+reviewed. The app labels this state **Demo mode** and explains that live
+filtering requires a supervised iPhone. It does not silently simulate an
+active Network Extension.
 
 Normal customer accounts still follow the production path: create an account
 or sign in with a GetBored username and password, activate the account, install
@@ -89,11 +104,25 @@ itself therefore cannot be exercised on a stock, unsupervised review device.
 This is expected behavior, not a bug.
 
 ON A STANDARD (UNSUPERVISED) REVIEW IPHONE:
-1. Sign in with the review username and password supplied in App Store Connect.
-2. The server-designated review account bypasses customer activation and
-   profile installation so the full app UI and synchronized account data open.
-3. The app displays "Review demo" and states that filtering requires a
-   supervised customer iPhone. It does not report the filter as active.
+1. Open GetBored Companion, enter the review username and password supplied in
+   App Store Connect, and tap "Sign in". Wait for the app to complete the login
+   and show the main screen. The iPhone registers itself automatically after
+   sign-in.
+2. In a browser, open https://dashboard.getbored.online and sign in with the
+   same username and password.
+3. Open "Devices" and confirm that the review iPhone is listed. If it has not
+   appeared yet, return to the iPhone app briefly and reload the dashboard.
+4. Open "Lists", click "New list", select "Block List", enter "Block videos"
+   as the list name, and create the list.
+5. Under "Step 1 of 3 · Sites", add youtube.com and vimeo.com.
+6. Continue to "Step 2 of 3 · Apps" without adding an app, then continue to
+   "Step 3 of 3 · Devices".
+7. Select the newly registered iPhone and click "Apply".
+8. Return to the iPhone app. The rules synchronize automatically and appear
+   under "Active rules".
+
+The app displays "Demo mode" and states that live filtering requires a
+supervised iPhone. It does not report the filter as active.
 
 TO SEE THE FULL FLOW (filter ACTIVE on a supervised device, same build),
 please watch this demo video:
@@ -109,9 +138,6 @@ SIGN-IN
 Use the review username and password entered in App Store Connect's App Review
 Information fields. Do not use a personal Apple Account. The review account
 does not require an activation code.
-
-CONTACT
-Tushar — tushru2004@gmail.com
 
 ---
 

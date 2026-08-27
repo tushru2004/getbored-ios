@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>GetBored iOS 1.0 — Architecture</title>
+<style>
+  :root{
+    --bg:#f6f7fb; --dot:#cdd2dc; --panel:#ffffff; --border:#e2e8f0;
+    --text:#0f172a; --muted:#64748b;
+  }
+  html,body{margin:0}
+  body{
+    background-color:var(--bg);
+    background-image:radial-gradient(circle, var(--dot) 1px, transparent 1px);
+    background-size:20px 20px;
+    font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif;
+    color:var(--text);
+    padding:28px 32px 36px;
+  }
+  p.eyebrow{font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin:0 0 8px}
+  h1{font-size:19px;margin:0 0 2px}
+  p.sub{color:var(--muted);font-size:13px;margin:0 0 18px}
+  h2{font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin:28px 0 10px}
+  .stage{background:transparent}
+  pre.mermaid{margin:0}
+  .legend{display:flex;gap:16px;flex-wrap:wrap;margin-top:18px;font-size:12px;color:var(--muted)}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .sw{width:22px;height:0;border-top-width:2px;border-top-style:solid;display:inline-block}
+  .notes{display:flex;gap:16px;flex-wrap:wrap;margin-top:20px}
+  .note{flex:1 1 380px;background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px 16px}
+  .note h3{font-size:12.5px;margin:0 0 6px}
+  .note p{font-size:12px;line-height:1.55;color:var(--muted);margin:0}
+</style>
+<script type="module">
+  import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+  mermaid.initialize({
+    startOnLoad:false, securityLevel:'loose', theme:'base',
+    themeVariables:{
+      fontFamily:'-apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif',
+      fontSize:'13px', primaryColor:'#ffffff', primaryTextColor:'#0f172a',
+      primaryBorderColor:'#cbd5e1', lineColor:'#64748b',
+      clusterBkg:'#f8fafc', clusterBorder:'#cbd5e1', edgeLabelBackground:'#ffffff'
+    }
+  });
+  const blocks=document.querySelectorAll('pre.mermaid');
+  for(let i=0;i<blocks.length;i++){
+    const b=blocks[i];
+    try{ const {svg}=await mermaid.render('m-'+i,b.textContent.trim()); b.innerHTML=svg; b.setAttribute('data-processed','true'); }
+    catch(e){ console.error('Mermaid block '+i+' FAILED:',e.message); }
+  }
+</script>
+</head>
+<body>
+  <p class="eyebrow">Shipped App Store release · version 1.0 · build 11</p>
+  <h1>GetBored iOS — release 1.0 architecture</h1>
+  <p class="sub">Username/password sign-in → production dashboard + REST API → device registration and policy sync → shared App Group → Network Extension filtering. iPhone only; release 1.0 enforces block-list mode. Live filtering requires a supervised iPhone, its managed Web Content Filter profile, and in-app enablement through Network Extension preferences.</p>
+
+  <div class="stage">
+  <pre class="mermaid">
+%%{init: {
+  "flowchart": {"htmlLabels": true, "nodeSpacing": 34, "rankSpacing": 72, "diagramPadding": 16, "wrappingWidth": 280, "curve": "basis", "defaultRenderer": "dagre-wrapper"}
+}}%%
+flowchart LR
+
+  subgraph BE["Production backend"]
+    direction TB
+    DASH["`**Customer web dashboard**
+    builds block lists · assigns them
+    to registered devices
+    dashboard.getbored.online`"]
+    API["`**GetBored REST API**
+    /auth/password/login · /signup
+    /api/activation/redeem
+    /api/devices · /api/policy
+    /api/client-events
+    /api/profile-downloads`"]
+    STATE["`**Server-owned state**
+    accounts · activations · devices
+    assignments · block lists
+    no CloudKit dependency`"]
+    DASH -->|"assigns lists to devices"| API
+    API -->|"reads · writes"| STATE
+  end
+
+  subgraph PHONE["GetBored iPhone app — iPhone only"]
+    direction TB
+    RN["`**React Native companion**
+    username / password sign-in
+    Welcome · Activation gate
+    Profile gate · Home`"]
+    BRANCH["`**Post-sign-in branches**
+    customer: activation code →
+    profile download → Settings install
+    review_demo: bypasses both gates,
+    registers and syncs only — never
+    live filtering`"]
+    BRIDGE["`**Native Swift bridge**
+    AccountModule · FilterStatusModule
+    APIClient · KeychainStore
+    device registration · foreground sync`"]
+    FM["`**NEFilterManager**
+    loads / saves filter preferences
+    creates socket filter config
+    and sets isEnabled`"]
+    KC["`**Keychain**
+    sessionToken · serverDeviceID
+    no saved password`"]
+    AG["`**Shared App Group**
+    group.com.getbored.ios
+    site_rules · filter_mode · filter_exceptions
+    allowedAppBundleIDs · blockedAppBundleIDs
+    written by the app, read by
+    both filter extensions`"]
+    DIAG["`**Remote diagnostics**
+    best-effort OSLogStore + MetricKit
+    error reports`"]
+    RN --> BRANCH
+    BRANCH --> BRIDGE
+    BRIDGE -->|"session token · device id"| KC
+    BRIDGE -->|"writes merged policy"| AG
+    BRIDGE -->|"Turn Filtering On"| FM
+    BRIDGE -.->|"reports errors"| DIAG
+  end
+
+  subgraph EDGE["Managed filtering boundary — supervised iPhone"]
+    direction TB
+    PROFILE["`**Managed Web Content Filter**
+    configuration profile, installed
+    through Settings · supervised
+    iPhone required · user completes
+    Apple Settings consent`"]
+    ENF["`**Embedded Network Extension providers**
+    FlowInspector.swift + BlockHandler.swift
+    native Swift decision logic
+    detailed decision path below`"]
+    PROFILE -.->|"supervised-profile precondition"| FM
+  end
+
+  API -->|"GET /api/policy → block policy"| BRIDGE
+  BRIDGE -.->|"sign in · redeem · register device"| API
+  BRANCH -->|"profile link → Settings install"| PROFILE
+  AG -->|"rules read at flow time"| ENF
+  DIAG -.->|"authenticated POST /api/client-events"| API
+  FM -->|"activates provider pair"| ENF
+
+  classDef sky    fill:#e0f2fe,stroke:#0ea5e9,color:#0369a1,stroke-width:1.5px;
+  classDef green  fill:#d1fae5,stroke:#10b981,color:#047857,stroke-width:1.5px;
+  classDef blue   fill:#dbeafe,stroke:#3b82f6,color:#1d4ed8,stroke-width:1.5px;
+  classDef violet fill:#ede9fe,stroke:#8b5cf6,color:#6d28d9,stroke-width:1.5px;
+  classDef amber  fill:#fef3c7,stroke:#f59e0b,color:#b45309,stroke-width:1.5px;
+  classDef slate  fill:#f1f5f9,stroke:#475569,color:#334155,stroke-width:1.5px;
+
+  class DASH,API green;
+  class STATE,KC violet;
+  class RN,BRANCH sky;
+  class BRIDGE,FM blue;
+  class AG amber;
+  class ENF slate;
+  class DIAG violet;
+  class PROFILE slate;
+
+  %% edge 0 DASH->API   1 API->STATE
+  %% edge 2 RN->BRANCH  3 BRANCH->BRIDGE  4 BRIDGE->KC  5 BRIDGE->AG  6 BRIDGE->FM  7 BRIDGE-.->DIAG
+  %% edge 8 PROFILE-.->FM  9 API->BRIDGE  10 BRIDGE-.->API  11 BRANCH->PROFILE  12 AG->ENF  13 DIAG-.->API  14 FM->ENF
+  linkStyle 0,1 stroke:#047857,stroke-width:2px;
+  linkStyle 2,3 stroke:#0369a1,stroke-width:2px;
+  linkStyle 4 stroke:#6d28d9,stroke-width:1.8px;
+  linkStyle 5,12 stroke:#b45309,stroke-width:2.4px;
+  linkStyle 6 stroke:#0369a1,stroke-width:2px;
+  linkStyle 7,13 stroke:#6d28d9,stroke-width:1.8px,stroke-dasharray:5 4;
+  linkStyle 8 stroke:#334155,stroke-width:2px,stroke-dasharray:6 4;
+  linkStyle 9 stroke:#047857,stroke-width:2.4px;
+  linkStyle 10 stroke:#0369a1,stroke-width:2px,stroke-dasharray:6 4;
+  linkStyle 11 stroke:#334155,stroke-width:2px;
+  linkStyle 14 stroke:#b45309,stroke-width:2.4px;
+</pre>
+  </div>
+
+  <h2>On-device enforcement detail</h2>
+  <div class="stage">
+  <pre class="mermaid">
+%%{init: {
+  "flowchart": {"htmlLabels": true, "nodeSpacing": 48, "rankSpacing": 70, "diagramPadding": 16, "wrappingWidth": 300, "curve": "basis", "defaultRenderer": "dagre-wrapper"}
+}}%%
+flowchart LR
+  AG2["`**Shared App Group policy**
+  site_rules · filter_mode · filter_exceptions
+  allowedAppBundleIDs · blockedAppBundleIDs`"]
+  FI2["`**iOSFlowInspector**
+  FlowInspector.swift : NEFilterDataProvider
+  IOSDecisionCore.swift evaluates app,
+  host and exception policy at flow time`"]
+  BH2["`**iOSBlockHandler**
+  BlockHandler : NEFilterControlProvider
+  rechecks allowed-app race and
+  records escalated blocks`"]
+  NET2["`**iOS network stack**
+  browser and app flows reach the
+  provider pair; blocked flows drop`"]
+
+  AG2 -->|"read by both providers"| FI2
+  AG2 -.->|"allowed-app recheck"| BH2
+  FI2 -->|"safe / allowed / exception → .allow\nexplicit app or SNI / HTTP block → direct .drop"| NET2
+  FI2 -->|"blocked URL / QUIC → .needRules()"| BH2
+  BH2 -->|"recheck · log · .allow or .drop"| NET2
+
+  classDef amber  fill:#fef3c7,stroke:#f59e0b,color:#b45309,stroke-width:1.5px;
+  classDef slate  fill:#f1f5f9,stroke:#475569,color:#334155,stroke-width:1.5px;
+  class AG2,FI2,BH2 amber;
+  class NET2 slate;
+
+  %% edge 0 AG2->FI2  1 AG2-.->BH2  2 FI2->NET2  3 FI2->BH2  4 BH2->NET2
+  linkStyle 0,2,3,4 stroke:#b45309,stroke-width:2.4px;
+  linkStyle 1 stroke:#b45309,stroke-width:1.8px,stroke-dasharray:5 4;
+</pre>
+  </div>
+
+  <div class="legend">
+    <span><i class="sw" style="border-top-color:#0369a1"></i>sign-in · activation · device registration</span>
+    <span><i class="sw" style="border-top-color:#047857"></i>REST policy sync</span>
+    <span><i class="sw" style="border-top-color:#b45309"></i>shared App Group → on-device enforcement</span>
+    <span><i class="sw" style="border-top-color:#334155;border-top-style:dashed"></i>supervision / profile precondition</span>
+    <span><i class="sw" style="border-top-color:#b91c1c;border-top-style:dashed"></i>not in release 1.0</span>
+  </div>
+
+  <div class="notes">
+    <div class="note">
+      <h3>App Review demo mode</h3>
+      <p>A <code>review_demo</code> account bypasses the activation-code gate and the profile-install gate so sign-in, review-device registration, dashboard list assignment and rule synchronization can be exercised. It grants review access only — it never activates live filtering, and the app states that live filtering requires a supervised iPhone.</p>
+    </div>
+    <div class="note">
+      <h3>Filtering precondition</h3>
+    <p>Live blocking requires a supervised iPhone, the managed Web Content Filter profile installed through Settings, and the in-app <em>Turn Filtering On</em> action that saves <code>NEFilterManager</code> preferences. Without the managed profile, iOS does not activate <code>iOSFlowInspector</code> or <code>iOSBlockHandler</code>, so an unsupervised review device performs no live blocking.</p>
+    </div>
+  </div>
+
+  <h2>Not in release 1.0</h2>
+  <div class="stage">
+  <pre class="mermaid">
+%%{init: {
+  "flowchart": {"htmlLabels": true, "nodeSpacing": 26, "rankSpacing": 34, "diagramPadding": 12, "wrappingWidth": 210, "curve": "basis", "defaultRenderer": "dagre-wrapper"}
+}}%%
+flowchart TB
+
+  subgraph OUT["Excluded from the shipped build — never depicted as shipped or active"]
+    direction TB
+    CK["`**CloudKit**
+    replaced by the REST API`"]
+    SIWA["`**Sign in with Apple**
+    replaced by username / password`"]
+    IPAD["`**iPad**
+    iPhone-only target`"]
+    WL["`**Whitelist / allow-list mode**
+    coerced to block mode
+    in IOSRuleStore`"]
+    SWE["`**Safari Web Extension**
+    in repo, not embedded
+    in the shipped app`"]
+    SAP["`**Safari App Proxy**
+    in repo, not embedded
+    in the shipped app`"]
+    PROXY["`**Traffic proxying**
+    no proxy provider ships`"]
+    HIST["`**Activity history**
+    no customer-facing
+    history feature`"]
+    CK ~~~ SWE
+    SIWA ~~~ SAP
+    IPAD ~~~ PROXY
+    WL ~~~ HIST
+  end
+
+  classDef red fill:#fee2e2,stroke:#ef4444,color:#b91c1c,stroke-width:1.5px;
+  class CK,SIWA,IPAD,WL,SWE,SAP,PROXY,HIST red;
+</pre>
+  </div>
+</body>
+</html>

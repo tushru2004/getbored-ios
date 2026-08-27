@@ -46,7 +46,7 @@
 </head>
 <body>
   <h1>GetBored iOS — v1 (App Store) architecture</h1>
-  <p class="sub">Apple sign-in + activation code → GetBored REST API (replaces CloudKit) → on-device Network Content Filter. iPhone-only, block-mode only.</p>
+  <p class="sub">Username/password sign-in + activation code → GetBored REST API (replaces CloudKit) → native Swift Network Content Filter. iPhone-only, block-mode only.</p>
 
   <div class="stage">
   <pre class="mermaid">
@@ -70,15 +70,17 @@ flowchart LR
   subgraph PHONE["iPhone — App Store build (iPhone-only)"]
     direction TB
     SIGNIN["`**Welcome**
-    Sign in with Apple`"]
+    username / password sign-in`"]
     ACT["`**Activation code gate**
     entered / web sign-in flow`"]
     HOME["`**Quiet home**
     N sites blocked · synced HH:MM`"]
     AGROUP["`**App-Group rule store**
+    IOSRuleStore.swift
     block-mode rules`"]
-    FILTER["`**NEFilterDataProvider**
-    content-filter-provider
+    FILTER["`**Swift content filter**
+    FlowInspector.swift →
+    IOSDecisionCore.swift → BlockHandler.swift
     block-mode only`"]
     SIGNIN --> ACT
     HOME --> AGROUP

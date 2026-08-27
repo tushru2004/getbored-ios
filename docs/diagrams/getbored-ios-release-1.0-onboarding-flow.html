@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GetBored iOS 1.0 Release Onboarding</title>
+<style>
+  :root {
+    --ink: #123b35;
+    --muted: #667873;
+    --paper: #f6f0e2;
+    --panel: #fffdf7;
+    --line: #b9c4bc;
+    --yellow: #f5c84c;
+    --coral: #f1634b;
+    --mint: #dfece3;
+    --blue: #dfeaf3;
+    --violet: #ece7f5;
+  }
+  html, body { margin: 0; background: var(--paper); }
+  body { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif; }
+  svg { display: block; width: 100%; height: auto; }
+  text { fill: var(--ink); }
+  .eyebrow { font: 700 14px ui-monospace, "SFMono-Regular", Menlo, monospace; letter-spacing: 2.2px; }
+  .title { font: 700 34px Georgia, "Times New Roman", serif; }
+  .subtitle { font: 400 15px -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif; fill: var(--muted); }
+  .lane-title { font: 700 20px Georgia, "Times New Roman", serif; }
+  .lane-sub { font: 500 12px ui-monospace, "SFMono-Regular", Menlo, monospace; fill: var(--muted); letter-spacing: .5px; }
+  .step-no { font: 700 12px ui-monospace, "SFMono-Regular", Menlo, monospace; fill: #fffdf7; }
+  .box-title { font: 700 15px -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif; }
+  .box-copy { font: 400 12px -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif; fill: #435d57; }
+  .mono { font: 500 11px ui-monospace, "SFMono-Regular", Menlo, monospace; fill: #526a64; }
+  .edge-label { font: 600 10.5px ui-monospace, "SFMono-Regular", Menlo, monospace; fill: #526a64; }
+  .note-title { font: 700 14px -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif; }
+  .note-copy { font: 400 12px -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif; fill: #435d57; }
+</style>
+</head>
+<body>
+<svg viewBox="0 0 1600 1280" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="diagramTitle diagramDesc">
+  <title id="diagramTitle">GetBored iOS 1.0 customer and App Review onboarding</title>
+  <desc id="diagramDesc">Both account types use username and password. A normal customer activates the account, registers the iPhone, installs the managed profile, synchronizes policy and enables filtering. An App Review demo account bypasses activation and profile setup, registers and synchronizes, and reaches a clearly labeled non-filtering demo mode.</desc>
+  <defs>
+    <pattern id="grid" width="24" height="24" patternUnits="userSpaceOnUse">
+      <path d="M 24 0 L 0 0 0 24" fill="none" stroke="#d8d2c4" stroke-width="0.75" opacity="0.55"/>
+    </pattern>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="5" stdDeviation="5" flood-color="#123b35" flood-opacity="0.10"/>
+    </filter>
+    <marker id="arrowGreen" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L10,5 L0,10 z" fill="#267565"/>
+    </marker>
+    <marker id="arrowCoral" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L10,5 L0,10 z" fill="#d9503a"/>
+    </marker>
+  </defs>
+
+  <rect width="1600" height="1280" fill="#f6f0e2"/>
+  <rect width="1600" height="1280" fill="url(#grid)"/>
+
+  <text x="60" y="52" class="eyebrow">APP STORE RELEASE · VERSION 1.0 · BUILD 11</text>
+  <text x="60" y="93" class="title">Customer and App Review onboarding</text>
+  <text x="60" y="121" class="subtitle">The server classifies the account after sign-in; customer protection setup and the non-filtering review preview then follow separate paths.</text>
+  <line x1="60" y1="146" x2="1540" y2="146" stroke="#123b35" stroke-width="3"/>
+  <line x1="60" y1="152" x2="1540" y2="152" stroke="#f5c84c" stroke-width="5"/>
+
+  <!-- Shared entry -->
+  <rect x="500" y="184" width="600" height="92" rx="16" fill="#fffdf7" stroke="#123b35" stroke-width="1.5" filter="url(#shadow)"/>
+  <circle cx="538" cy="218" r="18" fill="#123b35"/><text x="534" y="223" class="step-no">1</text>
+  <text x="570" y="216" class="box-title">Open GetBored on an iPhone</text>
+  <text x="570" y="240" class="box-copy">Sign in with a GetBored username and password, or create an account.</text>
+  <text x="570" y="258" class="mono">POST /auth/password/login · POST /signup</text>
+
+  <path d="M800 276 V316" fill="none" stroke="#267565" stroke-width="2.5" marker-end="url(#arrowGreen)"/>
+
+  <rect x="500" y="322" width="600" height="102" rx="16" fill="#dfeaf3" stroke="#123b35" stroke-width="1.5" filter="url(#shadow)"/>
+  <circle cx="538" cy="358" r="18" fill="#123b35"/><text x="534" y="363" class="step-no">2</text>
+  <text x="570" y="354" class="box-title">Restore the account session</text>
+  <text x="570" y="378" class="box-copy">Store only the session token in Keychain, then load the server-owned account state.</text>
+  <text x="570" y="400" class="mono">GET /api/me → review_demo · active plan · activation required</text>
+
+  <path d="M800 424 V466" fill="none" stroke="#267565" stroke-width="2.5" marker-end="url(#arrowGreen)"/>
+
+  <!-- Decision -->
+  <polygon points="800,472 925,536 800,600 675,536" fill="#f5c84c" stroke="#123b35" stroke-width="1.8" filter="url(#shadow)"/>
+  <text x="800" y="530" class="box-title" text-anchor="middle">Which account</text>
+  <text x="800" y="550" class="box-title" text-anchor="middle">did the API return?</text>
+
+  <!-- Lane headers -->
+  <rect x="60" y="640" width="990" height="54" rx="12" fill="#123b35"/>
+  <text x="84" y="667" class="lane-title" fill="#fffdf7" style="fill:#fffdf7">Customer protection path</text>
+  <text x="1028" y="667" class="lane-sub" text-anchor="end" fill="#fffdf7" style="fill:#dfece3">LIVE FILTERING AFTER SUPERVISED SETUP</text>
+
+  <rect x="1090" y="640" width="450" height="54" rx="12" fill="#f1634b"/>
+  <text x="1114" y="667" class="lane-title" fill="#fffdf7" style="fill:#fffdf7">App Review path</text>
+  <text x="1518" y="667" class="lane-sub" text-anchor="end" fill="#fffdf7" style="fill:#fff3ef">PREVIEW ONLY</text>
+
+  <!-- Branch arrows -->
+  <path d="M705 555 H282 V724" fill="none" stroke="#267565" stroke-width="2.5" marker-end="url(#arrowGreen)"/>
+  <text x="410" y="579" class="edge-label">ACTIVATION REQUIRED</text>
+  <path d="M765 584 H570 V724" fill="none" stroke="#267565" stroke-width="2.5" marker-end="url(#arrowGreen)"/>
+  <text x="590" y="618" class="edge-label">ACTIVE CUSTOMER</text>
+  <path d="M918 548 H1315 V724" fill="none" stroke="#d9503a" stroke-width="2.5" marker-end="url(#arrowCoral)"/>
+  <text x="1080" y="579" class="edge-label">REVIEW_DEMO</text>
+
+  <!-- Customer path row 1 -->
+  <rect x="82" y="730" width="400" height="112" rx="15" fill="#fffdf7" stroke="#123b35" stroke-width="1.4" filter="url(#shadow)"/>
+  <circle cx="118" cy="766" r="18" fill="#123b35"/><text x="114" y="771" class="step-no">3</text>
+  <text x="150" y="762" class="box-title">Activation gate, when required</text>
+  <text x="150" y="786" class="box-copy">Redeem the customer onboarding code,</text>
+  <text x="150" y="804" class="box-copy">then refresh the account.</text>
+  <text x="150" y="826" class="mono">POST /api/activation/redeem</text>
+
+  <rect x="538" y="730" width="490" height="112" rx="15" fill="#dfece3" stroke="#123b35" stroke-width="1.4" filter="url(#shadow)"/>
+  <circle cx="574" cy="766" r="18" fill="#123b35"/><text x="570" y="771" class="step-no">4</text>
+  <text x="606" y="762" class="box-title">Register this iPhone automatically</text>
+  <text x="606" y="786" class="box-copy">Create or refresh the device record after sign-in;</text>
+  <text x="606" y="804" class="box-copy">a missing record self-heals.</text>
+  <text x="606" y="826" class="mono">POST /api/devices · PUT /api/devices/{id}</text>
+
+  <path d="M482 786 H528" fill="none" stroke="#267565" stroke-width="2.5" marker-end="url(#arrowGreen)"/>
+
+  <!-- Customer path row 2 -->
+  <path d="M783 842 V876" fill="none" stroke="#267565" stroke-width="2.5" marker-end="url(#arrowGreen)"/>
+  <rect x="82" y="882" width="400" height="126" rx="15" fill="#fffdf7" stroke="#123b35" stroke-width="1.4" filter="url(#shadow)"/>
+  <circle cx="118" cy="918" r="18" fill="#123b35"/><text x="114" y="923" class="step-no">5</text>
+  <text x="150" y="914" class="box-title">Protection-profile gate</text>
+  <text x="150" y="938" class="box-copy">Ask NEFilterManager whether the managed</text>
+  <text x="150" y="956" class="box-copy">provider configuration exists.</text>
+  <text x="150" y="980" class="mono">Missing → request a short-lived profile URL</text>
+  <text x="150" y="998" class="mono">Installed → continue to policy sync</text>
+
+  <rect x="538" y="882" width="490" height="126" rx="15" fill="#ece7f5" stroke="#123b35" stroke-width="1.4" filter="url(#shadow)"/>
+  <circle cx="574" cy="918" r="18" fill="#123b35"/><text x="570" y="923" class="step-no">6</text>
+  <text x="606" y="914" class="box-title">Download and install, if missing</text>
+  <text x="606" y="938" class="box-copy">Open the authenticated profile URL and complete</text>
+  <text x="606" y="956" class="box-copy">installation in Settings, then check again.</text>
+  <text x="606" y="982" class="mono">POST /api/profile-downloads → Safari → Settings</text>
+
+  <path d="M482 945 H528" fill="none" stroke="#267565" stroke-width="2.5" marker-end="url(#arrowGreen)"/>
+  <path d="M783 1008 V1042" fill="none" stroke="#267565" stroke-width="2.5" marker-end="url(#arrowGreen)"/>
+
+  <!-- Customer path row 3 -->
+  <rect x="82" y="1048" width="400" height="126" rx="15" fill="#dfeaf3" stroke="#123b35" stroke-width="1.4" filter="url(#shadow)"/>
+  <circle cx="118" cy="1084" r="18" fill="#123b35"/><text x="114" y="1089" class="step-no">7</text>
+  <text x="150" y="1080" class="box-title">Synchronize assigned rules</text>
+  <text x="150" y="1104" class="box-copy">Pull the merged policy and save its snapshot</text>
+  <text x="150" y="1122" class="box-copy">in the shared App Group.</text>
+  <text x="150" y="1146" class="mono">GET /api/policy?deviceId=…</text>
+  <text x="150" y="1164" class="mono">foreground refresh</text>
+
+  <rect x="538" y="1048" width="490" height="126" rx="15" fill="#dfece3" stroke="#123b35" stroke-width="1.4" filter="url(#shadow)"/>
+  <circle cx="574" cy="1084" r="18" fill="#123b35"/><text x="570" y="1089" class="step-no">8</text>
+  <text x="606" y="1080" class="box-title">Enable on-device filtering</text>
+  <text x="606" y="1104" class="box-copy">NEFilterManager starts the embedded data</text>
+  <text x="606" y="1122" class="box-copy">and control providers.</text>
+  <text x="606" y="1146" class="mono">FlowInspector + BlockHandler · block mode</text>
+  <text x="606" y="1164" class="mono">Active Rules remains read-only in the iPhone app</text>
+
+  <path d="M482 1111 H528" fill="none" stroke="#267565" stroke-width="2.5" marker-end="url(#arrowGreen)"/>
+
+  <!-- Review path -->
+  <rect x="1112" y="730" width="406" height="154" rx="15" fill="#fff3ef" stroke="#d9503a" stroke-width="1.6" filter="url(#shadow)"/>
+  <circle cx="1148" cy="766" r="18" fill="#d9503a"/><text x="1144" y="771" class="step-no">3</text>
+  <text x="1180" y="762" class="box-title">Bypass customer-only setup gates</text>
+  <text x="1180" y="786" class="box-copy">No activation code and no profile</text>
+  <text x="1180" y="804" class="box-copy">installation are requested.</text>
+  <text x="1180" y="828" class="mono">Server-owned account kind: review_demo</text>
+  <text x="1180" y="852" class="box-copy">The app still registers the iPhone and</text>
+  <text x="1180" y="870" class="box-copy">synchronizes assigned rules.</text>
+
+  <path d="M1315 884 V914" fill="none" stroke="#d9503a" stroke-width="2.5" marker-end="url(#arrowCoral)"/>
+  <rect x="1112" y="920" width="406" height="166" rx="15" fill="#fff3ef" stroke="#d9503a" stroke-width="1.6" filter="url(#shadow)"/>
+  <circle cx="1148" cy="956" r="18" fill="#d9503a"/><text x="1144" y="961" class="step-no">4</text>
+  <text x="1180" y="952" class="box-title">Show a truthful review preview</text>
+  <text x="1180" y="978" class="box-copy">Account, device registration and dashboard</text>
+  <text x="1180" y="996" class="box-copy">assignment can be reviewed.</text>
+  <text x="1180" y="1020" class="box-title">Demo mode</text>
+  <text x="1180" y="1044" class="box-copy">Active Rules is visible and read-only.</text>
+  <text x="1180" y="1064" class="box-copy">“Live filtering requires a supervised iPhone.”</text>
+
+  <!-- Footer notes -->
+  <rect x="60" y="1202" width="1480" height="48" rx="12" fill="#123b35"/>
+  <text x="82" y="1232" class="note-copy" fill="#fffdf7" style="fill:#fffdf7">Release scope: iPhone only · REST/Keychain/App Group · block mode only · list authoring stays in the web dashboard · activity history, CloudKit and Safari proxy are not part of 1.0.</text>
+</svg>
+</body>
+</html>
