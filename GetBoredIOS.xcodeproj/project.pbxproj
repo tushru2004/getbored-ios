@@ -44,6 +44,26 @@
 		A1B2C3D4E5F60718293A4B5F /* IOSDecisionCore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4B5C /* IOSDecisionCore.swift */; };
 		A1B2C3D4E5F60718293A4B60 /* IOSDecisionCore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4B5C /* IOSDecisionCore.swift */; };
 		A1B2C3D4E5F60718293A4B61 /* IOSDecisionCore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4B5C /* IOSDecisionCore.swift */; };
+		A1B2C3D4E5F60718293A4B66 /* IOSDecisionCore+TrafficParsing.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4B62 /* IOSDecisionCore+TrafficParsing.swift */; };
+		A1B2C3D4E5F60718293A4B67 /* IOSDecisionCore+TrafficParsing.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4B62 /* IOSDecisionCore+TrafficParsing.swift */; };
+		A1B2C3D4E5F60718293A4B68 /* IOSDecisionCore+TrafficParsing.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4B62 /* IOSDecisionCore+TrafficParsing.swift */; };
+		A1B2C3D4E5F60718293A4B69 /* IOSDecisionCore+TrafficParsing.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4B62 /* IOSDecisionCore+TrafficParsing.swift */; };
+		A1B2C3D4E5F60718293A4B6A /* IOSDecisionCore+TrafficParsing.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4B62 /* IOSDecisionCore+TrafficParsing.swift */; };
+		A1B2C3D4E5F60718293A4B6B /* IOSDecisionCore+SafariContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4B63 /* IOSDecisionCore+SafariContext.swift */; };
+		A1B2C3D4E5F60718293A4B6C /* IOSDecisionCore+SafariContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4B63 /* IOSDecisionCore+SafariContext.swift */; };
+		A1B2C3D4E5F60718293A4B6D /* IOSDecisionCore+SafariContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4B63 /* IOSDecisionCore+SafariContext.swift */; };
+		A1B2C3D4E5F60718293A4B6E /* IOSDecisionCore+SafariContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4B63 /* IOSDecisionCore+SafariContext.swift */; };
+		A1B2C3D4E5F60718293A4B6F /* IOSDecisionCore+SafariContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4B63 /* IOSDecisionCore+SafariContext.swift */; };
+		A1B2C3D4E5F60718293A4B70 /* IOSDecisionCore+AppProxy.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4B64 /* IOSDecisionCore+AppProxy.swift */; };
+		A1B2C3D4E5F60718293A4B71 /* IOSDecisionCore+AppProxy.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4B64 /* IOSDecisionCore+AppProxy.swift */; };
+		A1B2C3D4E5F60718293A4B72 /* IOSDecisionCore+AppProxy.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4B64 /* IOSDecisionCore+AppProxy.swift */; };
+		A1B2C3D4E5F60718293A4B73 /* IOSDecisionCore+AppProxy.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4B64 /* IOSDecisionCore+AppProxy.swift */; };
+		A1B2C3D4E5F60718293A4B74 /* IOSDecisionCore+AppProxy.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4B64 /* IOSDecisionCore+AppProxy.swift */; };
+		A1B2C3D4E5F60718293A4B75 /* IOSDecisionCore+ActivityLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4B65 /* IOSDecisionCore+ActivityLog.swift */; };
+		A1B2C3D4E5F60718293A4B76 /* IOSDecisionCore+ActivityLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4B65 /* IOSDecisionCore+ActivityLog.swift */; };
+		A1B2C3D4E5F60718293A4B77 /* IOSDecisionCore+ActivityLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4B65 /* IOSDecisionCore+ActivityLog.swift */; };
+		A1B2C3D4E5F60718293A4B78 /* IOSDecisionCore+ActivityLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4B65 /* IOSDecisionCore+ActivityLog.swift */; };
+		A1B2C3D4E5F60718293A4B79 /* IOSDecisionCore+ActivityLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4B65 /* IOSDecisionCore+ActivityLog.swift */; };
 		A48FE532A8FC5A1BBBFC1069 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CAF0878EF27A9625CCD0F666 /* Foundation.framework */; };
 		ACCTOBJC0100000000000001 /* AccountModule.m in Sources */ = {isa = PBXBuildFile; fileRef = ACCTOBJC0000000000000001 /* AccountModule.m */; };
 		ACCTSW010000000000000001 /* AccountModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACCTSW000000000000000001 /* AccountModule.swift */; };
@@ -166,6 +186,10 @@
 		90EB16EBC4784D4BA92EF651 /* SafariTestHarnessApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SafariTestHarnessApp.swift; sourceTree = "<group>"; };
 		971B4EA717467C724F2B0077 /* libPods-GetBored iOS.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-GetBored iOS.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		A1B2C3D4E5F60718293A4B5C /* IOSDecisionCore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = IOSDecisionCore.swift; path = Sources/iOS/Shared/IOSDecisionCore.swift; sourceTree = SOURCE_ROOT; };
+		A1B2C3D4E5F60718293A4B62 /* IOSDecisionCore+TrafficParsing.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = "IOSDecisionCore+TrafficParsing.swift"; path = "Sources/iOS/Shared/IOSDecisionCore+TrafficParsing.swift"; sourceTree = SOURCE_ROOT; };
+		A1B2C3D4E5F60718293A4B63 /* IOSDecisionCore+SafariContext.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = "IOSDecisionCore+SafariContext.swift"; path = "Sources/iOS/Shared/IOSDecisionCore+SafariContext.swift"; sourceTree = SOURCE_ROOT; };
+		A1B2C3D4E5F60718293A4B64 /* IOSDecisionCore+AppProxy.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = "IOSDecisionCore+AppProxy.swift"; path = "Sources/iOS/Shared/IOSDecisionCore+AppProxy.swift"; sourceTree = SOURCE_ROOT; };
+		A1B2C3D4E5F60718293A4B65 /* IOSDecisionCore+ActivityLog.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = "IOSDecisionCore+ActivityLog.swift"; path = "Sources/iOS/Shared/IOSDecisionCore+ActivityLog.swift"; sourceTree = SOURCE_ROOT; };
 		A60E5D972187DF777B271D91 /* SafariChildRegistrationExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = SafariChildRegistrationExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		A77015159D559FE37F614107 /* icon-512.png */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = image.png; name = "icon-512.png"; path = "images/icon-512.png"; sourceTree = "<group>"; };
 		A9FF4B276136B5CDFD7D1A32 /* messages.json */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.json; name = messages.json; path = _locales/en/messages.json; sourceTree = "<group>"; };
@@ -491,6 +515,10 @@
 			children = (
 				54405896F6E80832028947EF /* IOSRuleStore.swift */,
 				A1B2C3D4E5F60718293A4B5C /* IOSDecisionCore.swift */,
+				A1B2C3D4E5F60718293A4B62 /* IOSDecisionCore+TrafficParsing.swift */,
+				A1B2C3D4E5F60718293A4B63 /* IOSDecisionCore+SafariContext.swift */,
+				A1B2C3D4E5F60718293A4B64 /* IOSDecisionCore+AppProxy.swift */,
+				A1B2C3D4E5F60718293A4B65 /* IOSDecisionCore+ActivityLog.swift */,
 				0A6797321316119EAA7F2E11 /* SafariParentChildContextStore.swift */,
 			);
 			name = Shared;
@@ -901,6 +929,10 @@
 				6D1ADAD72FB7C038002D6CBB /* AppDelegate.swift in Sources */,
 				3866DA922000B43E04EFB167 /* IOSRuleStore.swift in Sources */,
 				A1B2C3D4E5F60718293A4B5D /* IOSDecisionCore.swift in Sources */,
+				A1B2C3D4E5F60718293A4B66 /* IOSDecisionCore+TrafficParsing.swift in Sources */,
+				A1B2C3D4E5F60718293A4B6B /* IOSDecisionCore+SafariContext.swift in Sources */,
+				A1B2C3D4E5F60718293A4B70 /* IOSDecisionCore+AppProxy.swift in Sources */,
+				A1B2C3D4E5F60718293A4B75 /* IOSDecisionCore+ActivityLog.swift in Sources */,
 				F5E6F7089012ABCDF1A2B3C4 /* FilterListModels.swift in Sources */,
 				KCSTORE01000000000000001 /* KeychainStore.swift in Sources */,
 				APICLI010000000000000001 /* APIClient.swift in Sources */,
@@ -920,6 +952,10 @@
 				0A6797321316119EAA7F2E10 /* SafariParentChildContextStore.swift in Sources */,
 				D20000000000000000000001 /* IOSRuleStore.swift in Sources */,
 				A1B2C3D4E5F60718293A4B5E /* IOSDecisionCore.swift in Sources */,
+				A1B2C3D4E5F60718293A4B67 /* IOSDecisionCore+TrafficParsing.swift in Sources */,
+				A1B2C3D4E5F60718293A4B6C /* IOSDecisionCore+SafariContext.swift in Sources */,
+				A1B2C3D4E5F60718293A4B71 /* IOSDecisionCore+AppProxy.swift in Sources */,
+				A1B2C3D4E5F60718293A4B76 /* IOSDecisionCore+ActivityLog.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -930,6 +966,10 @@
 				7AA00CA8F6AC1C3DF9923E28 /* Sources/iOS/iOSBlockHandler/BlockHandler.swift in Sources */,
 				B1C2D3E4F5A60718B2C3D4E5 /* IOSRuleStore.swift in Sources */,
 				A1B2C3D4E5F60718293A4B5F /* IOSDecisionCore.swift in Sources */,
+				A1B2C3D4E5F60718293A4B68 /* IOSDecisionCore+TrafficParsing.swift in Sources */,
+				A1B2C3D4E5F60718293A4B6D /* IOSDecisionCore+SafariContext.swift in Sources */,
+				A1B2C3D4E5F60718293A4B72 /* IOSDecisionCore+AppProxy.swift in Sources */,
+				A1B2C3D4E5F60718293A4B77 /* IOSDecisionCore+ActivityLog.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -949,6 +989,10 @@
 				0A6797321316119EAA7F2E12 /* SafariParentChildContextStore.swift in Sources */,
 				7C821DCF586174EFFC02CDA3 /* FlowInspector.swift in Sources */,
 				A1B2C3D4E5F60718293A4B60 /* IOSDecisionCore.swift in Sources */,
+				A1B2C3D4E5F60718293A4B69 /* IOSDecisionCore+TrafficParsing.swift in Sources */,
+				A1B2C3D4E5F60718293A4B6E /* IOSDecisionCore+SafariContext.swift in Sources */,
+				A1B2C3D4E5F60718293A4B73 /* IOSDecisionCore+AppProxy.swift in Sources */,
+				A1B2C3D4E5F60718293A4B78 /* IOSDecisionCore+ActivityLog.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -968,6 +1012,10 @@
 				DC2BFCC6E40C73EACED483AF /* SafariWebExtensionHandler.swift in Sources */,
 				0A6797321316119EAA7F2E13 /* SafariParentChildContextStore.swift in Sources */,
 				A1B2C3D4E5F60718293A4B61 /* IOSDecisionCore.swift in Sources */,
+				A1B2C3D4E5F60718293A4B6A /* IOSDecisionCore+TrafficParsing.swift in Sources */,
+				A1B2C3D4E5F60718293A4B6F /* IOSDecisionCore+SafariContext.swift in Sources */,
+				A1B2C3D4E5F60718293A4B74 /* IOSDecisionCore+AppProxy.swift in Sources */,
+				A1B2C3D4E5F60718293A4B79 /* IOSDecisionCore+ActivityLog.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
