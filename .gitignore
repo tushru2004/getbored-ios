@@ -70,8 +70,16 @@ __pycache__/
 *DerivedData/
 
 # IntelliJ / JetBrains
-.idea/
+# Share only stable WebStorm project metadata. Per-user UI state remains ignored
+# by .idea/.gitignore.
+.idea/*
+!.idea/.gitignore
+!.idea/.name
+!.idea/modules.xml
 *.iml
+!.idea/getbored-ios.iml
+!.idea/noctule.xml
+!.idea/vcs.xml
 *.iws
 *.ipr
 out/

@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<module type="WEB_MODULE" version="4">
+  <component name="NewModuleRootManager">
+    <content url="file://$MODULE_DIR$">
+      <!-- Dependency and generated-output directories. -->
+      <excludeFolder url="file://$MODULE_DIR$/.build" />
+      <excludeFolder url="file://$MODULE_DIR$/.swiftpm" />
+      <excludeFolder url="file://$MODULE_DIR$/build" />
+      <excludeFolder url="file://$MODULE_DIR$/build-ios" />
+      <excludeFolder url="file://$MODULE_DIR$/build-local" />
+      <excludeFolder url="file://$MODULE_DIR$/pkg-build" />
+      <excludeFolder url="file://$MODULE_DIR$/artifacts" />
+      <excludeFolder url="file://$MODULE_DIR$/dist" />
+      <excludeFolder url="file://$MODULE_DIR$/coverage" />
+      <excludeFolder url="file://$MODULE_DIR$/logs" />
+      <excludeFolder url="file://$MODULE_DIR$/node_modules" />
+      <excludeFolder url="file://$MODULE_DIR$/Pods" />
+      <excludeFolder url="file://$MODULE_DIR$/.venv" />
+      <excludeFolder url="file://$MODULE_DIR$/.pytest_cache" />
+      <excludeFolder url="file://$MODULE_DIR$/tests/.venv" />
+
+      <!-- Xcode DerivedData folders created by local build and test workflows. -->
+      <excludeFolder url="file://$MODULE_DIR$/iOSDecisionCoreSplitDerivedData" />
+      <excludeFolder url="file://$MODULE_DIR$/iOSDeviceDerivedData" />
+      <excludeFolder url="file://$MODULE_DIR$/iOSSimDerivedData" />
+      <excludeFolder url="file://$MODULE_DIR$/iOSWorkspaceDerivedData" />
+      <excludeFolder url="file://$MODULE_DIR$/MacWorkspaceDerivedData" />
+      <excludeFolder url="file://$MODULE_DIR$/ProDerivedData" />
+      <excludeFolder url="file://$MODULE_DIR$/SignedDerivedData" />
+      <excludeFolder url="file://$MODULE_DIR$/simDerivedData" />
+
+      <!-- Local agent/tool state that is not application source. -->
+      <excludeFolder url="file://$MODULE_DIR$/.claude" />
+      <excludeFolder url="file://$MODULE_DIR$/.cmux" />
+      <excludeFolder url="file://$MODULE_DIR$/.codex-tmp" />
+      <excludeFolder url="file://$MODULE_DIR$/.playwright-mcp" />
+      <excludeFolder url="file://$MODULE_DIR$/.superpowers" />
+      <excludeFolder url="file://$MODULE_DIR$/.vscode" />
+
+      <excludePattern pattern=".compile" />
+      <excludePattern pattern=".DS_Store" />
+      <excludePattern pattern=".xcode.env.local" />
+      <excludePattern pattern="*.log" />
+      <excludePattern pattern="*.xcuserstate" />
+      <excludePattern pattern="buildServer.json" />
+    </content>
+    <orderEntry type="inheritedJdk" />
+    <orderEntry type="sourceFolder" forTests="false" />
+  </component>
+</module>
