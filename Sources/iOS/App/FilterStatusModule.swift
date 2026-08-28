@@ -26,33 +26,18 @@ final class FilterStatusModule: NSObject {
 
     @objc static func requiresMainQueueSetup() -> Bool { false }
 
-    /// Reports the live filter + sign-in status to JS for the status screen.
-    /// Always resolves (errors are surfaced as nil fields, never reject).
+    /// Returns the current filter and sign-in status to the JS status screen.
     ///
     /// Call flow:
     ///
-    ///   JS calls current()
-    ///           │
-    ///           ▼
-    ///   NEFilterManager.loadFromPreferences { filterError in ... }
-    ///           │
-    ///           ├── filterError != nil → filterEnabled = nil, profileState = unknown
-    ///           └── filterError == nil
-    ///                   ├── providerConfiguration == nil → profileState = missing
-    ///                   └── providerConfiguration != nil → profileState = installed
-    ///                           └── filterEnabled = NEFilterManager.isEnabled
-    ///                   │
-    ///                   ▼
-    ///           IOSDecisionCore.filterStatusViewModel(
-    ///               filterEnabled:, filterErrorMessage:,
-    ///               icloudAvailable: nil, icloudErrorMessage: nil   ← retained for compatibility
-    ///           )
-    ///                   ▼
-    ///           resolve({filterState, filterLabel, profileState, signedIn})
+    ///   load filter preferences
+    ///       ├── failed → unknown profile/filter state
+    ///       └── success → missing or installed profile + live filter state
     ///
-    /// The native decision core owns filter-state wording (active/inactive/unknown);
-    /// its legacy icloudState/icloudLabel outputs are discarded below rather than
-    /// forwarded to JS — `signedIn` (a local Keychain check) replaces them.
+    ///   either outcome → build labels → resolve status + local sign-in state
+    ///
+    /// This method always resolves. A preference-load error is represented as
+    /// an unknown state in the payload rather than a rejected promise.
     @objc func current(
         _ resolve: @escaping RCTPromiseResolveBlock,
         rejecter reject: @escaping RCTPromiseRejectBlock
@@ -117,14 +102,11 @@ final class FilterStatusModule: NSObject {
     ///
     /// Call flow:
     ///
-    ///   registerDevice (no stored id) or updateDevice (404 self-heal) call createDevice(input)
-    ///           │
-    ///           ▼
-    ///   APIClient.shared.request(Device.self, .post, "/api/devices", jsonBody: input)
-    ///           │
-    ///           ├── returns device → KeychainStore.write(device.id, for: .serverDeviceID)
-    ///           │                    resolve(deviceDictionary(device))
-    ///           └── throws error   → reject(for: error, rejecter: reject)
+    ///   encode device details
+    ///       ├── failed → SERVER
+    ///       └── create device
+    ///               ├── success → save server ID → return device
+    ///               └── failure → mapped API error
     private func createDevice(
         input: DeviceInput,
         resolve: @escaping RCTPromiseResolveBlock,
@@ -157,15 +139,12 @@ final class FilterStatusModule: NSObject {
     ///
     /// Call flow:
     ///
-    ///   registerDevice (stored id present) calls updateDevice(id, input)
-    ///           │
-    ///           ▼
-    ///   APIClient.shared.request(Device.self, .put, "/api/devices/{id}", jsonBody: input)
-    ///           │
-    ///           ├── returns device      → resolve(deviceDictionary(device))
-    ///           ├── throws .server(404) → KeychainStore.delete(.serverDeviceID)
-    ///           │                           createDevice(input)  ← self-heal, retries as new
-    ///           └── throws other error  → reject(for: error, rejecter: reject)
+    ///   encode updated device details
+    ///       ├── failed → SERVER
+    ///       └── update device
+    ///               ├── success → return device
+    ///               ├── not found → forget stale ID → create device
+    ///               └── other failure → mapped API error
     private func updateDevice(
         id: String, input: DeviceInput,
         resolve: @escaping RCTPromiseResolveBlock,
@@ -197,19 +176,12 @@ final class FilterStatusModule: NSObject {
     ///
     /// Call flow:
     ///
-    ///   JS calls currentDeviceRegistration()
-    ///           │
-    ///           ▼
-    ///   KeychainStore.read(.serverDeviceID)
-    ///           │
-    ///           ├── nil → resolve(unregisteredSnapshotDictionary())  ← no network call
-    ///           │
-    ///           └── deviceID present → GET /api/devices/{deviceID}
-    ///                   │
-    ///                   ├── returns device      → resolve(registeredSnapshotDictionary(device))
-    ///                   ├── throws .server(404) → KeychainStore.delete(.serverDeviceID)
-    ///                   │                          resolve(unregisteredSnapshotDictionary())
-    ///                   └── throws other error  → reject(for: error, rejecter: reject)
+    ///   stored device ID?
+    ///       ├── no → return unregistered (no network call)
+    ///       └── yes → fetch device
+    ///               ├── found → return registration
+    ///               ├── not found → delete stale ID → return unregistered
+    ///               └── failure → mapped API error
     @objc func currentDeviceRegistration(
         _ resolve: @escaping RCTPromiseResolveBlock,
         rejecter reject: @escaping RCTPromiseRejectBlock
@@ -293,17 +265,12 @@ final class FilterStatusModule: NSObject {
     ///
     /// Call flow:
     ///
-    ///   JS calls downloadProfile()
-    ///           │
-    ///           ▼
-    ///   POST /api/profile-downloads
-    ///           │
-    ///           ├── malformed/non-HTTPS URL → reject(SERVER); do not open it
-    ///           ├── valid URL → UIApplication.open(...)
-    ///           │       ├── opened → resolve(nil)
-    ///           │       └── not opened → reject(SERVER)
-    ///           ├── 409 → explain that the profile is not configured
-    ///           └── other error → reject(for:rejecter:)
+    ///   request profile URL
+    ///       ├── profile not configured → reject with support guidance
+    ///       ├── other failure → mapped API error
+    ///       └── success → validate and open URL
+    ///               ├── invalid or not opened → SERVER
+    ///               └── opened → resolve
     @objc func downloadProfile(
         _ resolve: @escaping RCTPromiseResolveBlock,
         rejecter reject: @escaping RCTPromiseRejectBlock
@@ -356,22 +323,12 @@ final class FilterStatusModule: NSObject {
     ///
     /// Call flow:
     ///
-    ///   JS calls syncFilterLists()
-    ///           │
-    ///           ▼
-    ///   KeychainStore.read(.serverDeviceID)
-    ///           │
-    ///           ├── nil, signed in  → reject(NOT_REGISTERED)
-    ///           ├── nil, signed out → reject(SIGNED_OUT)
-    ///           │
-    ///           └── deviceID present → GET /api/policy?deviceId=<deviceID>
-    ///                   │
-    ///                   ├── returns snapshot
-    ///                   │       └── MainActor.run
-    ///                   │               ├── IOSRuleStore.shared.applyFilterListSnapshot(...)
-    ///                   │               └── resolve({sites, exceptions, allowedApps, blockedApps})
-    ///                   │
-    ///                   └── throws error → reject(for: error, rejecter: reject)
+    ///   registered device ID?
+    ///       ├── no, signed out → SIGNED_OUT
+    ///       ├── no, signed in  → NOT_REGISTERED
+    ///       └── yes → fetch policy
+    ///               ├── success → apply snapshot → return rule counts
+    ///               └── failure → mapped API error
     ///
     /// An empty snapshot (all arrays empty) is a VALID response — it means the
     /// admin unassigned every list — and is applied exactly like a populated
@@ -421,16 +378,6 @@ final class FilterStatusModule: NSObject {
 
     /// Returns the currently active filter rules from the shared App-Group store.
     /// Reads synchronously from UserDefaults — no network call required.
-    ///
-    /// Call flow:
-    ///
-    ///   JS calls loadActiveRules()
-    ///           │
-    ///           ▼
-    ///   IOSRuleStore.shared
-    ///           │
-    ///           ├── reads the current App-Group snapshot
-    ///           └── resolves one bridge dictionary for the UI
     @objc func loadActiveRules(
         _ resolve: RCTPromiseResolveBlock,
         rejecter reject: RCTPromiseRejectBlock
@@ -455,22 +402,14 @@ final class FilterStatusModule: NSObject {
     ///
     /// Call flow:
     ///
-    ///   any caught APIClient error calls reject(for: error, rejecter:)
-    ///           │
-    ///           ├── .signedOut            → reject(SIGNED_OUT)          ← existing rules kept as-is
-    ///           ├── .subscriptionRequired → DispatchQueue.main.async
-    ///           │                               ├── IOSRuleStore.shared.applyFilterListSnapshot(empty)
-    ///           │                               │       ← "lapse stops filtering" product decision
-    ///           │                               └── reject(SUBSCRIPTION_REQUIRED)  ← fires AFTER the
-    ///           │                                     snapshot is applied, not before (see below)
-    ///           ├── .network              → reject(NETWORK)
-    ///           └── .server, .decoding     → reject(SERVER)
+    ///   API error
+    ///       ├── signed out → keep rules → SIGNED_OUT
+    ///       ├── subscription lapsed → clear rules → SUBSCRIPTION_REQUIRED
+    ///       ├── network failure → NETWORK
+    ///       └── server or decoding failure → SERVER
     ///
-    /// subscriptionRequired's reject call is nested INSIDE the main.async block
-    /// (rather than fired immediately before scheduling it) so that if JS reacts
-    /// to the rejection by re-reading rules (e.g. `loadActiveRules()`), it can
-    /// never observe the pre-lapse rules mid-clear — "FIRST apply, THEN reject"
-    /// is an ordering guarantee, not just a comment.
+    /// On subscription lapse, rules are cleared before rejection. This ordering
+    /// prevents an immediate JS re-read from observing stale rules.
     private func reject(for error: APIError, rejecter reject: @escaping RCTPromiseRejectBlock) {
         switch error {
         case .signedOut:

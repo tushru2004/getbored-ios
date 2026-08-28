@@ -13,10 +13,10 @@ final class AppDelegate: RCTAppDelegate {
     ///
     /// Call flow:
     ///
-    ///   UIKit launch → configure React Native root properties
+    ///   UIKit launch
     ///       │
-    ///       ├── MetricKitReporter.start()  ← registers crash/hang subscriber once
-    ///       └── RCTAppDelegate.application(...) → mounts the JS root view
+    ///       ▼
+    ///   configure React Native → start MetricKit → mount root view
     override func application(
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
@@ -36,10 +36,9 @@ final class AppDelegate: RCTAppDelegate {
     ///
     /// Call flow:
     ///
-    ///   RCTAppDelegate.sourceURL(for:) → bundleURL()
-    ///           │
-    ///           ├── DEBUG → Metro URL for the `index` bundle root
-    ///           └── RELEASE → embedded main.jsbundle
+    ///   bundleURL()
+    ///       ├── DEBUG     → Metro `index` bundle
+    ///       └── otherwise → embedded `main.jsbundle`
     override func bundleURL() -> URL? {
         #if DEBUG
             RCTBundleURLProvider.sharedSettings().jsLocation = "pro.local"

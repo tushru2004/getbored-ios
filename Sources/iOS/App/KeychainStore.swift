@@ -49,11 +49,9 @@ enum KeychainStore {
     ///
     /// Call flow:
     ///
-    ///   SecItemCopyMatching(query, &result)
-    ///           │
-    ///           ├── errSecSuccess   → cast CFData → Data → UTF-8 String → return String
-    ///           │
-    ///           └── any other status → return nil
+    ///   look up item
+    ///       ├── valid UTF-8 value → return value
+    ///       └── missing, unreadable, or invalid → return nil
     static func read(_ item: Item) -> String? {
         let query: [CFString: Any] = [
             kSecClass: kSecClassGenericPassword,
@@ -81,15 +79,14 @@ enum KeychainStore {
     /// Persists `value` for `item` to the Keychain, replacing any previously stored value.
     ///
     /// Uses a delete-then-add pattern so callers never have to handle
-    /// `errSecDuplicateItem` from `SecItemUpdate`. The delete is best-effort —
-    /// if no item exists yet, `errSecItemNotFound` is silently ignored.
+    /// `errSecDuplicateItem` from `SecItemUpdate`. Both Keychain operations
+    /// are best-effort; their result codes are intentionally ignored.
     ///
     /// Call flow:
     ///
-    ///   SecItemDelete(deleteQuery)        ← best-effort; ignores errSecItemNotFound
-    ///           │
-    ///           ▼
-    ///   SecItemAdd(addAttributes, nil)    ← writes UTF-8 encoded value
+    ///   delete old item → encode value
+    ///       ├── failed  → return with old item removed
+    ///       └── success → add new item
     static func write(_ value: String, for item: Item) {
         let deleteQuery: [CFString: Any] = [
             kSecClass: kSecClassGenericPassword,
@@ -116,17 +113,8 @@ enum KeychainStore {
 
     /// Removes the stored value for `item` from the Keychain, if any.
     ///
-    /// Best-effort, matching `write(_:for:)`'s delete step: if no item exists
-    /// yet, `errSecItemNotFound` is silently ignored. Safe to call even when
-    /// `item` was never written — e.g. signing out a session that failed to
-    /// store a token in the first place.
-    ///
-    /// Call flow:
-    ///
-    ///   SecItemDelete(deleteQuery)   ← ignores errSecItemNotFound; every other
-    ///                                   status is also swallowed, matching the
-    ///                                   "errors treated as already gone" contract
-    ///                                   of read(_:) above
+    /// Best-effort, matching `write(_:for:)`'s delete step. Every Keychain
+    /// result is ignored, so this is safe even when the item was never written.
     static func delete(_ item: Item) {
         let deleteQuery: [CFString: Any] = [
             kSecClass: kSecClassGenericPassword,

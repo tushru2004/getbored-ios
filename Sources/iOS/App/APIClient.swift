@@ -115,29 +115,14 @@ final class APIClient {
     ///
     /// Call flow:
     ///
-    ///   send(method, path, ...)
-    ///           │
-    ///           ├── authenticated == true
-    ///           │       ├── KeychainStore.read(.sessionToken) == nil
-    ///           │       │       └── throw .signedOut   ← NO network call
-    ///           │       └── token present → will set "Authorization: Bearer <token>"
-    ///           │
-    ///           ├── buildRequest(...)  ← resolves URL + method + headers + body
-    ///           │       └── fails only on a malformed path
-    ///           │               → throw .network(URLError(.badURL))
-    ///           │
-    ///           ▼
-    ///   try await session.data(for: request)
-    ///           │
-    ///           ├── transport error → throw .network(error)
-    ///           │
-    ///           ├── response is not HTTPURLResponse → throw .network(...)
-    ///           │
-    ///           └── switch on HTTP status code:
-    ///                   ├── 200..<300 → return (status, data)
-    ///                   ├── 401       → throw .signedOut
-    ///                   ├── 402       → throw .subscriptionRequired
-    ///                   └── other     → throw .server(status: status)
+    ///   prepare request
+    ///       ├── authentication required, token missing → signedOut (no network call)
+    ///       └── unauthenticated or token present → send
+    ///               ├── invalid URL or transport failure → network
+    ///               ├── 2xx → return status + data
+    ///               ├── 401 → signedOut
+    ///               ├── 402 → subscriptionRequired
+    ///               └── other status → server(status)
     func send(
         _ method: Method,
         path: String,
@@ -305,15 +290,12 @@ final class APIClient {
     ///
     /// Call flow:
     ///
-    ///   request(T.self, method, path, ...)
-    ///           │
-    ///           ▼
-    ///   try await send(method, path, ...)
-    ///           │
-    ///           ├── request failure → rethrow the same `APIError`
-    ///           └── success
-    ///                   ├── decode succeeds → return decoded value
-    ///                   └── decode fails → throw .decoding(error)
+    ///   send request
+    ///       ├── APIError → rethrow it
+    ///       ├── unexpected error → network
+    ///       └── success → decode body
+    ///               ├── valid JSON → return value
+    ///               └── invalid JSON → decoding(error)
     func request<T: Decodable>(
         _ type: T.Type,
         method: Method,

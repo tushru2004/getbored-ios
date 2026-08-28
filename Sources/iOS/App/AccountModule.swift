@@ -17,18 +17,8 @@ final class AccountModule: NSObject {
 
     @objc static func requiresMainQueueSetup() -> Bool { false }
 
-    /// Starts the shared password-authentication pipeline for an existing account.
-    ///
-    /// Call flow:
-    ///
-    ///   JS calls signIn(username, password)
-    ///           │
-    ///           ▼
-    ///   authenticate("/auth/password/login", ...)
-    ///           │
-    ///           ├── encodes credentials without logging or persisting the password
-    ///           ├── POSTs the unauthenticated request
-    ///           └── success → stores only the returned session token in Keychain
+    /// Starts the shared password-authentication pipeline for an existing
+    /// account using the login endpoint.
     @objc func signIn(
         _ username: String,
         password: String,
@@ -47,15 +37,6 @@ final class AccountModule: NSObject {
     /// Starts the same password-authentication pipeline for a new account.
     /// The shared pipeline deliberately owns error mapping so sign-in and
     /// sign-up cannot present different outcomes for the same server response.
-    ///
-    /// Call flow:
-    ///
-    ///   JS calls signUp(username, password)
-    ///           │
-    ///           ▼
-    ///   authenticate("/auth/password/signup", ...)
-    ///           │
-    ///           └── follows the same encode → request → Keychain-write path as signIn
     @objc func signUp(
         _ username: String,
         password: String,
@@ -76,16 +57,12 @@ final class AccountModule: NSObject {
     ///
     /// Call flow:
     ///
-    ///   signIn/signUp
-    ///           │
-    ///           ▼
-    ///   authenticate(path, username, password)
-    ///           │
-    ///           ├── JSON encoding fails → reject(SERVER) before starting a Task
-    ///           └── Task
-    ///                   ├── API success → KeychainStore.write(sessionToken) → resolve(userId)
-    ///                   ├── known HTTP status → bridge-specific reject code
-    ///                   └── other failure → rejectRequest(...) normalizes APIError
+    ///   encode credentials
+    ///       ├── failed → SERVER
+    ///       └── POST selected endpoint
+    ///               ├── success → store session token → return user ID
+    ///               ├── expected account/input/rate error → specific JS error
+    ///               └── other failure → shared request error
     private func authenticate(
         path: String,
         username: String,
@@ -140,16 +117,11 @@ final class AccountModule: NSObject {
     ///
     /// Call flow:
     ///
-    ///   JS calls signOut()
-    ///           │
-    ///           ▼
-    ///   POST /auth/logout
-    ///           │
-    ///           ├── success → continue
-    ///           └── failure → log only; continue
-    ///                   │
-    ///                   ▼
-    ///               KeychainStore.delete(.sessionToken) → resolve(nil)
+    ///   attempt server logout
+    ///       ├── success → continue
+    ///       └── failure → log and continue
+    ///
+    ///   either outcome → always delete local token → resolve
     @objc func signOut(
         _ resolve: @escaping RCTPromiseResolveBlock,
         rejecter reject: @escaping RCTPromiseRejectBlock

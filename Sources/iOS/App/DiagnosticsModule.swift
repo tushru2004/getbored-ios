@@ -64,21 +64,18 @@ final class DiagnosticsModule: NSObject {
 
     // MARK: - reportRecentLogs
 
-    /// Snapshot the app's own recent unified-log entries and ship them.
+    /// Snapshots the app's recent unified-log entries and uploads them with
+    /// the current device context.
     ///
     /// Call flow:
     ///
-    ///   JS calls reportRecentLogs(reason)
-    ///           │
-    ///           ▼ (background queue — OSLogStore enumeration can take ~100s of ms)
-    ///   collectRecentEvents()
-    ///           │
-    ///           ├── OSLogStore unavailable/thorws → events = []   ← still sends context
-    ///           └── entries filtered to com.getbored* subsystems, newest 300 kept
-    ///           ▼
-    ///   Self.sendBatch(reason, events)
-    ///           ├── request succeeds → resolve(["sent": true,  "events": N])
-    ///           └── request fails    → resolve(["sent": false, "events": N])   ← never rejects
+    ///   collect recent logs → upload logs + device context
+    ///       ├── accepted → resolve(sent: true)
+    ///       └── failed   → resolve(sent: false)
+    ///
+    /// Log collection runs off the main queue because reading `OSLogStore` can
+    /// be slow. If collection fails, an empty event list is still uploaded so
+    /// the reason and device context arrive. This method never rejects.
     @objc func reportRecentLogs(
         _ reason: String,
         resolver resolve: @escaping RCTPromiseResolveBlock,
@@ -158,15 +155,11 @@ final class DiagnosticsModule: NSObject {
     ///
     /// Call flow:
     ///
-    ///   reportRecentLogs / MetricKitReporter.didReceive
-    ///           │
-    ///           ▼
-    ///   sendBatch(reason, events, completion)
-    ///           │
-    ///           ├── JSON encoding fails → completion(false) synchronously
-    ///           └── Task → APIClient.shared.send(...)
-    ///                   ├── success → completion(true)
-    ///                   └── any failure → log + completion(false)  ← never surfaces to JS
+    ///   build and encode batch
+    ///       ├── encoding fails → completion(false)
+    ///       └── upload batch
+    ///               ├── accepted → completion(true)
+    ///               └── failed   → log + completion(false)
     fileprivate static func sendBatch(
         reason: String,
         events: [ClientLogEvent],
@@ -252,16 +245,10 @@ final class DiagnosticsModule: NSObject {
 ///
 /// Call flow:
 ///
-///   AppDelegate.didFinishLaunching → MetricKitReporter.shared.start()
-///           │
-///           └── MXMetricManager.shared.add(self)   ← idempotent via `started`
-///                   │
-///                   ▼ (whenever iOS delivers diagnostics)
-///           didReceive([MXDiagnosticPayload])
-///                   └── each payload's JSON → one ClientLogEvent
-///                           └── DiagnosticsModule.sendBatch("metrickit-diagnostic")
-///                               (server truncates long payloads; the JSON's
-///                                leading fields — crash type, signal — survive)
+///   app launch → subscribe once to MetricKit
+///       │
+///       ▼
+///   iOS delivers payloads → convert all payloads → upload one batch
 final class MetricKitReporter: NSObject, MXMetricManagerSubscriber {
 
     static let shared = MetricKitReporter()
