@@ -26,5 +26,5 @@ For cross-repo architecture decisions (iOS + macOS + browser), see `tushru2004/g
 If iPhone shows "unpaired" in Xcode after a build/install cycle, see `docs/recovery-pairing-wedge.md` for the full runbook. Top-3 commands:
 
 1. `xcrun devicectl list devices --verbose | grep -A 30 'iPhone XR'` (verify `tunnelState=unavailable`)
-2. `ls iOSDeviceDerivedData/Build/Products/Debug-iphoneos/GetBored.app/Frameworks/` (should contain `hermes.framework`; SharedCore is static, not embedded)
+2. `system_profiler SPUSBDataType | grep -B 1 -A 6 -iE 'iPhone|Apple Mobile'` (verify USB still sees the phone)
 3. Disable the GetBored filter on the phone, unplug, replug, tap Trust, then re-run `make install`.
