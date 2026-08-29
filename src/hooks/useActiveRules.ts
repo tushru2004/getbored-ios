@@ -5,11 +5,11 @@ import {FilterStatusBridge} from '../native/FilterStatusBridge';
 import {ActiveRules} from '../native/types';
 
 export type ActiveRulesState =
-  | {kind: 'loading'}
-  | {kind: 'ready'; rules: ActiveRules}
-  | {kind: 'signedOut'}
-  | {kind: 'subscriptionRequired'}
-  | {kind: 'error'; message: string};
+		| {kind: 'loading'}
+		| {kind: 'ready'; rules: ActiveRules}
+		| {kind: 'signedOut'}
+		| {kind: 'subscriptionRequired'}
+		| {kind: 'error'; message: string};
 
 /**
  * Classifies a load rejection into the state the UI should show. Mirrors
@@ -20,11 +20,11 @@ export type ActiveRulesState =
  * ready for if/when this becomes a live pull.
  */
 function classifyFailure(e: unknown): ActiveRulesState {
-  const code = nativeErrorCode(e);
-  if (code === 'SIGNED_OUT') return {kind: 'signedOut'};
-  if (code === 'SUBSCRIPTION_REQUIRED') return {kind: 'subscriptionRequired'};
-  const message = e instanceof Error ? e.message : String(e);
-  return {kind: 'error', message};
+		const code = nativeErrorCode(e);
+		if (code === 'SIGNED_OUT') return {kind: 'signedOut'};
+		if (code === 'SUBSCRIPTION_REQUIRED') return {kind: 'subscriptionRequired'};
+		const message = e instanceof Error ? e.message : String(e);
+		return {kind: 'error', message};
 }
 
 /**
@@ -58,21 +58,21 @@ function classifyFailure(e: unknown): ActiveRulesState {
  * once and the same reference is safe to expose as `reload`.
  */
 export function useActiveRules() {
-  const [state, setState] = useState<ActiveRulesState>({kind: 'loading'});
+		const [state, setState] = useState<ActiveRulesState>({kind: 'loading'});
 
-  const load = useCallback(async () => {
-    setState({kind: 'loading'});
-    try {
-      const rules = await FilterStatusBridge.loadActiveRules();
-      setState({kind: 'ready', rules});
-    } catch (e: unknown) {
-      setState(classifyFailure(e));
-    }
-  }, []);
+		const load = useCallback(async () => {
+				setState({kind: 'loading'});
+				try {
+						const rules = await FilterStatusBridge.loadActiveRules();
+						setState({kind: 'ready', rules});
+				} catch (e: unknown) {
+						setState(classifyFailure(e));
+				}
+		}, []);
 
-  useEffect(() => {
-    load();
-  }, [load]);
+		useEffect(() => {
+				load();
+		}, [load]);
 
-  return {state, reload: load};
+		return {state, reload: load};
 }

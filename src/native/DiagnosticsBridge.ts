@@ -1,9 +1,9 @@
 import {NativeModules} from 'react-native';
 
 type NativeDiagnostics = {
-  reportRecentLogs: (
-    reason: string,
-  ) => Promise<{sent: boolean; events: number}>;
+		reportRecentLogs: (
+				reason: string,
+		) => Promise<{sent: boolean; events: number}>;
 };
 
 const native = (NativeModules as {Diagnostics?: NativeDiagnostics}).Diagnostics;
@@ -25,16 +25,16 @@ const native = (NativeModules as {Diagnostics?: NativeDiagnostics}).Diagnostics;
  *               └── rejects  → swallowed
  */
 export const DiagnosticsBridge = {
-  isAvailable: native !== undefined,
+		isAvailable: native !== undefined,
 
-  async reportRecentLogs(reason: string): Promise<void> {
-    if (!native) {
-      return;
-    }
-    try {
-      await native.reportRecentLogs(reason);
-    } catch {
-      // Swallowed by design — see module doc.
-    }
-  },
+		async reportRecentLogs(reason: string): Promise<void> {
+				if (!native) {
+						return;
+				}
+				try {
+						await native.reportRecentLogs(reason);
+				} catch {
+						// Swallowed by design — see module doc.
+				}
+		},
 };

@@ -7,23 +7,23 @@ import {StatusViewModel} from '../native/types';
 const POLL_INTERVAL_MS = 5000;
 
 export type FilterStatusState =
-  | {kind: 'loading'}
-  | {kind: 'ready'; status: StatusViewModel}
-  | {kind: 'error'; message: string};
+		| {kind: 'loading'}
+		| {kind: 'ready'; status: StatusViewModel}
+		| {kind: 'error'; message: string};
 
 export type UseFilterStatus = {
-  state: FilterStatusState;
-  refresh: () => void;
-  /** In-app filter enable ("Turn Filtering On"); reloads status after. */
-  enable: () => Promise<void>;
-  /** Opens the authenticated customer-profile download in the browser. */
-  downloadProfile: () => Promise<void>;
-  /**
-   * The last enable() failure, held OUTSIDE the polled `state` so the
-   * status poll can't overwrite it a few seconds later (the bug where the
-   * error flashed and vanished). Cleared when the user retries enable().
-   */
-  enableError: string | null;
+		state: FilterStatusState;
+		refresh: () => void;
+		/** In-app filter enable ("Turn Filtering On"); reloads status after. */
+		enable: () => Promise<void>;
+		/** Opens the authenticated customer-profile download in the browser. */
+		downloadProfile: () => Promise<void>;
+		/**
+		 * The last enable() failure, held OUTSIDE the polled `state` so the
+		 * status poll can't overwrite it a few seconds later (the bug where the
+		 * error flashed and vanished). Cleared when the user retries enable().
+		 */
+		enableError: string | null;
 };
 
 /**
@@ -60,47 +60,47 @@ export type UseFilterStatus = {
  * `refresh` is just `load` exposed for pull-to-refresh.
  */
 export function useFilterStatus(): UseFilterStatus {
-  const [state, setState] = useState<FilterStatusState>({kind: 'loading'});
-  const [enableError, setEnableError] = useState<string | null>(null);
-  const mountedRef = useRef(true);
+		const [state, setState] = useState<FilterStatusState>({kind: 'loading'});
+		const [enableError, setEnableError] = useState<string | null>(null);
+		const mountedRef = useRef(true);
 
-  const load = useCallback(async () => {
-    try {
-      const status = await FilterStatusBridge.current();
-      if (mountedRef.current) setState({kind: 'ready', status});
-    } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : String(e);
-      if (mountedRef.current) setState({kind: 'error', message});
-    }
-  }, []);
+		const load = useCallback(async () => {
+				try {
+						const status = await FilterStatusBridge.current();
+						if (mountedRef.current) setState({kind: 'ready', status});
+				} catch (e: unknown) {
+						const message = e instanceof Error ? e.message : String(e);
+						if (mountedRef.current) setState({kind: 'error', message});
+				}
+		}, []);
 
-  useEffect(() => {
-    mountedRef.current = true;
-    load();
-    const id = setInterval(load, POLL_INTERVAL_MS);
-    return () => {
-      mountedRef.current = false;
-      clearInterval(id);
-    };
-  }, [load]);
+		useEffect(() => {
+				mountedRef.current = true;
+				load();
+				const id = setInterval(load, POLL_INTERVAL_MS);
+				return () => {
+						mountedRef.current = false;
+						clearInterval(id);
+				};
+		}, [load]);
 
-  const enable = useCallback(async () => {
-    if (mountedRef.current) setEnableError(null);
-    try {
-      await FilterStatusBridge.enableFilter();
-    } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : String(e);
-      if (mountedRef.current) setEnableError(message);
-      DiagnosticsBridge.reportRecentLogs('enable-filter-failed');
-      return;
-    }
-    await load();
-  }, [load]);
+		const enable = useCallback(async () => {
+				if (mountedRef.current) setEnableError(null);
+				try {
+						await FilterStatusBridge.enableFilter();
+				} catch (e: unknown) {
+						const message = e instanceof Error ? e.message : String(e);
+						if (mountedRef.current) setEnableError(message);
+						DiagnosticsBridge.reportRecentLogs('enable-filter-failed');
+						return;
+				}
+				await load();
+		}, [load]);
 
-  const downloadProfile = useCallback(
-    () => FilterStatusBridge.downloadProfile(),
-    [],
-  );
+		const downloadProfile = useCallback(
+				() => FilterStatusBridge.downloadProfile(),
+				[],
+		);
 
-  return {state, refresh: load, enable, downloadProfile, enableError};
+		return {state, refresh: load, enable, downloadProfile, enableError};
 }

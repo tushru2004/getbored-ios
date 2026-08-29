@@ -105,11 +105,11 @@
  *     // → null            (URL parser throws → caught → null)
  */
 function hostnameFromURL(rawValue) {
-  try {
-    return new URL(rawValue, document.baseURI).hostname.toLowerCase();
-  } catch {
-    return null;
-  }
+		try {
+				return new URL(rawValue, document.baseURI).hostname.toLowerCase();
+		} catch {
+				return null;
+		}
 }
 
 /**
@@ -174,39 +174,39 @@ function hostnameFromURL(rawValue) {
  *     //   }
  */
 function collectChildDomains() {
-  const parentDomain = location.hostname.toLowerCase();
-  const childDomains = new Set();
+		const parentDomain = location.hostname.toLowerCase();
+		const childDomains = new Set();
 
-  // ── Pass 1 — Performance API ────────────────────────────────────
-  // Each `entry.name` is the absolute URL of one completed network
-  // request, for example
-  //     "https://sb.scorecardresearch.com/beacon?c1=2&c2=..."
-  for (const entry of performance.getEntriesByType('resource')) {
-    const host = hostnameFromURL(entry.name);
-    if (host && host !== parentDomain) childDomains.add(host);
-  }
+		// ── Pass 1 — Performance API ────────────────────────────────────
+		// Each `entry.name` is the absolute URL of one completed network
+		// request, for example
+		//     "https://sb.scorecardresearch.com/beacon?c1=2&c2=..."
+		for (const entry of performance.getEntriesByType('resource')) {
+				const host = hostnameFromURL(entry.name);
+				if (host && host !== parentDomain) childDomains.add(host);
+		}
 
-  // ── Pass 2 — Element walk ───────────────────────────────────────
-  // `currentSrc` is the actual URL the browser picked from a
-  // <picture>/srcset choice. We use that when present, otherwise
-  // fall back to plain `src` (img/script/iframe) and `href` (link/a).
-  //
-  //     <img src="https://static-redesign.cnbcfm.com/foo.png">
-  //     <link href="https://fonts.googleapis.com/css2?family=...">
-  for (const element of document.querySelectorAll('[src], [href]')) {
-    const host = hostnameFromURL(
-      element.currentSrc || element.src || element.href,
-    );
-    if (host && host !== parentDomain) childDomains.add(host);
-  }
+		// ── Pass 2 — Element walk ───────────────────────────────────────
+		// `currentSrc` is the actual URL the browser picked from a
+		// <picture>/srcset choice. We use that when present, otherwise
+		// fall back to plain `src` (img/script/iframe) and `href` (link/a).
+		//
+		//     <img src="https://static-redesign.cnbcfm.com/foo.png">
+		//     <link href="https://fonts.googleapis.com/css2?family=...">
+		for (const element of document.querySelectorAll('[src], [href]')) {
+				const host = hostnameFromURL(
+						element.currentSrc || element.src || element.href,
+				);
+				if (host && host !== parentDomain) childDomains.add(host);
+		}
 
-  return {
-    type: 'getbored.childRegistrationProbe',
-    url: location.href,
-    parentDomain,
-    childDomains: Array.from(childDomains).sort(),
-    capabilities: detectExtensionCapabilities(),
-  };
+		return {
+				type: 'getbored.childRegistrationProbe',
+				url: location.href,
+				parentDomain,
+				childDomains: Array.from(childDomains).sort(),
+				capabilities: detectExtensionCapabilities(),
+		};
 }
 
 /**
@@ -274,18 +274,18 @@ function collectChildDomains() {
  *     //   }
  */
 function detectExtensionCapabilities() {
-  const browserGlobal = typeof browser !== 'undefined' ? browser : null;
-  const chromeGlobal = typeof chrome !== 'undefined' ? chrome : null;
+		const browserGlobal = typeof browser !== 'undefined' ? browser : null;
+		const chromeGlobal = typeof chrome !== 'undefined' ? chrome : null;
 
-  return {
-    browserProxy: Boolean(browserGlobal?.proxy),
-    chromeProxy: Boolean(chromeGlobal?.proxy),
-    browserWebRequest: Boolean(browserGlobal?.webRequest),
-    chromeWebRequest: Boolean(chromeGlobal?.webRequest),
-    browserDeclarativeNetRequest: Boolean(browserGlobal?.declarativeNetRequest),
-    chromeDeclarativeNetRequest: Boolean(chromeGlobal?.declarativeNetRequest),
-    nativeMessaging: Boolean(browserGlobal?.runtime?.sendNativeMessage),
-  };
+		return {
+				browserProxy: Boolean(browserGlobal?.proxy),
+				chromeProxy: Boolean(chromeGlobal?.proxy),
+				browserWebRequest: Boolean(browserGlobal?.webRequest),
+				chromeWebRequest: Boolean(chromeGlobal?.webRequest),
+				browserDeclarativeNetRequest: Boolean(browserGlobal?.declarativeNetRequest),
+				chromeDeclarativeNetRequest: Boolean(chromeGlobal?.declarativeNetRequest),
+				nativeMessaging: Boolean(browserGlobal?.runtime?.sendNativeMessage),
+		};
 }
 
 /**
@@ -294,10 +294,10 @@ function detectExtensionCapabilities() {
  * after this lookup succeeds.
  */
 function extensionRuntime() {
-  if (typeof browser !== 'undefined' && browser?.runtime)
-    return browser.runtime;
-  if (typeof chrome !== 'undefined' && chrome?.runtime) return chrome.runtime;
-  return null;
+		if (typeof browser !== 'undefined' && browser?.runtime)
+				return browser.runtime;
+		if (typeof chrome !== 'undefined' && chrome?.runtime) return chrome.runtime;
+		return null;
 }
 
 let lastRegistrationStartedAt = 0;
@@ -321,58 +321,58 @@ const MIN_REGISTRATION_INTERVAL_MS = 1000;
  * background relay or the direct fallback delivered the snapshot.
  */
 function registerChildDomains(trigger = 'manual') {
-  const runtime = extensionRuntime();
-  if (!runtime?.sendMessage) {
-    console.warn('GetBored child-registration runtime unavailable', {trigger});
-    registerChildDomainsViaNativeFallback({
-      ...collectChildDomains(),
-      probeStage: 'content-script-direct-native',
-      probeTrigger: trigger,
-      backgroundError: 'runtime.sendMessage unavailable',
-    });
-    return;
-  }
+		const runtime = extensionRuntime();
+		if (!runtime?.sendMessage) {
+				console.warn('GetBored child-registration runtime unavailable', {trigger});
+				registerChildDomainsViaNativeFallback({
+						...collectChildDomains(),
+						probeStage: 'content-script-direct-native',
+						probeTrigger: trigger,
+						backgroundError: 'runtime.sendMessage unavailable',
+				});
+				return;
+		}
 
-  const now = Date.now();
-  if (now - lastRegistrationStartedAt < MIN_REGISTRATION_INTERVAL_MS) return;
-  lastRegistrationStartedAt = now;
+		const now = Date.now();
+		if (now - lastRegistrationStartedAt < MIN_REGISTRATION_INTERVAL_MS) return;
+		lastRegistrationStartedAt = now;
 
-  const message = {
-    ...collectChildDomains(),
-    probeStage: 'content-script',
-    probeTrigger: trigger,
-  };
+		const message = {
+				...collectChildDomains(),
+				probeStage: 'content-script',
+				probeTrigger: trigger,
+		};
 
-  let sendResult;
-  try {
-    sendResult = runtime.sendMessage(message);
-  } catch (error) {
-    console.warn(
-      'GetBored background probe threw; trying native direct',
-      error,
-    );
-    registerChildDomainsViaNativeFallback({
-      ...message,
-      probeStage: 'content-script-direct-native',
-      backgroundError: String(error?.message ?? error),
-    });
-    return;
-  }
+		let sendResult;
+		try {
+				sendResult = runtime.sendMessage(message);
+		} catch (error) {
+				console.warn(
+						'GetBored background probe threw; trying native direct',
+						error,
+				);
+				registerChildDomainsViaNativeFallback({
+						...message,
+						probeStage: 'content-script-direct-native',
+						backgroundError: String(error?.message ?? error),
+				});
+				return;
+		}
 
-  Promise.resolve(sendResult).then(
-    response => console.log('GetBored child-registration probe sent', response),
-    error => {
-      console.warn(
-        'GetBored background probe failed; trying native direct',
-        error,
-      );
-      registerChildDomainsViaNativeFallback({
-        ...message,
-        probeStage: 'content-script-direct-native',
-        backgroundError: String(error?.message ?? error),
-      });
-    },
-  );
+		Promise.resolve(sendResult).then(
+				response => console.log('GetBored child-registration probe sent', response),
+				error => {
+						console.warn(
+								'GetBored background probe failed; trying native direct',
+								error,
+						);
+						registerChildDomainsViaNativeFallback({
+								...message,
+								probeStage: 'content-script-direct-native',
+								backgroundError: String(error?.message ?? error),
+						});
+				},
+		);
 }
 
 /**
@@ -440,33 +440,33 @@ function registerChildDomains(trigger = 'manual') {
  *     //     return — does NOT try "application.id"
  */
 async function registerChildDomainsViaNativeFallback(message) {
-  const runtime = extensionRuntime();
-  if (!runtime?.sendNativeMessage) {
-    console.warn('GetBored native direct probe unavailable');
-    return;
-  }
+		const runtime = extensionRuntime();
+		if (!runtime?.sendNativeMessage) {
+				console.warn('GetBored native direct probe unavailable');
+				return;
+		}
 
-  const nativeApplicationIds = [
-    'com.getbored.filter',
-    'com.getbored.filter.safarichildregistration',
-    'application.id',
-  ];
+		const nativeApplicationIds = [
+				'com.getbored.filter',
+				'com.getbored.filter.safarichildregistration',
+				'application.id',
+		];
 
-  for (const applicationId of nativeApplicationIds) {
-    try {
-      const response = await runtime.sendNativeMessage(applicationId, message);
-      console.log('GetBored native direct probe stored', {
-        applicationId,
-        response,
-      });
-      return;
-    } catch (error) {
-      console.warn('GetBored native direct probe failed', {
-        applicationId,
-        error,
-      });
-    }
-  }
+		for (const applicationId of nativeApplicationIds) {
+				try {
+						const response = await runtime.sendNativeMessage(applicationId, message);
+						console.log('GetBored native direct probe stored', {
+								applicationId,
+								response,
+						});
+						return;
+				} catch (error) {
+						console.warn('GetBored native direct probe failed', {
+								applicationId,
+								error,
+						});
+				}
+		}
 }
 
 // ─── Initial registration ──────────────────────────────────────────────
@@ -486,34 +486,34 @@ const VISIBLE_REFRESH_INTERVAL_MS = 3000;
 let visibleRefreshTimer = null;
 
 function pageIsVisible() {
-  return document.visibilityState !== 'hidden';
+		return document.visibilityState !== 'hidden';
 }
 
 function refreshActiveContext(trigger) {
-  if (!pageIsVisible()) return;
-  registerChildDomains(trigger);
+		if (!pageIsVisible()) return;
+		registerChildDomains(trigger);
 }
 
 function startVisibleRefreshLoop() {
-  if (visibleRefreshTimer || !pageIsVisible()) return;
-  visibleRefreshTimer = setInterval(() => {
-    refreshActiveContext('visible-heartbeat');
-  }, VISIBLE_REFRESH_INTERVAL_MS);
+		if (visibleRefreshTimer || !pageIsVisible()) return;
+		visibleRefreshTimer = setInterval(() => {
+				refreshActiveContext('visible-heartbeat');
+		}, VISIBLE_REFRESH_INTERVAL_MS);
 }
 
 function stopVisibleRefreshLoop() {
-  if (!visibleRefreshTimer) return;
-  clearInterval(visibleRefreshTimer);
-  visibleRefreshTimer = null;
+		if (!visibleRefreshTimer) return;
+		clearInterval(visibleRefreshTimer);
+		visibleRefreshTimer = null;
 }
 
 document.addEventListener('visibilitychange', () => {
-  if (pageIsVisible()) {
-    refreshActiveContext('visibilitychange-visible');
-    startVisibleRefreshLoop();
-  } else {
-    stopVisibleRefreshLoop();
-  }
+		if (pageIsVisible()) {
+				refreshActiveContext('visibilitychange-visible');
+				startVisibleRefreshLoop();
+		} else {
+				stopVisibleRefreshLoop();
+		}
 });
 
 window.addEventListener('pageshow', () => refreshActiveContext('pageshow'));
@@ -559,31 +559,31 @@ let pending = false;
 let observerStarted = false;
 
 function startMutationObserver() {
-  if (observerStarted) return;
-  const root = document.documentElement;
-  if (!root) {
-    document.addEventListener('DOMContentLoaded', startMutationObserver, {
-      once: true,
-    });
-    return;
-  }
+		if (observerStarted) return;
+		const root = document.documentElement;
+		if (!root) {
+				document.addEventListener('DOMContentLoaded', startMutationObserver, {
+						once: true,
+				});
+				return;
+		}
 
-  observerStarted = true;
-  const observer = new MutationObserver(() => {
-    if (pending) return;
-    pending = true;
-    setTimeout(() => {
-      pending = false;
-      registerChildDomains('resource-mutation');
-    }, 1500);
-  });
+		observerStarted = true;
+		const observer = new MutationObserver(() => {
+				if (pending) return;
+				pending = true;
+				setTimeout(() => {
+						pending = false;
+						registerChildDomains('resource-mutation');
+				}, 1500);
+		});
 
-  observer.observe(root, {
-    childList: true,
-    subtree: true,
-    attributes: true,
-    attributeFilter: ['src', 'href'],
-  });
+		observer.observe(root, {
+				childList: true,
+				subtree: true,
+				attributes: true,
+				attributeFilter: ['src', 'href'],
+		});
 }
 
 startMutationObserver();

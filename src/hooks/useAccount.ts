@@ -4,28 +4,28 @@ import {AccountBridge} from '../native/AccountBridge';
 import {nativeErrorCode} from '../native/errors';
 
 export type AccountState =
-  | {kind: 'unavailable'}
-  | {kind: 'checking'}
-  | {kind: 'signedOut'}
-  | {kind: 'signingIn'}
-  | {kind: 'needsActivation'; userId?: string; accountLabel?: string}
-  | {
-      kind: 'signedIn';
-      userId?: string;
-      accountLabel?: string;
-      reviewDemo: boolean;
-    }
-  | {kind: 'deleting'}
-  | {kind: 'error'; message: string};
+		| {kind: 'unavailable'}
+		| {kind: 'checking'}
+		| {kind: 'signedOut'}
+		| {kind: 'signingIn'}
+		| {kind: 'needsActivation'; userId?: string; accountLabel?: string}
+		| {
+						kind: 'signedIn';
+						userId?: string;
+						accountLabel?: string;
+						reviewDemo: boolean;
+				}
+		| {kind: 'deleting'}
+		| {kind: 'error'; message: string};
 
 export type UseAccount = {
-  state: AccountState;
-  signIn: (username: string, password: string) => Promise<void>;
-  signUp: (username: string, password: string) => Promise<void>;
-  signOut: () => Promise<void>;
-  deleteAccount: () => Promise<void>;
-  redeemActivationCode: (code: string) => Promise<void>;
-  refresh: (showChecking?: boolean) => Promise<void>;
+		state: AccountState;
+		signIn: (username: string, password: string) => Promise<void>;
+		signUp: (username: string, password: string) => Promise<void>;
+		signOut: () => Promise<void>;
+		deleteAccount: () => Promise<void>;
+		redeemActivationCode: (code: string) => Promise<void>;
+		refresh: (showChecking?: boolean) => Promise<void>;
 };
 
 /**
@@ -87,151 +87,151 @@ export type UseAccount = {
  *                unexpectedly throws (it's contracted to never reject)
  */
 export function useAccount(): UseAccount {
-  const [state, setState] = useState<AccountState>(
-    AccountBridge.isAvailable ? {kind: 'checking'} : {kind: 'unavailable'},
-  );
+		const [state, setState] = useState<AccountState>(
+				AccountBridge.isAvailable ? {kind: 'checking'} : {kind: 'unavailable'},
+		);
 
-  const refresh = useCallback(async (showChecking = true) => {
-    if (!AccountBridge.isAvailable) {
-      setState({kind: 'unavailable'});
-      return;
-    }
-    if (showChecking) {
-      setState({kind: 'checking'});
-    }
-    try {
-      const summary = await AccountBridge.currentAccount();
-      if (summary.signedIn) {
-        setState(previous => {
-          const previousHasAccountDetails =
-            previous.kind === 'signedIn' || previous.kind === 'needsActivation';
-          const previousUserId = previousHasAccountDetails
-            ? previous.userId
-            : undefined;
-          const previousAccountLabel = previousHasAccountDetails
-            ? previous.accountLabel
-            : undefined;
-          const accountDetails = {
-            userId: summary.userId ?? previousUserId,
-            accountLabel:
-              summary.username ?? summary.email ?? previousAccountLabel,
-          };
-          const reviewDemo = summary.accountKind === 'review_demo';
-          if (reviewDemo) {
-            return {kind: 'signedIn', ...accountDetails, reviewDemo: true};
-          }
-          if (summary.plan === 'active') {
-            return {kind: 'signedIn', ...accountDetails, reviewDemo: false};
-          }
-          return {kind: 'needsActivation', ...accountDetails};
-        });
-      } else {
-        setState({kind: 'signedOut'});
-      }
-    } catch (e: unknown) {
-      if (!showChecking) {
-        return;
-      }
-      const message = e instanceof Error ? e.message : String(e);
-      setState({kind: 'error', message});
-    }
-  }, []);
+		const refresh = useCallback(async (showChecking = true) => {
+				if (!AccountBridge.isAvailable) {
+						setState({kind: 'unavailable'});
+						return;
+				}
+				if (showChecking) {
+						setState({kind: 'checking'});
+				}
+				try {
+						const summary = await AccountBridge.currentAccount();
+						if (summary.signedIn) {
+								setState(previous => {
+										const previousHasAccountDetails =
+												previous.kind === 'signedIn' || previous.kind === 'needsActivation';
+										const previousUserId = previousHasAccountDetails
+												? previous.userId
+												: undefined;
+										const previousAccountLabel = previousHasAccountDetails
+												? previous.accountLabel
+												: undefined;
+										const accountDetails = {
+												userId: summary.userId ?? previousUserId,
+												accountLabel:
+														summary.username ?? summary.email ?? previousAccountLabel,
+										};
+										const reviewDemo = summary.accountKind === 'review_demo';
+										if (reviewDemo) {
+												return {kind: 'signedIn', ...accountDetails, reviewDemo: true};
+										}
+										if (summary.plan === 'active') {
+												return {kind: 'signedIn', ...accountDetails, reviewDemo: false};
+										}
+										return {kind: 'needsActivation', ...accountDetails};
+								});
+						} else {
+								setState({kind: 'signedOut'});
+						}
+				} catch (e: unknown) {
+						if (!showChecking) {
+								return;
+						}
+						const message = e instanceof Error ? e.message : String(e);
+						setState({kind: 'error', message});
+				}
+		}, []);
 
-  /**
-   * Runs the shared sign-in/sign-up lifecycle after the caller selects the
-   * native endpoint.
-   *
-   * Call flow:
-   *
-   *   Welcome submit → signIn() or signUp()
-   *       │
-   *       ▼
-   *   runSignIn(start)
-   *       │
-   *       ├── start resolves → refresh() → current account state
-   *       ├── CANCELLED      → {signedOut}  ← user dismissed native UI
-   *       └── other error    → {error, message}
-   */
-  const runSignIn = useCallback(
-    async (start: () => Promise<unknown>) => {
-      setState({kind: 'signingIn'});
-      try {
-        await start();
-        await refresh();
-      } catch (e: unknown) {
-        if (nativeErrorCode(e) === 'CANCELLED') {
-          setState({kind: 'signedOut'});
-          return;
-        }
-        const message = e instanceof Error ? e.message : String(e);
-        setState({kind: 'error', message});
-      }
-    },
-    [refresh],
-  );
+		/**
+		 * Runs the shared sign-in/sign-up lifecycle after the caller selects the
+		 * native endpoint.
+		 *
+		 * Call flow:
+		 *
+		 *   Welcome submit → signIn() or signUp()
+		 *       │
+		 *       ▼
+		 *   runSignIn(start)
+		 *       │
+		 *       ├── start resolves → refresh() → current account state
+		 *       ├── CANCELLED      → {signedOut}  ← user dismissed native UI
+		 *       └── other error    → {error, message}
+		 */
+		const runSignIn = useCallback(
+				async (start: () => Promise<unknown>) => {
+						setState({kind: 'signingIn'});
+						try {
+								await start();
+								await refresh();
+						} catch (e: unknown) {
+								if (nativeErrorCode(e) === 'CANCELLED') {
+										setState({kind: 'signedOut'});
+										return;
+								}
+								const message = e instanceof Error ? e.message : String(e);
+								setState({kind: 'error', message});
+						}
+				},
+				[refresh],
+		);
 
-  const signIn = useCallback(
-    (username: string, password: string) =>
-      runSignIn(() => AccountBridge.signIn(username, password)),
-    [runSignIn],
-  );
+		const signIn = useCallback(
+				(username: string, password: string) =>
+						runSignIn(() => AccountBridge.signIn(username, password)),
+				[runSignIn],
+		);
 
-  const signUp = useCallback(
-    (username: string, password: string) =>
-      runSignIn(() => AccountBridge.signUp(username, password)),
-    [runSignIn],
-  );
+		const signUp = useCallback(
+				(username: string, password: string) =>
+						runSignIn(() => AccountBridge.signUp(username, password)),
+				[runSignIn],
+		);
 
-  const signOut = useCallback(async () => {
-    try {
-      await AccountBridge.signOut();
-    } finally {
-      setState({kind: 'signedOut'});
-    }
-  }, []);
+		const signOut = useCallback(async () => {
+				try {
+						await AccountBridge.signOut();
+				} finally {
+						setState({kind: 'signedOut'});
+				}
+		}, []);
 
-  const redeemActivationCode = useCallback(
-    async (code: string) => {
-      await AccountBridge.redeemActivationCode(code);
-      await refresh();
-    },
-    [refresh],
-  );
+		const redeemActivationCode = useCallback(
+				async (code: string) => {
+						await AccountBridge.redeemActivationCode(code);
+						await refresh();
+				},
+				[refresh],
+		);
 
-  /**
-   * Permanent account deletion (App Review 5.1.1(v)). Native clears the
-   * session, the server device id, and the applied rules on success, so
-   * landing on {signedOut} here reflects true local state. A SIGNED_OUT
-   * rejection means there was no live session to begin with — same outcome.
-   * Other failures keep local state intact (native contract) so the user
-   * can simply retry.
-   */
-  const deleteAccount = useCallback(async () => {
-    setState({kind: 'deleting'});
-    try {
-      await AccountBridge.deleteAccount();
-      setState({kind: 'signedOut'});
-    } catch (e: unknown) {
-      if (nativeErrorCode(e) === 'SIGNED_OUT') {
-        setState({kind: 'signedOut'});
-        return;
-      }
-      const message = e instanceof Error ? e.message : String(e);
-      setState({kind: 'error', message});
-    }
-  }, []);
+		/**
+		 * Permanent account deletion (App Review 5.1.1(v)). Native clears the
+		 * session, the server device id, and the applied rules on success, so
+		 * landing on {signedOut} here reflects true local state. A SIGNED_OUT
+		 * rejection means there was no live session to begin with — same outcome.
+		 * Other failures keep local state intact (native contract) so the user
+		 * can simply retry.
+		 */
+		const deleteAccount = useCallback(async () => {
+				setState({kind: 'deleting'});
+				try {
+						await AccountBridge.deleteAccount();
+						setState({kind: 'signedOut'});
+				} catch (e: unknown) {
+						if (nativeErrorCode(e) === 'SIGNED_OUT') {
+								setState({kind: 'signedOut'});
+								return;
+						}
+						const message = e instanceof Error ? e.message : String(e);
+						setState({kind: 'error', message});
+				}
+		}, []);
 
-  useEffect(() => {
-    refresh();
-  }, [refresh]);
+		useEffect(() => {
+				refresh();
+		}, [refresh]);
 
-  return {
-    state,
-    signIn,
-    signUp,
-    signOut,
-    deleteAccount,
-    redeemActivationCode,
-    refresh,
-  };
+		return {
+				state,
+				signIn,
+				signUp,
+				signOut,
+				deleteAccount,
+				redeemActivationCode,
+				refresh,
+		};
 }

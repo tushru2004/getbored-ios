@@ -5,17 +5,17 @@ import {FilterStatusBridge} from '../native/FilterStatusBridge';
 import {SyncSummary} from '../native/types';
 
 export type FilterListSyncState =
-  | {kind: 'idle'}
-  | {kind: 'syncing'}
-  | {kind: 'success'; summary: SyncSummary; syncedAtMs: number}
-  | {kind: 'signedOut'}
-  | {kind: 'subscriptionRequired'}
-  | {kind: 'notRegistered'}
-  | {kind: 'error'; message: string};
+		| {kind: 'idle'}
+		| {kind: 'syncing'}
+		| {kind: 'success'; summary: SyncSummary; syncedAtMs: number}
+		| {kind: 'signedOut'}
+		| {kind: 'subscriptionRequired'}
+		| {kind: 'notRegistered'}
+		| {kind: 'error'; message: string};
 
 export type UseFilterListSync = {
-  state: FilterListSyncState;
-  sync: () => Promise<void>;
+		state: FilterListSyncState;
+		sync: () => Promise<void>;
 };
 
 /**
@@ -27,12 +27,12 @@ export type UseFilterListSync = {
  * id yet (connect it first (automatic via useDeviceRegistrationAndRuleSync)).
  */
 function classifyFailure(e: unknown): FilterListSyncState {
-  const code = nativeErrorCode(e);
-  if (code === 'SIGNED_OUT') return {kind: 'signedOut'};
-  if (code === 'SUBSCRIPTION_REQUIRED') return {kind: 'subscriptionRequired'};
-  if (code === 'NOT_REGISTERED') return {kind: 'notRegistered'};
-  const message = e instanceof Error ? e.message : String(e);
-  return {kind: 'error', message};
+		const code = nativeErrorCode(e);
+		if (code === 'SIGNED_OUT') return {kind: 'signedOut'};
+		if (code === 'SUBSCRIPTION_REQUIRED') return {kind: 'subscriptionRequired'};
+		if (code === 'NOT_REGISTERED') return {kind: 'notRegistered'};
+		const message = e instanceof Error ? e.message : String(e);
+		return {kind: 'error', message};
 }
 
 /**
@@ -59,17 +59,17 @@ function classifyFailure(e: unknown): FilterListSyncState {
  * Starts in `idle` (never auto-syncs). `sync` is a stable useCallback ([] deps).
  */
 export function useFilterListSync(): UseFilterListSync {
-  const [state, setState] = useState<FilterListSyncState>({kind: 'idle'});
+		const [state, setState] = useState<FilterListSyncState>({kind: 'idle'});
 
-  const sync = useCallback(async () => {
-    setState({kind: 'syncing'});
-    try {
-      const summary = await FilterStatusBridge.syncFilterLists();
-      setState({kind: 'success', summary, syncedAtMs: Date.now()});
-    } catch (e: unknown) {
-      setState(classifyFailure(e));
-    }
-  }, []);
+		const sync = useCallback(async () => {
+				setState({kind: 'syncing'});
+				try {
+						const summary = await FilterStatusBridge.syncFilterLists();
+						setState({kind: 'success', summary, syncedAtMs: Date.now()});
+				} catch (e: unknown) {
+						setState(classifyFailure(e));
+				}
+		}, []);
 
-  return {state, sync};
+		return {state, sync};
 }
