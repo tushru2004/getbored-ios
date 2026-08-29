@@ -1,44 +1,58 @@
 import React
 import React_RCTAppDelegate
+import ReactAppDependencyProvider
 import UIKit
 
-/// UIKit @main AppDelegate that owns the window and mounts the React Native root view.
-/// Subclasses RCTAppDelegate so RCTNewArchEnabled=true in Info.plist is honoured.
+/// UIKit entry point that creates the React Native factory, starts native
+/// diagnostics, and mounts the GetBored JavaScript application.
 @main
 @objc(AppDelegate)
-final class AppDelegate: RCTAppDelegate {
+final class AppDelegate: UIResponder, UIApplicationDelegate {
 
-    /// Configures the React Native root and subscribes to iOS-delivered crash
-    /// and hang reports before handing launch to the React Native superclass.
+    var window: UIWindow?
+    private var reactNativeDelegate: ReactNativeDelegate?
+    private var reactNativeFactory: RCTReactNativeFactory?
+
+    /// Creates and retains React Native's factory objects for the lifetime of
+    /// the application, then mounts the root view into the app window.
     ///
     /// Call flow:
     ///
-    ///   UIKit launch
-    ///       │
-    ///       ▼
-    ///   configure React Native → start MetricKit → mount root view
-    override func application(
+    ///   UIKit launch → create factory → start MetricKit → mount GetBoredIOS
+    func application(
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
-        self.moduleName = "GetBoredIOS"
-        self.initialProps = [:]
-        // Crash/hang diagnostics via MetricKit — see MetricKitReporter.
-        MetricKitReporter.shared.start()
-        return super.application(application, didFinishLaunchingWithOptions: launchOptions)
-    }
+        let delegate = ReactNativeDelegate()
+        delegate.dependencyProvider = RCTAppDependencyProvider()
+        let factory = RCTReactNativeFactory(delegate: delegate)
 
+        reactNativeDelegate = delegate
+        reactNativeFactory = factory
+        window = UIWindow(frame: UIScreen.main.bounds)
+
+        MetricKitReporter.shared.start()
+        factory.startReactNative(
+            withModuleName: "GetBoredIOS",
+            in: window,
+            initialProperties: [:],
+            launchOptions: launchOptions
+        )
+        return true
+    }
+}
+
+/// Provides React Native's bundle location while retaining factory defaults,
+/// including the architecture configured by the installed React Native pods.
+private final class ReactNativeDelegate: RCTDefaultReactNativeFactoryDelegate {
     override func sourceURL(for bridge: RCTBridge) -> URL? {
         bundleURL()
     }
 
-    /// Selects the JS bundle source for the React Native bridge.
+    /// Selects where React Native loads the JavaScript application.
     ///
-    /// Call flow:
-    ///
-    ///   bundleURL()
-    ///       ├── DEBUG     → Metro `index` bundle
-    ///       └── otherwise → embedded `main.jsbundle`
+    ///   Debug   → Metro serves the `index` bundle from `pro.local`
+    ///   Release → the app loads its embedded `main.jsbundle`
     override func bundleURL() -> URL? {
         #if DEBUG
             RCTBundleURLProvider.sharedSettings().jsLocation = "pro.local"
