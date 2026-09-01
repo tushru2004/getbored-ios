@@ -1,0 +1,743 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>GetBored iOS — Device Name Setup</title>
+  <style>
+    :root {
+      --ink: #17342f;
+      --paper: #f1ecdf;
+      --surface: #fffdf6;
+      --sun: #f2c84b;
+      --signal: #e85c3f;
+      --danger: #a63a2e;
+      --quiet: #52655e;
+      --neutral: #6f776f;
+      --line: #a8afa1;
+      --success-wash: #e4eee8;
+      --error-wash: #fae5df;
+      --page: #e9e7e0;
+    }
+
+    * { box-sizing: border-box; }
+
+    html { background: var(--page); }
+
+    body {
+      margin: 0;
+      min-width: 320px;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at 13% 7%, rgba(242, 200, 75, .22), transparent 24rem),
+        radial-gradient(circle at 91% 52%, rgba(168, 201, 189, .18), transparent 30rem),
+        var(--page);
+      color: var(--ink);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    button,
+    input { font: inherit; }
+
+    button { color: inherit; }
+
+    main {
+      width: min(1120px, calc(100% - 36px));
+      margin: 0 auto;
+      padding: 38px 0 52px;
+    }
+
+    .page-heading {
+      max-width: 760px;
+      margin-bottom: 30px;
+    }
+
+    .page-kicker,
+    .case-title,
+    .screen-eyebrow,
+    .field-label,
+    .context-label,
+    .feedback-legend {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+
+    .page-kicker {
+      margin: 0 0 12px;
+      color: var(--signal);
+    }
+
+    h1 {
+      margin: 0;
+      max-width: 680px;
+      font-family: 'Iowan Old Style', 'Palatino Linotype', Georgia, serif;
+      font-size: clamp(32px, 4.3vw, 52px);
+      font-weight: 500;
+      letter-spacing: -.04em;
+      line-height: 1.02;
+    }
+
+    .page-intro {
+      margin: 14px 0 0;
+      max-width: 700px;
+      color: var(--quiet);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 15px;
+      line-height: 1.55;
+    }
+
+    .states {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 56px;
+      align-items: start;
+    }
+
+    .state-column { min-width: 0; }
+
+    .case-title {
+      display: flex;
+      justify-content: space-between;
+      gap: 18px;
+      margin: 0 0 12px;
+      color: var(--ink);
+    }
+
+    .case-title span {
+      color: var(--neutral);
+      font-weight: 400;
+      text-align: right;
+    }
+
+    .phone {
+      width: 100%;
+      max-width: 430px;
+      min-height: 812px;
+      margin: 0 auto;
+      overflow: hidden;
+      border: 8px solid #111715;
+      border-radius: 48px;
+      background: var(--paper);
+      box-shadow: 0 24px 52px rgba(23, 52, 47, .2);
+    }
+
+    .statusbar {
+      height: 46px;
+      padding: 17px 24px 0;
+      display: flex;
+      justify-content: space-between;
+      color: #111;
+      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .masthead {
+      min-height: 124px;
+      padding: 18px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      color: var(--surface);
+      background: var(--ink);
+      border-bottom: 3px solid var(--sun);
+    }
+
+    .wordmark {
+      display: flex;
+      align-items: baseline;
+      gap: 4px;
+      font-family: 'Iowan Old Style', 'Palatino Linotype', Georgia, serif;
+      font-size: 34px;
+      font-weight: 600;
+      letter-spacing: -.04em;
+    }
+
+    .wordmark strong {
+      display: inline-block;
+      color: var(--sun);
+      font-weight: 600;
+      transform: translateY(3px) rotate(-2deg);
+    }
+
+    .tagline {
+      margin-top: 12px;
+      font-size: 10px;
+      line-height: 1.55;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+    }
+
+    .rings {
+      position: relative;
+      flex: 0 0 72px;
+      width: 72px;
+      height: 72px;
+    }
+
+    .rings span,
+    .rings::before,
+    .rings::after {
+      content: '';
+      position: absolute;
+      inset: 50% auto auto 50%;
+      border: 2px solid currentColor;
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+    }
+
+    .rings::before {
+      width: 66px;
+      height: 66px;
+      opacity: .25;
+    }
+
+    .rings::after {
+      width: 48px;
+      height: 48px;
+      opacity: .55;
+    }
+
+    .rings span:first-child {
+      width: 30px;
+      height: 30px;
+    }
+
+    .rings span:last-child {
+      width: 12px;
+      height: 12px;
+      border: 0;
+      background: currentColor;
+    }
+
+    .screen {
+      min-height: 634px;
+      padding: 36px 24px 26px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .screen-eyebrow {
+      margin: 0 0 10px;
+      color: var(--signal);
+    }
+
+    .screen h2 {
+      margin: 0;
+      font-family: 'Iowan Old Style', 'Palatino Linotype', Georgia, serif;
+      font-size: 36px;
+      font-weight: 500;
+      letter-spacing: -.035em;
+      line-height: 1;
+    }
+
+    .screen-copy {
+      margin: 13px 0 0;
+      color: var(--quiet);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 14px;
+      line-height: 1.45;
+    }
+
+    .device-context {
+      display: grid;
+      grid-template-columns: 38px 1fr;
+      gap: 12px;
+      align-items: center;
+      margin-top: 22px;
+      padding: 13px 14px;
+      border-top: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+    }
+
+    .device-glyph {
+      position: relative;
+      width: 25px;
+      height: 38px;
+      margin: 0 auto;
+      border: 2px solid var(--ink);
+      border-radius: 7px;
+    }
+
+    .device-glyph::before {
+      content: '';
+      position: absolute;
+      top: 4px;
+      left: 50%;
+      width: 8px;
+      height: 2px;
+      border-radius: 2px;
+      background: var(--ink);
+      transform: translateX(-50%);
+    }
+
+    .device-glyph::after {
+      content: '';
+      position: absolute;
+      bottom: 3px;
+      left: 50%;
+      width: 3px;
+      height: 3px;
+      border-radius: 50%;
+      background: var(--ink);
+      transform: translateX(-50%);
+    }
+
+    .context-label {
+      display: block;
+      color: var(--neutral);
+      font-size: 9px;
+    }
+
+    .context-value {
+      display: block;
+      margin-top: 3px;
+      font-family: 'Iowan Old Style', 'Palatino Linotype', Georgia, serif;
+      font-size: 17px;
+      font-weight: 600;
+      letter-spacing: -.01em;
+    }
+
+    .context-meta {
+      display: block;
+      margin-top: 2px;
+      color: var(--quiet);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 12px;
+    }
+
+    form { margin-top: 24px; }
+
+    .field-label {
+      display: block;
+      margin-bottom: 8px;
+      color: var(--ink);
+    }
+
+    .name-input {
+      width: 100%;
+      min-height: 52px;
+      padding: 0 14px;
+      border: 1px solid var(--ink);
+      border-radius: 0;
+      outline: 0;
+      background: var(--surface);
+      color: var(--ink);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 16px;
+      font-weight: 600;
+      appearance: none;
+    }
+
+    .name-input:focus {
+      border-width: 2px;
+      box-shadow: 0 0 0 3px rgba(242, 200, 75, .55);
+    }
+
+    .name-input[aria-invalid='true'] {
+      border-color: var(--danger);
+      box-shadow: 0 0 0 3px rgba(166, 58, 46, .14);
+    }
+
+    .field-hint {
+      margin: 8px 0 0;
+      color: var(--neutral);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 12px;
+      line-height: 1.4;
+    }
+
+    .primary,
+    .secondary,
+    .preview-button {
+      min-height: 50px;
+      border-radius: 0;
+      cursor: pointer;
+    }
+
+    .primary {
+      width: 100%;
+      margin-top: 20px;
+      border: 1px solid var(--ink);
+      background: var(--sun);
+      box-shadow: 4px 4px 0 var(--ink);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+
+    .primary:hover { background: #f6d66e; }
+
+    .primary:active {
+      box-shadow: 2px 2px 0 var(--ink);
+      transform: translate(2px, 2px);
+    }
+
+    button:focus-visible {
+      outline: 3px solid var(--signal);
+      outline-offset: 3px;
+    }
+
+    .signed-in {
+      margin: auto 0 0;
+      padding-top: 24px;
+      color: var(--neutral);
+      font-size: 10px;
+      letter-spacing: .06em;
+      line-height: 1.45;
+      text-align: center;
+      text-transform: uppercase;
+    }
+
+    .button-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-top: 20px;
+    }
+
+    .button-row .primary { margin-top: 0; }
+
+    .secondary {
+      border: 1px solid var(--ink);
+      background: transparent;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .secondary:hover { background: rgba(255, 253, 246, .62); }
+
+    .message {
+      margin: 14px 0 0;
+      padding: 11px 12px;
+      border-left: 4px solid var(--ink);
+      background: var(--surface);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 13px;
+      line-height: 1.4;
+    }
+
+    .message.success {
+      border-left-color: var(--ink);
+      background: var(--success-wash);
+    }
+
+    .message.error {
+      border-left-color: var(--signal);
+      background: var(--error-wash);
+      color: #7f2d22;
+    }
+
+    [hidden] { display: none !important; }
+
+    .feedback-preview {
+      max-width: 430px;
+      margin: 18px auto 0;
+      padding: 13px 14px;
+      border: 1px solid rgba(23, 52, 47, .2);
+      background: rgba(255, 255, 255, .48);
+    }
+
+    .feedback-legend {
+      display: block;
+      margin-bottom: 10px;
+      color: var(--neutral);
+      font-size: 9px;
+    }
+
+    .preview-controls {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 7px;
+    }
+
+    .preview-button {
+      min-height: 37px;
+      padding: 7px 8px;
+      border: 1px solid var(--line);
+      background: var(--surface);
+      color: var(--quiet);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+    }
+
+    .preview-button[aria-pressed='true'] {
+      border-color: var(--ink);
+      background: var(--ink);
+      color: var(--surface);
+    }
+
+    .implementation-note {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 22px;
+      margin-top: 34px;
+      padding: 18px 20px;
+      border: 1px solid rgba(23, 52, 47, .2);
+      background: rgba(255, 255, 255, .52);
+    }
+
+    .implementation-note p {
+      margin: 0;
+      color: var(--quiet);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .implementation-note strong {
+      display: block;
+      margin-bottom: 4px;
+      color: var(--ink);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 10px;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+    }
+
+    @media (max-width: 900px) {
+      main { width: min(620px, calc(100% - 28px)); }
+      .states { grid-template-columns: 1fr; gap: 48px; }
+      .phone { max-width: 430px; }
+    }
+
+    @media (max-width: 480px) {
+      main {
+        width: 100%;
+        padding: 24px 14px 36px;
+      }
+
+      .page-heading { padding: 0 4px; }
+      .case-title { padding: 0 4px; }
+
+      .phone {
+        min-height: 790px;
+        border-width: 6px;
+        border-radius: 38px;
+      }
+
+      .masthead { padding: 18px 20px; }
+      .screen { padding: 32px 20px 24px; }
+      .wordmark { font-size: 31px; }
+      .rings { transform: scale(.88); transform-origin: right center; }
+      .implementation-note { grid-template-columns: 1fr; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        scroll-behavior: auto !important;
+        transition: none !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header class="page-heading">
+      <p class="page-kicker">GetBored iOS · device identity</p>
+      <h1>A familiar name before this iPhone joins the account.</h1>
+      <p class="page-intro">The first state appears only when an eligible signed-in account has no registration for this iPhone. The second state shows how the same name can be changed later.</p>
+    </header>
+
+    <section class="states" aria-label="Device name screen states">
+      <article class="state-column" aria-labelledby="setup-case-title">
+        <h2 class="case-title" id="setup-case-title">First-time setup <span>Before registration</span></h2>
+        <section class="phone" aria-labelledby="setup-title">
+          <div class="statusbar" aria-hidden="true"><span>9:41</span><span>● Wi-Fi ▰</span></div>
+          <header class="masthead">
+            <div>
+              <div class="wordmark"><span>Get</span><strong>Bored.</strong></div>
+              <div class="tagline">Bored minds<br>go interesting places.</div>
+            </div>
+            <div class="rings" aria-hidden="true"><span></span><span></span></div>
+          </header>
+
+          <div class="screen">
+            <p class="screen-eyebrow">New device · not registered</p>
+            <h2 id="setup-title">Name this iPhone.</h2>
+            <p class="screen-copy">Choose a name you'll recognize when managing your devices in the GetBored dashboard.</p>
+
+            <div class="device-context" aria-label="Device context">
+              <span class="device-glyph" aria-hidden="true"></span>
+              <span>
+                <span class="context-label">This device</span>
+                <span class="context-value">iPhone</span>
+                <span class="context-meta">Ready to connect</span>
+              </span>
+            </div>
+
+            <form id="setup-form" novalidate>
+              <label class="field-label" for="setup-name">Device name</label>
+              <input class="name-input" id="setup-name" name="device-name" type="text" value="Personal Phone" maxlength="40" autocomplete="off" autocapitalize="words" aria-describedby="setup-hint setup-message" required>
+              <p class="field-hint" id="setup-hint">You can change this later from your account.</p>
+              <p class="message" id="setup-message" role="status" aria-live="polite" hidden></p>
+              <button class="primary" type="submit">Continue</button>
+            </form>
+
+            <p class="signed-in">Signed in · eligible account</p>
+          </div>
+        </section>
+      </article>
+
+      <article class="state-column" aria-labelledby="rename-case-title">
+        <h2 class="case-title" id="rename-case-title">Later update <span>Registered device</span></h2>
+        <section class="phone" aria-labelledby="rename-title">
+          <div class="statusbar" aria-hidden="true"><span>9:41</span><span>● Wi-Fi ▰</span></div>
+          <header class="masthead">
+            <div>
+              <div class="wordmark"><span>Get</span><strong>Bored.</strong></div>
+              <div class="tagline">Bored minds<br>go interesting places.</div>
+            </div>
+            <div class="rings" aria-hidden="true"><span></span><span></span></div>
+          </header>
+
+          <div class="screen">
+            <p class="screen-eyebrow">Account · connected device</p>
+            <h2 id="rename-title">Rename this iPhone.</h2>
+            <p class="screen-copy">Use a clear name so this phone stays easy to find in your dashboard.</p>
+
+            <div class="device-context" aria-label="Current registered device">
+              <span class="device-glyph" aria-hidden="true"></span>
+              <span>
+                <span class="context-label">Current device</span>
+                <span class="context-value" id="saved-device-name">Personal Phone</span>
+                <span class="context-meta">Connected · iOS</span>
+              </span>
+            </div>
+
+            <form id="rename-form" novalidate>
+              <label class="field-label" for="rename-name">Device name</label>
+              <input class="name-input" id="rename-name" name="updated-device-name" type="text" value="Personal Phone" maxlength="40" autocomplete="off" autocapitalize="words" aria-describedby="rename-hint rename-message" required>
+              <p class="field-hint" id="rename-hint">This only changes how the phone appears in GetBored.</p>
+              <p class="message" id="rename-message" role="status" aria-live="polite" hidden></p>
+              <div class="button-row">
+                <button class="primary" type="submit">Save Changes</button>
+                <button class="secondary" id="cancel-rename" type="button">Cancel</button>
+              </div>
+            </form>
+
+            <p class="signed-in">Personal Phone · connected</p>
+          </div>
+        </section>
+
+        <div class="feedback-preview" role="group" aria-labelledby="feedback-preview-label">
+          <span class="feedback-legend" id="feedback-preview-label">Rename feedback preview</span>
+          <div class="preview-controls">
+            <button class="preview-button" type="button" data-feedback="editing" aria-pressed="true">Editing</button>
+            <button class="preview-button" type="button" data-feedback="saved" aria-pressed="false">Saved</button>
+            <button class="preview-button" type="button" data-feedback="error" aria-pressed="false">Error</button>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <aside class="implementation-note" aria-label="Screen behavior notes">
+      <p><strong>When it appears</strong>After eligible sign-in, an unregistered iPhone pauses before registration and asks for a recognizable device name. Continue creates the registration with that name.</p>
+      <p><strong>Later changes</strong>The registered device view starts with the saved name. Save Changes updates the dashboard label; Cancel keeps the last saved value, with inline success or retry feedback.</p>
+    </aside>
+  </main>
+
+  <script>
+    const setupForm = document.getElementById('setup-form');
+    const setupName = document.getElementById('setup-name');
+    const setupMessage = document.getElementById('setup-message');
+    const renameForm = document.getElementById('rename-form');
+    const renameName = document.getElementById('rename-name');
+    const renameMessage = document.getElementById('rename-message');
+    const savedDeviceName = document.getElementById('saved-device-name');
+    const cancelRename = document.getElementById('cancel-rename');
+    const feedbackButtons = document.querySelectorAll('[data-feedback]');
+
+    function showMessage(element, kind, text) {
+      element.className = `message ${kind}`;
+      element.textContent = text;
+      element.hidden = false;
+    }
+
+    function clearMessage(element) {
+      element.hidden = true;
+      element.textContent = '';
+      element.className = 'message';
+    }
+
+    function selectFeedback(state) {
+      feedbackButtons.forEach(button => {
+        button.setAttribute('aria-pressed', String(button.dataset.feedback === state));
+      });
+    }
+
+    function setRenameState(state) {
+      selectFeedback(state);
+      renameName.setAttribute('aria-invalid', 'false');
+
+      if (state === 'saved') {
+        showMessage(renameMessage, 'success', `Saved. Your dashboard now shows “${renameName.value.trim() || savedDeviceName.textContent}”.`);
+        return;
+      }
+
+      if (state === 'error') {
+        showMessage(renameMessage, 'error', 'Couldn’t save the name. Check your connection and try again.');
+        return;
+      }
+
+      clearMessage(renameMessage);
+    }
+
+    setupForm.addEventListener('submit', event => {
+      event.preventDefault();
+      const name = setupName.value.trim();
+
+      if (!name) {
+        setupName.setAttribute('aria-invalid', 'true');
+        showMessage(setupMessage, 'error', 'Enter a name for this iPhone.');
+        setupName.focus();
+        return;
+      }
+
+      setupName.setAttribute('aria-invalid', 'false');
+      showMessage(setupMessage, 'success', `Ready to register as “${name}”.`);
+    });
+
+    setupName.addEventListener('input', () => {
+      setupName.setAttribute('aria-invalid', 'false');
+      clearMessage(setupMessage);
+    });
+
+    renameForm.addEventListener('submit', event => {
+      event.preventDefault();
+      const name = renameName.value.trim();
+
+      if (!name) {
+        renameName.setAttribute('aria-invalid', 'true');
+        showMessage(renameMessage, 'error', 'Enter a name for this iPhone.');
+        selectFeedback('error');
+        renameName.focus();
+        return;
+      }
+
+      savedDeviceName.textContent = name;
+      savedDeviceName.dataset.savedName = name;
+      renameName.setAttribute('aria-invalid', 'false');
+      setRenameState('saved');
+    });
+
+    renameName.addEventListener('input', () => setRenameState('editing'));
+
+    cancelRename.addEventListener('click', () => {
+      renameName.value = savedDeviceName.dataset.savedName || savedDeviceName.textContent;
+      setRenameState('editing');
+    });
+
+    feedbackButtons.forEach(button => {
+      button.addEventListener('click', () => setRenameState(button.dataset.feedback));
+    });
+  </script>
+</body>
+</html>
