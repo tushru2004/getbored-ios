@@ -15,7 +15,7 @@ import GetBoredCore
 import NetworkExtension
 import os.log
 
-class BlockHandler: NEFilterControlProvider {
+    class BlockHandler: NEFilterControlProvider {
 
         private let logger = OSLog(subsystem: GetBoredIdentifiers.Logging.iOS, category: "BlockHandler")
 
@@ -182,4 +182,4 @@ class BlockHandler: NEFilterControlProvider {
                 sourceApp: sourceApp
             )
         }
-}
+    }

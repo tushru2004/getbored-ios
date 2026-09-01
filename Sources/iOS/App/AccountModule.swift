@@ -8,14 +8,14 @@ private let logger = Logger(
         category: "AccountModule"
 )
 
-/**
- * Native bridge for first-party GetBored username/password sessions.
- * Passwords are sent only in the TLS request body, are never logged, and are
- * never persisted on device. Only the resulting session token is
- * stored in Keychain.
- */
-@objc(Account)
-final class AccountModule: NSObject {
+    /**
+     * Native bridge for first-party GetBored username/password sessions.
+     * Passwords are sent only in the TLS request body, are never logged, and are
+     * never persisted on device. Only the resulting session token is
+     * stored in Keychain.
+     */
+    @objc(Account)
+    final class AccountModule: NSObject {
 
         @objc static func requiresMainQueueSetup() -> Bool { false }
 
@@ -322,27 +322,27 @@ final class AccountModule: NSObject {
                 reject("SERVER", "Failed to decode the server response", underlying)
             }
         }
-}
+    }
 
-private struct PasswordAuthRequest: Encodable {
+    private struct PasswordAuthRequest: Encodable {
         let username: String
         let password: String
-}
+    }
 
-private struct PasswordAuthResponse: Decodable {
+    private struct PasswordAuthResponse: Decodable {
         let sessionToken: String
         let userId: String
-}
+    }
 
-private struct MeResponse: Decodable {
+    private struct MeResponse: Decodable {
         let userId: String
         let contactEmail: String?
         let identityEmail: String?
         let username: String?
         let plan: String
         let accountKind: String
-}
+    }
 
-private struct ActivationCodeRequest: Encodable {
+    private struct ActivationCodeRequest: Encodable {
         let code: String
-}
+    }

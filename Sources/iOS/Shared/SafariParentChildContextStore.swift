@@ -1,7 +1,7 @@
 import Foundation
 import GetBoredCore
 
-struct SafariParentChildContextStore {
+    struct SafariParentChildContextStore {
         struct ActivePageContext: Codable, Equatable {
             let parentDomain: String
             let childDomains: [String]
@@ -465,4 +465,4 @@ struct SafariParentChildContextStore {
                 receivedAtSwiftRefSeconds: context.receivedAt.timeIntervalSinceReferenceDate
             )
         }
-}
+    }

@@ -12,25 +12,25 @@ private let logger = Logger(
 
 // ─── Wire format (mirrors POST /api/client-events) ─────────────────────────
 
-private struct ClientLogEvent: Encodable {
+    private struct ClientLogEvent: Encodable {
         let timestamp: String
         let level: String
         let category: String
         let message: String
-}
+    }
 
-private struct ClientContext: Encodable {
+    private struct ClientContext: Encodable {
         let appVersion: String
         let build: String
         let iosVersion: String
         let deviceModel: String
-}
+    }
 
-private struct ClientEventsRequest: Encodable {
+    private struct ClientEventsRequest: Encodable {
         let reason: String
         let context: ClientContext
         let events: [ClientLogEvent]
-}
+    }
 
 /// Client-side cap, matching the server's MAX_EVENTS_PER_BATCH: sending more
 /// is wasted bytes — the server truncates anyway.
@@ -43,22 +43,22 @@ private let maxEventsPerBatch = 300
  */
 private let snapshotWindow: TimeInterval = 10 * 60
 
-/**
- * Remote diagnostics, exposed to JS as `NativeModules.Diagnostics`.
- *
- * The Apple-native error-reporting pipeline: every native module already
- * writes structured entries via `Logger` (unified logging). This module
- * reads those same entries back out of `OSLogStore` — the exact stream
- * Console.app shows for this process — and POSTs a recent window of them
- * to the backend, where they land in the server log. "Console.app over
- * the network", no cable required.
- *
- * Reporting is strictly best-effort: every failure path resolves (never
- * rejects) — a failure to report an error must never become a second
- * user-visible error.
- */
-@objc(Diagnostics)
-final class DiagnosticsModule: NSObject {
+    /**
+     * Remote diagnostics, exposed to JS as `NativeModules.Diagnostics`.
+     *
+     * The Apple-native error-reporting pipeline: every native module already
+     * writes structured entries via `Logger` (unified logging). This module
+     * reads those same entries back out of `OSLogStore` — the exact stream
+     * Console.app shows for this process — and POSTs a recent window of them
+     * to the backend, where they land in the server log. "Console.app over
+     * the network", no cable required.
+     *
+     * Reporting is strictly best-effort: every failure path resolves (never
+     * rejects) — a failure to report an error must never become a second
+     * user-visible error.
+     */
+    @objc(Diagnostics)
+    final class DiagnosticsModule: NSObject {
 
         @objc static func requiresMainQueueSetup() -> Bool {
             logger.info("begin requiresMainQueueSetup")
@@ -245,23 +245,23 @@ final class DiagnosticsModule: NSObject {
             logger.info("end hardwareModel: model=\(model, privacy: .public)")
             return model
         }
-}
+    }
 
 // ─── MetricKit: crashes and hangs, delivered by iOS itself ─────────────────
 
-/**
- * Apple's built-in diagnostic delivery: iOS hands the app crash and hang
- * reports as structured payloads (immediately on iOS 15+, else on next
- * launch). Registered once from AppDelegate.
- *
- * Call flow:
- *
- *   app launch → subscribe once to MetricKit
- *       │
- *       ▼
- *   iOS delivers payloads → convert all payloads → upload one batch
- */
-final class MetricKitReporter: NSObject, MXMetricManagerSubscriber {
+    /**
+     * Apple's built-in diagnostic delivery: iOS hands the app crash and hang
+     * reports as structured payloads (immediately on iOS 15+, else on next
+     * launch). Registered once from AppDelegate.
+     *
+     * Call flow:
+     *
+     *   app launch → subscribe once to MetricKit
+     *       │
+     *       ▼
+     *   iOS delivers payloads → convert all payloads → upload one batch
+     */
+    final class MetricKitReporter: NSObject, MXMetricManagerSubscriber {
 
         static let shared = MetricKitReporter()
         private var started = false
@@ -293,4 +293,4 @@ final class MetricKitReporter: NSObject, MXMetricManagerSubscriber {
             DiagnosticsModule.sendBatch(reason: "metrickit-diagnostic", events: events)
             logger.info("end MetricKitReporter.didReceive: batch queued")
         }
-}
+    }

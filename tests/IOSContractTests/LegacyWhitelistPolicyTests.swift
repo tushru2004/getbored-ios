@@ -98,7 +98,7 @@ private func isRelatedToAllowedEntry(host: String, items: [String]) -> Bool {
 
 // MARK: - Test class
 
-final class LegacyWhitelistPolicyTests: XCTestCase {
+    final class LegacyWhitelistPolicyTests: XCTestCase {
 
         // MARK: extractDomain(from:)
 
@@ -400,4 +400,4 @@ final class LegacyWhitelistPolicyTests: XCTestCase {
             // ever reaching the isAppBlocked guard.
             XCTAssertTrue(allowed, "shouldAllowApp result must be checked before isAppBlocked")
         }
-}
+    }

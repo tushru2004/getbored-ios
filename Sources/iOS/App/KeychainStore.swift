@@ -1,32 +1,32 @@
 import Foundation
 import Security
 
-/**
- * Keychain storage for REST API credentials: the signed-in session token and
- * the server-assigned device ID handed back by the backend.
- *
- * iOS Keychain items in the `kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly`
- * class survive app reinstall and are NOT synced to iCloud Keychain, NOT
- * restored onto a different physical device from an iTunes/iCloud backup.
- * This keeps API credentials genuinely unique to THIS physical device while
- * surviving the `UserDefaults` wipe that happens during reinstall.
- *
- * Uses the standard read and delete-then-add Keychain patterns, generalized
- * to a small set of named `Item`s stored under one shared Keychain service.
- *
- * Usage:
- *
- *   // Read (returns nil if never written or on any Keychain error):
- *   let token: String? = KeychainStore.read(.sessionToken)
- *
- *   // Persist (delete-then-add pattern avoids errSecDuplicateItem):
- *   KeychainStore.write("abc123", for: .sessionToken)
- *
- *   // Remove (e.g. on sign-out):
- *   KeychainStore.delete(.sessionToken)
- *
- */
-enum KeychainStore {
+    /**
+     * Keychain storage for REST API credentials: the signed-in session token and
+     * the server-assigned device ID handed back by the backend.
+     *
+     * iOS Keychain items in the `kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly`
+     * class survive app reinstall and are NOT synced to iCloud Keychain, NOT
+     * restored onto a different physical device from an iTunes/iCloud backup.
+     * This keeps API credentials genuinely unique to THIS physical device while
+     * surviving the `UserDefaults` wipe that happens during reinstall.
+     *
+     * Uses the standard read and delete-then-add Keychain patterns, generalized
+     * to a small set of named `Item`s stored under one shared Keychain service.
+     *
+     * Usage:
+     *
+     *   // Read (returns nil if never written or on any Keychain error):
+     *   let token: String? = KeychainStore.read(.sessionToken)
+     *
+     *   // Persist (delete-then-add pattern avoids errSecDuplicateItem):
+     *   KeychainStore.write("abc123", for: .sessionToken)
+     *
+     *   // Remove (e.g. on sign-out):
+     *   KeychainStore.delete(.sessionToken)
+     *
+     */
+    enum KeychainStore {
 
         /**
          * The values this store persists. Each case is a distinct Keychain
@@ -133,4 +133,4 @@ enum KeychainStore {
             ]
             SecItemDelete(deleteQuery as CFDictionary)
         }
-}
+    }

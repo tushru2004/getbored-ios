@@ -16,17 +16,17 @@ private let logger = Logger(
         category: "FilterStatusModule"
 )
 
-/**
- * React Native bridge for filter status, device registration, and policy sync.
- *
- * This module talks to the GetBored REST API (`APIClient`) and the Keychain
- * (`KeychainStore`). Two identifiers matter: the session token (are we
- * signed in?) and the server-minted device id (has THIS install
- * registered?). Both live in the Keychain; the server mints and owns the
- * device id.
- */
-@objc(FilterStatus)
-final class FilterStatusModule: NSObject {
+    /**
+     * React Native bridge for filter status, device registration, and policy sync.
+     *
+     * This module talks to the GetBored REST API (`APIClient`) and the Keychain
+     * (`KeychainStore`). Two identifiers matter: the session token (are we
+     * signed in?) and the server-minted device id (has THIS install
+     * registered?). Both live in the Keychain; the server mints and owns the
+     * device id.
+     */
+    @objc(FilterStatus)
+    final class FilterStatusModule: NSObject {
 
         @objc static func requiresMainQueueSetup() -> Bool { false }
 
@@ -564,72 +564,72 @@ final class FilterStatusModule: NSObject {
                 "registration": deviceDictionary(device),
             ]
         }
-}
+    }
 
-/**
- * JS-facing reject codes shared by every method in this file. Centralized so
- * "SIGNED_OUT" (used both by `reject(for:)`'s APIError mapping and by
- * `syncFilterLists`'s own no-device-id guard) can't drift into two different
- * literal strings by accident.
- */
-private enum RejectCode {
+    /**
+     * JS-facing reject codes shared by every method in this file. Centralized so
+     * "SIGNED_OUT" (used both by `reject(for:)`'s APIError mapping and by
+     * `syncFilterLists`'s own no-device-id guard) can't drift into two different
+     * literal strings by accident.
+     */
+    private enum RejectCode {
         static let signedOut = "SIGNED_OUT"
         static let subscriptionRequired = "SUBSCRIPTION_REQUIRED"
         static let network = "NETWORK"
         static let server = "SERVER"
         static let notRegistered = "NOT_REGISTERED"
-}
+    }
 
-/// Body for `POST /api/devices` and `PUT /api/devices/{id}`. Field names match
-/// the wire format exactly, so no custom `CodingKeys` are needed.
-private struct DeviceInput: Encodable {
+    /// Body for `POST /api/devices` and `PUT /api/devices/{id}`. Field names match
+    /// the wire format exactly, so no custom `CodingKeys` are needed.
+    private struct DeviceInput: Encodable {
         let name: String
         let model: String
         let appVersion: String
-}
+    }
 
-/**
- * Decoded response from `POST`/`PUT`/`GET` on `/api/devices/...`. Mirrors the
- * backend's `Device` model exactly: only `id`/`createdAt` are guaranteed
- * non-null. `name`/`model`/`appVersion` are optional because `DeviceInput`
- * itself allows omitting them server-side; `lastSeenAt` is null for every
- * device until its first `GET /api/policy` heartbeat stamps it (the B4
- * "heartbeat for free" design — POST/PUT never set it). Decoding these as
- * non-optional `String` would throw on that very first registration
- * response, silently skipping the Keychain write of the new device id.
- *
- * `lastSeenAt`/`createdAt` are passed through to JS as opaque ISO-8601
- * strings — nothing on the native side parses them, so they are not typed
- * as `Date`.
- */
-private struct Device: Decodable {
+    /**
+     * Decoded response from `POST`/`PUT`/`GET` on `/api/devices/...`. Mirrors the
+     * backend's `Device` model exactly: only `id`/`createdAt` are guaranteed
+     * non-null. `name`/`model`/`appVersion` are optional because `DeviceInput`
+     * itself allows omitting them server-side; `lastSeenAt` is null for every
+     * device until its first `GET /api/policy` heartbeat stamps it (the B4
+     * "heartbeat for free" design — POST/PUT never set it). Decoding these as
+     * non-optional `String` would throw on that very first registration
+     * response, silently skipping the Keychain write of the new device id.
+     *
+     * `lastSeenAt`/`createdAt` are passed through to JS as opaque ISO-8601
+     * strings — nothing on the native side parses them, so they are not typed
+     * as `Date`.
+     */
+    private struct Device: Decodable {
         let id: String
         let name: String?
         let model: String?
         let appVersion: String?
         let lastSeenAt: String?
         let createdAt: String
-}
+    }
 
-/**
- * Response from `POST /api/profile-downloads`. The expiry is intentionally
- * omitted: the native app only needs the validated HTTPS URL; the backend
- * owns ticket lifetime and Safari owns the subsequent download.
- */
-private struct ProfileDownloadResponse: Decodable {
+    /**
+     * Response from `POST /api/profile-downloads`. The expiry is intentionally
+     * omitted: the native app only needs the validated HTTPS URL; the backend
+     * owns ticket lifetime and Safari owns the subsequent download.
+     */
+    private struct ProfileDownloadResponse: Decodable {
         let downloadUrl: String
-}
+    }
 
-/**
- * Decoded response from `GET /api/policy?deviceId=`. The server also sends
- * `policySchemaVersion`, `deviceId`, and `generatedAt`, but nothing here
- * consumes them, so they are omitted — Decodable synthesis ignores JSON keys
- * with no matching property.
- */
-private struct PolicySnapshot: Decodable {
+    /**
+     * Decoded response from `GET /api/policy?deviceId=`. The server also sends
+     * `policySchemaVersion`, `deviceId`, and `generatedAt`, but nothing here
+     * consumes them, so they are omitted — Decodable synthesis ignores JSON keys
+     * with no matching property.
+     */
+    private struct PolicySnapshot: Decodable {
         let filterMode: FilterListMode
         let entries: [String]
         let exceptions: [String]
         let allowedApps: [String]
         let blockedApps: [String]
-}
+    }

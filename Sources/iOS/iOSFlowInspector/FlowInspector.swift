@@ -12,7 +12,7 @@ import GetBoredCore
 import NetworkExtension
 import os.log
 
-class FlowInspector: NEFilterDataProvider {
+    class FlowInspector: NEFilterDataProvider {
 
         private let logger = OSLog(
             subsystem: GetBoredIdentifiers.Logging.iOS, category: "FlowInspector")
@@ -504,4 +504,4 @@ class FlowInspector: NEFilterDataProvider {
             return .allow()
         }
 
-}
+    }

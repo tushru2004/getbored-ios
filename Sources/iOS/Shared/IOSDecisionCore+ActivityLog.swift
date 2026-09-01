@@ -1,6 +1,6 @@
 import GetBoredCore
 
-extension IOSDecisionCore {
+    extension IOSDecisionCore {
         // MARK: - Activity Log Helpers
 
         public static func activityLogStripTeamID(_ identifier: String?) -> String? {
@@ -37,4 +37,4 @@ extension IOSDecisionCore {
             }
             return Array(capped.prefix(max(0, maxTotal)))
         }
-}
+    }

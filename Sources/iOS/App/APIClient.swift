@@ -21,30 +21,30 @@ private let logger = Logger(
  */
 private let diagnosticsUploadPath = "/api/client-events"
 
-/**
- * Selects the REST API backend base URL for the current build configuration.
- *
- * There is no runtime toggle — the backend is baked in at compile time.
- * DEBUG builds (e.g. `make build-device`, simulator builds) talk to the
- * staging backend; RELEASE builds (App Store / TestFlight) talk to production.
- */
-enum APIEnvironment {
+    /**
+     * Selects the REST API backend base URL for the current build configuration.
+     *
+     * There is no runtime toggle — the backend is baked in at compile time.
+     * DEBUG builds (e.g. `make build-device`, simulator builds) talk to the
+     * staging backend; RELEASE builds (App Store / TestFlight) talk to production.
+     */
+    enum APIEnvironment {
         #if DEBUG
             static let baseURL = URL(string: "https://dashboard.staging.getbored.online")!
         #else
             static let baseURL = URL(string: "https://dashboard.getbored.online")!
         #endif
-}
+    }
 
-/**
- * Errors surfaced by `APIClient` to callers.
- *
- * Every case maps to something a caller can act on directly — sign the user
- * out, show a paywall, show a generic error — rather than exposing raw
- * `URLSession`/HTTP detail that every call site would otherwise have to
- * re-interpret.
- */
-enum APIError: Error {
+    /**
+     * Errors surfaced by `APIClient` to callers.
+     *
+     * Every case maps to something a caller can act on directly — sign the user
+     * out, show a paywall, show a generic error — rather than exposing raw
+     * `URLSession`/HTTP detail that every call site would otherwise have to
+     * re-interpret.
+     */
+    enum APIError: Error {
         /**
          * No session token was stored locally, or the server rejected the
          * stored token with 401. Either way, the caller should treat the user
@@ -71,28 +71,28 @@ enum APIError: Error {
         static func normalized(_ error: Error) -> APIError {
             error as? APIError ?? .network(underlying: error)
         }
-}
+    }
 
-/**
- * Thin REST client wrapping `URLSession` for the GetBored backend API.
- *
- * Two async entry points:
- *   - `send`: returns the raw HTTP status + body when the caller expects no
- *     JSON body or needs the status code directly.
- *   - `request`: calls `send` and decodes the JSON response into a
- *     `Decodable` model.
- *
- * Usage:
- *
- *   let response = try await APIClient.shared.send(.get, path: "/api/me")
- *
- *   let me = try await APIClient.shared.request(
- *       MeResponse.self,
- *       method: .get,
- *       path: "/api/me"
- *   )
- */
-final class APIClient {
+    /**
+     * Thin REST client wrapping `URLSession` for the GetBored backend API.
+     *
+     * Two async entry points:
+     *   - `send`: returns the raw HTTP status + body when the caller expects no
+     *     JSON body or needs the status code directly.
+     *   - `request`: calls `send` and decodes the JSON response into a
+     *     `Decodable` model.
+     *
+     * Usage:
+     *
+     *   let response = try await APIClient.shared.send(.get, path: "/api/me")
+     *
+     *   let me = try await APIClient.shared.request(
+     *       MeResponse.self,
+     *       method: .get,
+     *       path: "/api/me"
+     *   )
+     */
+    final class APIClient {
 
         static let shared = APIClient()
 
@@ -456,4 +456,4 @@ final class APIClient {
             }
             return request
         }
-}
+    }

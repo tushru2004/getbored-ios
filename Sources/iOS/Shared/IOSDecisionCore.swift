@@ -1,17 +1,17 @@
 import Foundation
 import GetBoredCore
 
-/**
- * Shared, pure policy rules for the iOS filtering targets.
- *
- * Stores and providers collect iOS state, pass a `LoadedFilterRules` snapshot,
- * and apply the returned decision. `IOSDecisionCore` owns the matching and
- * precedence rules; it does not read App Group storage, touch NetworkExtension,
- * or write logs.
- */
-public enum IOSDecisionCore {}
+    /**
+     * Shared, pure policy rules for the iOS filtering targets.
+     *
+     * Stores and providers collect iOS state, pass a `LoadedFilterRules` snapshot,
+     * and apply the returned decision. `IOSDecisionCore` owns the matching and
+     * precedence rules; it does not read App Group storage, touch NetworkExtension,
+     * or write logs.
+     */
+    public enum IOSDecisionCore {}
 
-extension IOSDecisionCore {
+    extension IOSDecisionCore {
         // MARK: - Shared Decision Results
 
         public enum PolicyDecisionKind: Equatable {
@@ -253,4 +253,4 @@ extension IOSDecisionCore {
             else { return nil }
             return value
         }
-}
+    }

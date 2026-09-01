@@ -3,7 +3,7 @@ import XCTest
 
 @testable import GetBoredIOSCore
 
-final class SafariParentChildContextStoreTests: XCTestCase {
+    final class SafariParentChildContextStoreTests: XCTestCase {
         func testSafariParentChildContextStoreAppGroupAndKeyContracts() {
             XCTAssertEqual(SafariParentChildContextStore.appGroupIdentifier, "group.com.getbored.ios")
 
@@ -51,4 +51,4 @@ final class SafariParentChildContextStoreTests: XCTestCase {
                 "safari_app_proxy_spike_flows"
             )
         }
-}
+    }

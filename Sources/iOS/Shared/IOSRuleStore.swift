@@ -18,14 +18,14 @@ import OSLog
 
 // MARK: - IOSRuleStore
 
-/**
- * Shared App Group storage for the iOS filter policy.
- *
- * The app writes the server policy here. The Data and Control Providers read
- * the same snapshot, then `IOSDecisionCore` evaluates it. This store moves
- * data between targets; it does not make allow or block decisions.
- */
-class IOSRuleStore {
+    /**
+     * Shared App Group storage for the iOS filter policy.
+     *
+     * The app writes the server policy here. The Data and Control Providers read
+     * the same snapshot, then `IOSDecisionCore` evaluates it. This store moves
+     * data between targets; it does not make allow or block decisions.
+     */
+    class IOSRuleStore {
         static let shared = IOSRuleStore()
         private let logger = Logger(
             subsystem: GetBoredIdentifiers.Logging.iOS, category: "IOSRuleStore")
@@ -393,13 +393,13 @@ class IOSRuleStore {
                 domains: ruleDomains
             )
         }
-}
+    }
 
 // MARK: - Activity Logger
 
-/// Logs filter decisions to shared UserDefaults.
-/// Uses batched async writes to avoid impacting filter performance.
-class IOSActivityLogger {
+    /// Logs filter decisions to shared UserDefaults.
+    /// Uses batched async writes to avoid impacting filter performance.
+    class IOSActivityLogger {
         static let shared = IOSActivityLogger()
 
         private let appGroupIdentifier = GetBoredIdentifiers.AppGroup.ios
@@ -527,4 +527,4 @@ class IOSActivityLogger {
         func clearLog() {
             // Disabled implementation: remove `logKey` and synchronize App Group defaults.
         }
-}
+    }

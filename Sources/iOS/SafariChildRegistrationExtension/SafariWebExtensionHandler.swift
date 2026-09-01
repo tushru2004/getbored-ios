@@ -3,7 +3,7 @@ import GetBoredCore
 import SafariServices
 import os.log
 
-final class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
+    final class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
         private let logger = Logger(
             subsystem: GetBoredIdentifiers.Logging.iosSafariChildRegistration,
             category: "SafariWebExtensionHandler"
@@ -125,4 +125,4 @@ final class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
             contextStore.clearActiveContext(clearingParent: dictionary["parentDomain"] as? String)
             logger.info("Cleared Safari extension active page context")
         }
-}
+    }

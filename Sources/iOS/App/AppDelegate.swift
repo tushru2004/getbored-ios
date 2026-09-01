@@ -3,11 +3,11 @@ import React_RCTAppDelegate
 import ReactAppDependencyProvider
 import UIKit
 
-/// UIKit entry point that creates the React Native factory, starts native
-/// diagnostics, and mounts the GetBored JavaScript application.
-@main
-@objc(AppDelegate)
-final class AppDelegate: UIResponder, UIApplicationDelegate {
+    /// UIKit entry point that creates the React Native factory, starts native
+    /// diagnostics, and mounts the GetBored JavaScript application.
+    @main
+    @objc(AppDelegate)
+    final class AppDelegate: UIResponder, UIApplicationDelegate {
 
         var window: UIWindow?
         private var reactNativeDelegate: ReactNativeDelegate?
@@ -42,11 +42,11 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
             )
             return true
         }
-}
+    }
 
-/// Provides React Native's bundle location while retaining factory defaults,
-/// including the architecture configured by the installed React Native pods.
-private final class ReactNativeDelegate: RCTDefaultReactNativeFactoryDelegate {
+    /// Provides React Native's bundle location while retaining factory defaults,
+    /// including the architecture configured by the installed React Native pods.
+    private final class ReactNativeDelegate: RCTDefaultReactNativeFactoryDelegate {
         override func sourceURL(for bridge: RCTBridge) -> URL? {
             bundleURL()
         }
@@ -65,4 +65,4 @@ private final class ReactNativeDelegate: RCTDefaultReactNativeFactoryDelegate {
                 return Bundle.main.url(forResource: "main", withExtension: "jsbundle")
             #endif
         }
-}
+    }

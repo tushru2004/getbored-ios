@@ -1,7 +1,7 @@
 import Foundation
 import XCTest
 
-final class CloudKitSchemaUsageTests: XCTestCase {
+    final class CloudKitSchemaUsageTests: XCTestCase {
         func testCloudKitCodeUsesSharedSchemaConstants() throws {
             let paths = [
                 "Sources/iOS/App/FilterStatusModule.swift",
@@ -38,4 +38,4 @@ final class CloudKitSchemaUsageTests: XCTestCase {
                 .deletingLastPathComponent()
                 .deletingLastPathComponent()
         }
-}
+    }

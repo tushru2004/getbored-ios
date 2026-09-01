@@ -1,7 +1,7 @@
 import Foundation
 import GetBoredCore
 
-extension IOSDecisionCore {
+    extension IOSDecisionCore {
         // MARK: - Safari App Proxy Decision Types
 
         public enum ParentChildDecisionKind: Equatable {
@@ -173,4 +173,4 @@ extension IOSDecisionCore {
         private static func rounded(_ value: TimeInterval) -> String {
             String((value * 10).rounded() / 10)
         }
-}
+    }

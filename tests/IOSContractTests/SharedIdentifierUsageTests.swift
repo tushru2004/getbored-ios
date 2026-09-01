@@ -1,7 +1,7 @@
 import Foundation
 import XCTest
 
-final class SharedIdentifierUsageTests: XCTestCase {
+    final class SharedIdentifierUsageTests: XCTestCase {
         func testSwiftCallSitesUseSharedIdentifierConstants() throws {
             let paths = [
                 "Sources/iOS/Shared/IOSDecisionCore.swift",
@@ -47,4 +47,4 @@ final class SharedIdentifierUsageTests: XCTestCase {
                 .deletingLastPathComponent()
                 .deletingLastPathComponent()
         }
-}
+    }

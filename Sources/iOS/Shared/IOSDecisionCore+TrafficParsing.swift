@@ -1,6 +1,6 @@
 import Foundation
 
-extension IOSDecisionCore {
+    extension IOSDecisionCore {
         // MARK: - Protocol Inspection
 
         /**
@@ -120,4 +120,4 @@ extension IOSDecisionCore {
             return v6.count > 1
                 && v6.allSatisfy { $0.isEmpty || ($0.count <= 4 && $0.allSatisfy(\.isHexDigit)) }
         }
-}
+    }

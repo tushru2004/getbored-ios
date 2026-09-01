@@ -4,23 +4,23 @@ import Network
 import NetworkExtension
 import os.log
 
-/**
- * Safari per-app VPN provider used by the App Proxy spike.
- *
- * This target is not part of the Release 1.0 runtime. When its profile is
- * installed for the spike, it receives Safari flows, reads the shared rule and
- * page-context snapshot, then asks `IOSDecisionCore` whether to relay them.
- *
- * **Lifecycle:**
- * - iOS calls `startProxy(...)` once when the per-app VPN comes up.
- * - iOS calls `handleNewFlow(_:)` once per outbound TCP/UDP connection.
- * - iOS calls `stopProxy(...)` when the user disables the profile or it errors.
- *
- * **Bundle ID:** `com.getbored.filter.safari-app-proxy-provider`
- * **Per-app VPN scope:** Safari only (Mobile Safari bundle ID).
- * **Profile:** `com.getbored.ios.safari-app-proxy-spike` (mobileconfig).
- */
-final class SafariAppProxyProvider: NEAppProxyProvider {
+    /**
+     * Safari per-app VPN provider used by the App Proxy spike.
+     *
+     * This target is not part of the Release 1.0 runtime. When its profile is
+     * installed for the spike, it receives Safari flows, reads the shared rule and
+     * page-context snapshot, then asks `IOSDecisionCore` whether to relay them.
+     *
+     * **Lifecycle:**
+     * - iOS calls `startProxy(...)` once when the per-app VPN comes up.
+     * - iOS calls `handleNewFlow(_:)` once per outbound TCP/UDP connection.
+     * - iOS calls `stopProxy(...)` when the user disables the profile or it errors.
+     *
+     * **Bundle ID:** `com.getbored.filter.safari-app-proxy-provider`
+     * **Per-app VPN scope:** Safari only (Mobile Safari bundle ID).
+     * **Profile:** `com.getbored.ios.safari-app-proxy-spike` (mobileconfig).
+     */
+    final class SafariAppProxyProvider: NEAppProxyProvider {
         /**
          * Unified-logging handle. Subsystem visible in Console.app under
          * `com.getbored.ios.safari-app-proxy`. Use `log show --predicate
@@ -707,4 +707,4 @@ final class SafariAppProxyProvider: NEAppProxyProvider {
         private func appendEvent(_ event: String) {
             contextStore.appendEvent(event)
         }
-}
+    }

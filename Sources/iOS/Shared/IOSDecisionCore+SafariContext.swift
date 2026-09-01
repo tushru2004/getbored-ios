@@ -1,7 +1,7 @@
 import Foundation
 import GetBoredCore
 
-extension IOSDecisionCore {
+    extension IOSDecisionCore {
         // MARK: - Safari Parent-Child Context Types
 
         public struct ActivePageContext: Equatable {
@@ -248,4 +248,4 @@ extension IOSDecisionCore {
             }
             return result
         }
-}
+    }

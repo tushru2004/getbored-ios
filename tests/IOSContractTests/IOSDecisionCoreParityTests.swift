@@ -4,13 +4,13 @@ import XCTest
 
 @testable import GetBoredIOSCore
 
-/**
- * Protects the behavior migrated from the former Kotlin shared decision core.
- *
- * These tests exercise the public Swift policy surface directly so native
- * providers and the React Native bridge continue to receive compatible results.
- */
-final class IOSDecisionCoreParityTests: XCTestCase {
+    /**
+     * Protects the behavior migrated from the former Kotlin shared decision core.
+     *
+     * These tests exercise the public Swift policy surface directly so native
+     * providers and the React Native bridge continue to receive compatible results.
+     */
+    final class IOSDecisionCoreParityTests: XCTestCase {
         private func rules(
             sites: [String] = [],
             mode: FilterMode = .blockSpecific,
@@ -342,4 +342,4 @@ final class IOSDecisionCoreParityTests: XCTestCase {
             XCTAssertEqual(trimmed.count, 2)
             XCTAssertEqual(trimmed.map(\.displayDomain), ["new0.example", "new1.example"])
         }
-}
+    }
