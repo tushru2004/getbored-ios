@@ -71,8 +71,8 @@ import GetBoredCore
         }
 
         /**
-         * Can the current Safari page load this dependency?
-         * Follow one example: CNBC requests scdn.cnbc.com after both hosts below were saved.
+         * Can this requested child host be allowed under the saved parent page's rules?
+         * Follow one example: Safari requests scdn.cnbc.com and the saved parent is CNBC.
          *
          *   Safari requests scdn.cnbc.com as a possible child dependency.
          *   Before checking whether it is allowed, we need two pieces of information:
@@ -89,9 +89,12 @@ import GetBoredCore
          *       ├── missing or unreadable → no special allowance; continue normal checks
          *       │
          *       ▼ Yes: saved parent = www.cnbc.com
-         *   We now have a possible parent-child pair, not permission to allow the child.
-         *   The saved parent is not proof of which tab sent this request; another tab
-         *   may have replaced it. Next: check the saved evidence linking this child to CNBC.
+         *   We now know the requested child and the saved parent to check.
+         *   Next: check whether this child is registered under CNBC and CNBC is approved.
+         *   These checks establish permission, not proof that CNBC caused this request.
+         *   Neither this implementation nor the current plan proves which tab sent it.
+         *   Our policy accepts direct or other-tab requests to registered children while
+         *   the approved parent's context and the child's observation pass these checks.
          *       │
          *       ▼
          *   Read the saved collection (the version-2 JSON example below)
@@ -99,7 +102,7 @@ import GetBoredCore
          *       └── contains scdn.cnbc.com at time 123 and img.connatix.com at time 124
          *               │
          *               ▼
-         *   Look for evidence for this exact host and current parent page
+         *   Look for a saved observation for this exact child host and saved parent
          *       │   scdn.cnbc.com: keep only if its parent is www.cnbc.com,
          *       │     the proxy recorded a child match (matchActiveChild), and it is recent.
          *       │     Example: now 125 - saved 123 = 2 seconds old; limit 10 → recent.
