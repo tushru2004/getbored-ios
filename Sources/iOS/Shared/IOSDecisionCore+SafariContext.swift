@@ -125,6 +125,28 @@ import GetBoredCore
          * its other filtering checks. It does not mean the request is automatically allowed.
          * Times 123, 124, and 125 are illustrative; the age limit comes from maxAgeSeconds.
          *
+         * Before allowing scdn.cnbc.com, check that:
+         *
+         *   1. First moment, App Proxy:
+         *      Request: scdn.cnbc.com
+         *      Saved parent: www.cnbc.com
+         *      Mapping at this time: CNBC includes scdn.cnbc.com
+         *      Result: save a recent observation.
+         *
+         *   2. That saved observation is still recent.
+         *
+         *   3. Second moment, content filter:
+         *      Read that saved observation.
+         *      Check the mapping again.
+         *      This later check only matters if the mapping changed after step 1.
+         *
+         * If these checks pass and our filter rules allow CNBC,
+         * then scdn.cnbc.com is also allowed.
+         *
+         * These checks do not prove that CNBC caused this request.
+         * Another Safari tab could open scdn.cnbc.com directly,
+         * and it would still be allowed while these checks pass.
+         *
          * Example input after CNBC saves two child observations:
          *
          * ```json
