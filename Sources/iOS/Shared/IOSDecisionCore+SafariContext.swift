@@ -28,13 +28,16 @@ import GetBoredCore
         // MARK: - Safari Parent-Child Context
 
         /**
-         * Clean one saved Safari page record.
-         * Example: keep parent www.cnbc.com and its children, drop empty names.
+         * Clean one saved Safari page.
+         *
+         * Example: keep www.cnbc.com, plus scdn.cnbc.com and img.connatix.com.
+         * Drop empty names and do not list CNBC as its own child.
          */
         public static func normalizedActivePageContext(
             parentDomain: String?, childDomains: [String], url: String,
             receivedAtSwiftRefSeconds: Double
         ) -> ActivePageContext? {
+            // Example: keep www.cnbc.com. An empty parent is not a saved page.
             guard let parent = normalizeHost(parentDomain), !parent.isEmpty else { return nil }
             return ActivePageContext(
                 parentDomain: parent,
@@ -43,6 +46,12 @@ import GetBoredCore
                         .sorted()),
                 url: url, receivedAt: receivedAtSwiftRefSeconds)
         }
+        /**
+         * Read an older Safari extension message.
+         *
+         * Example: parent www.cnbc.com, children scdn.cnbc.com and img.connatix.com.
+         * If the parent is missing, ignore the message.
+         */
         public static func activePageContextFromLegacyPayloadJSON(
             _ json: String?, receivedAtSwiftRefSeconds: Double
         ) -> ActivePageContext? {
@@ -56,12 +65,15 @@ import GetBoredCore
         }
         /**
          * Clean one App Proxy observation.
+         *
          * Example: child scdn.cnbc.com, parent www.cnbc.com, time 123.
+         * If either name is missing, drop it.
          */
         public static func normalizedFlowObservation(
             requestHost: String?, parentDomain: String?, decision: String, endpoint: String,
             observedAtSwiftRefSeconds: Double
         ) -> FlowObservation? {
+            // Example: scdn.cnbc.com under www.cnbc.com. Missing either name drops it.
             guard let host = normalizeHost(requestHost), !host.isEmpty,
                 let parent = normalizeHost(parentDomain), !parent.isEmpty
             else { return nil }
@@ -303,14 +315,16 @@ import GetBoredCore
             return result
         }
         /**
-         * Add newly seen children under CNBC without removing earlier ones.
+         * Remember a new CNBC child without forgetting the old ones.
          *
-         * Example: CNBC already has scdn.cnbc.com. The extension now also
-         * reports img.connatix.com. Keep both names under www.cnbc.com.
+         * Example: CNBC already has scdn.cnbc.com.
+         * The extension now also reports img.connatix.com.
+         * Keep both.
          */
         public static func parentChildUpdatedRegistryJSON(
             registryJson: String?, parentDomain: String, childDomains: [String]
         ) -> String? {
+            // Example parent: www.cnbc.com. An empty parent leaves the old list as-is.
             guard let parent = normalizeHost(parentDomain), !parent.isEmpty else { return registryJson }
             var entries = registry(registryJson)
             entries[parent, default: []].formUnion(
@@ -322,8 +336,8 @@ import GetBoredCore
         }
         public static func isValidParentChildMapJSON(_ json: String) -> Bool { decodeMap(json) != nil }
         /**
-         * Build the older Safari extension payload for one parent page.
-         * Example parent: www.cnbc.com, children: scdn.cnbc.com and img.connatix.com.
+         * Build the older Safari extension message for one parent page.
+         * Example: parent www.cnbc.com, children scdn.cnbc.com and img.connatix.com.
          */
         public static func parentChildLegacyPayload(
             parentDomain: String, childDomains: [String], url: String, receivedAtSwiftRefSeconds: Double
@@ -376,7 +390,7 @@ import GetBoredCore
             guard let json, let data = json.data(using: .utf8) else { return nil }
             return try? JSONSerialization.jsonObject(with: data)
         }
-        /// Read the saved parent page. Missing or broken data means no saved parent.
+        /// Read the saved parent, for example www.cnbc.com. Missing data means no saved parent.
         private static func decodeContext(_ json: String?) -> ActivePageContext? {
             guard let json, let data = json.data(using: .utf8),
                 let context = try? JSONDecoder().decode(Context.self, from: data)
@@ -392,7 +406,7 @@ import GetBoredCore
          *   scdn.cnbc.com at time 123
          *   img.connatix.com at time 124
          *
-         * Missing, unreadable, or wrong-version data returns an empty list.
+         * If this data is missing or unreadable, return an empty list.
          * An empty list is not permission to allow a child.
          */
         private static func decodeFlowObservations(_ json: String?) -> [FlowObservation] {
@@ -406,15 +420,17 @@ import GetBoredCore
                     decision: $0.decision, endpoint: $0.endpoint, observedAt: $0.observedAt)
             }
         }
-        /// Read the prepared server mapping. Wrong version or broken data means no mapping.
+        /// Read the prepared server mapping. Missing or unreadable data means there is none.
         private static func decodeMap(_ json: String?) -> Map? {
             guard let json, let data = json.data(using: .utf8),
                 let map = try? JSONDecoder().decode(Map.self, from: data), map.schemaVersion == 1
             else { return nil }
             return map
         }
-        /// Children listed for one parent in the prepared server mapping.
-        /// Example: www.cnbc.com -> scdn.cnbc.com and img.connatix.com.
+        /**
+         * Children listed for CNBC in the prepared server mapping.
+         * Example: scdn.cnbc.com and img.connatix.com.
+         */
         private static func mapChildren(_ json: String?, parent: String) -> Set<String>? {
             guard let map = decodeMap(json) else { return nil }
             var result = Set<String>()
@@ -426,7 +442,10 @@ import GetBoredCore
             }
             return result
         }
-        /// Children previously registered by the Safari extension, grouped by parent.
+        /**
+         * Children previously registered by the Safari extension.
+         * Example: www.cnbc.com lists scdn.cnbc.com and img.connatix.com.
+         */
         private static func registry(_ json: String?) -> [String: Set<String>] {
             guard let object = jsonObject(json) as? [String: Any] else { return [:] }
             var result: [String: Set<String>] = [:]
