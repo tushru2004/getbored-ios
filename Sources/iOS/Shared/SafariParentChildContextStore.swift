@@ -36,11 +36,12 @@ import GetBoredCore
         private static let eventDateFormatter = ISO8601DateFormatter()
         private static let maxEventLength = 512
 
-        // Serializes the complete v2 save read-modify-write so concurrent child flows
-        // do not overwrite the shared collection; only the App Proxy writes observations.
+        // One save at a time, so two CNBC children cannot overwrite each other.
+        // Only the App Proxy writes this list.
         private static let flowObservationsQueue = DispatchQueue(
             label: "com.getbored.SafariParentChildContextStore.flowObservations")
 
+        // Saved list of recent matches, for example CNBC -> scdn.cnbc.com.
         private struct FlowObservationsWrapper: Codable {
             let schemaVersion: Int
             let observations: [FlowObservation]
@@ -383,34 +384,24 @@ import GetBoredCore
             defaults.set(events, forKey: Self.legacyFlowLogKey)
         }
 
+        /// Read the saved recent matches, for example scdn.cnbc.com and img.connatix.com.
         private func loadFlowObservationJson() -> String? {
             guard let data = defaults?.data(forKey: Self.flowObservationsDataKey) else { return nil }
             return String(data: data, encoding: .utf8)
         }
 
         /**
-         * Returns the active context as JSON in the decision core's expected shape.
+         * Read the saved parent page as text the decision core can use.
          *
-         * Call flow:
-         *
-         *   v1 key present → decode Data → UTF-8 string (already Codable JSON)
-         *           │
-         *           └── v1 key absent → legacy path:
-         *                   │
-         *                   ▼
-         *               loadActiveContext()   ← triggers the v1→legacy fallback itself
-         *               encoder.encode(context)  ← re-encodes into Codable shape
-         *               return UTF-8 string
-         *
-         * The re-encode step is necessary because the legacy storage format (debug payload dict)
-         * doesn't match the current Codable schema — this function normalizes it.
+         * Example: www.cnbc.com, with children scdn.cnbc.com and img.connatix.com.
+         * If the newer saved copy is missing, convert the older copy into the same shape.
          */
         private func loadActiveContextJSON() -> String? {
             if let data = defaults?.data(forKey: Self.activeContextDataKey) {
                 return String(data: data, encoding: .utf8)
             }
 
-            // Legacy storage uses the debug payload shape; the decision core expects Codable JSON.
+            // Older copies used a different shape. Convert them so the decision core can still read CNBC.
             guard let context = loadActiveContext(),
                 let data = try? encoder.encode(context)
             else {
@@ -419,6 +410,7 @@ import GetBoredCore
             return String(data: data, encoding: .utf8)
         }
 
+        /// Read the prepared server mapping, for example CNBC -> scdn.cnbc.com.
         private func loadParentChildMapJson() -> String? {
             if let data = defaults?.data(forKey: Self.parentChildMapKey) {
                 return String(data: data, encoding: .utf8)
@@ -427,26 +419,12 @@ import GetBoredCore
         }
 
         /**
-         * Three-tier fallback that handles the registry's storage format evolution.
+         * Read the remembered children for each parent, for example:
+         *   www.cnbc.com lists scdn.cnbc.com and img.connatix.com.
          *
-         *   Tier 1: stored as String (current write path via updateRegistry)
-         *   Tier 2: stored as Data  (earlier write path that encoded to JSON bytes)
-         *   Tier 3: stored as NSDictionary (oldest path that used UserDefaults native dict)
-         *           → compactMapValues to [String: [String]], then re-serialise to JSON
-         *
-         * All three tiers normalize to the same JSON string for the decision core.
-         *
-         * Call flow:
-         *
-         *   parent-child decision calls loadRegistryJson()
-         *           │
-         *           ├── current String value exists → return it unchanged
-         *           ├── earlier Data value exists    → decode UTF-8 → return JSON string
-         *           │
-         *           └── oldest dictionary value exists
-         *                   ├── retain only [String] child arrays
-         *                   ├── serialize the typed dictionary to JSON
-         *                   └── return JSON string, or nil if serialization fails
+         * Older app versions saved this list in different shapes.
+         * Try the current text copy first, then older copies, and convert them
+         * into the same text so the decision core can still read CNBC's children.
          */
         private func loadRegistryJson() -> String? {
             if let json = defaults?.string(forKey: Self.legacyParentChildRegistryKey) {
@@ -485,6 +463,7 @@ import GetBoredCore
             defaults.set(updated, forKey: Self.legacyParentChildRegistryKey)
         }
 
+        /// Older inspector copy of the saved page, for example www.cnbc.com.
         private func legacyPayload(for context: ActivePageContext) -> [String: Any] {
             IOSDecisionCore.parentChildLegacyPayload(
                 parentDomain: context.parentDomain,
