@@ -30,9 +30,21 @@ import GetBoredCore
 
         static let activeContextDataKey = "safari_parent_child_active_context_v1"
         static let flowObservationDataKey = "safari_parent_child_flow_observation_v1"
+        static let flowObservationsDataKey = "safari_parent_child_flow_observations_v2"
+        static let flowObservationsMaxCount = 64
         static let parentChildMapKey = GetBoredIdentifiers.SafariParentChild.parentChildMapKey
         private static let eventDateFormatter = ISO8601DateFormatter()
         private static let maxEventLength = 512
+
+        // Serializes the complete v2 save read-modify-write so concurrent child flows
+        // do not overwrite the shared collection; only the App Proxy writes observations.
+        private static let flowObservationsQueue = DispatchQueue(
+            label: "com.getbored.SafariParentChildContextStore.flowObservations")
+
+        private struct FlowObservationsWrapper: Codable {
+            let schemaVersion: Int
+            let observations: [FlowObservation]
+        }
 
         private let defaults: UserDefaults?
         private let encoder = JSONEncoder()
@@ -225,9 +237,15 @@ import GetBoredCore
         }
 
         /**
-         * Persists the most recent parent↔child flow decision so later
-         * `allowedSafariParentForChild` lookups can reason about what was just
-         * observed. Single-slot (not a log) — each save overwrites the previous.
+         * Persists parent↔child flow observations as a v2 collection so concurrent
+         * child flows do not overwrite each other. Only the App Proxy writes
+         * observations. The serialized save removes any existing exact
+         * normalized-host record, appends the new record, keeps the newest 64
+         * by observedAt, and writes the whole v2 object once.
+         *
+         * Stored v2 shape: `{ "schemaVersion": 2, "observations": [FlowObservation...] }`
+         * Missing, wrong-schema, or corrupt v2 decodes as no observations; the
+         * next valid save replaces it with valid v2 data. No age pruning during save.
          *
          * Call flow:
          *
@@ -237,9 +255,12 @@ import GetBoredCore
          *           │
          *           ├── IOSDecisionCore.normalizedFlowObservation(...) == nil → return  (invalid input dropped)
          *           │
-         *           └── normalized → encode FlowObservation
-         *                   ├── encode fails → return  (no write)
-         *                   └── encode ok → defaults[flowObservationDataKey] = data → synchronize()
+         *           └── normalized → serial queue sync → read-modify-write v2 collection
+         *                   ├── decode existing v2 (schemaVersion 2) or start empty on failure
+         *                   ├── remove existing record with same normalized requestHost
+         *                   ├── append new FlowObservation
+         *                   ├── sort by observedAt, keep newest 64
+         *                   └── encode wrapper once → defaults[flowObservationsDataKey] = data → synchronize()
          */
         func saveFlowObservation(
             requestHost: String, parentDomain: String, decision: String, endpoint: String,
@@ -267,26 +288,49 @@ import GetBoredCore
                 endpoint: normalized.endpoint,
                 observedAt: Date(timeIntervalSinceReferenceDate: normalized.observedAt)
             )
-            if let data = try? encoder.encode(observation) {
-                defaults.set(data, forKey: Self.flowObservationDataKey)
-                defaults.synchronize()
+            Self.flowObservationsQueue.sync {
+                let decoder = JSONDecoder()
+                let encoder = JSONEncoder()
+                var existing: [FlowObservation] = []
+                if let data = defaults.data(forKey: Self.flowObservationsDataKey),
+                    let wrapper = try? decoder.decode(
+                        FlowObservationsWrapper.self, from: data),
+                    wrapper.schemaVersion == 2
+                {
+                    existing = wrapper.observations
+                }
+                existing.removeAll { $0.requestHost == observation.requestHost }
+                existing.append(observation)
+                existing.sort { $0.observedAt < $1.observedAt }
+                if existing.count > Self.flowObservationsMaxCount {
+                    existing = Array(existing.suffix(Self.flowObservationsMaxCount))
+                }
+                let wrapper = FlowObservationsWrapper(schemaVersion: 2, observations: existing)
+                if let data = try? encoder.encode(wrapper) {
+                    defaults.set(data, forKey: Self.flowObservationsDataKey)
+                    defaults.synchronize()
+                }
             }
         }
 
         /**
-         * Looks up a recent Safari parent for a child-domain decision.
+         * Looks up a recent Safari parent for a child-domain decision using the
+         * v2 observation collection. The parameter receives v2 collection JSON
+         * (`{ schemaVersion: 2, observations: [...] }`) even though the name
+         * remains singular for source compatibility.
          *
          * Call flow:
          *
          *   AppProxy or FlowInspector calls allowedSafariParentForChild(requestHost:...)
          *           │
-         *           ├── loadFlowObservationJson()     → last observed parent↔child flow
+         *           ├── loadFlowObservationJson()     → v2 observation collection JSON
          *           ├── loadActiveContextJSON()       → current page context (v1 or legacy re-encoded)
          *           ├── loadParentChildMapJson()       → server-pushed static map
          *           └── loadRegistryJson()             → accumulated runtime registry
          *                   │
          *                   ▼
          *               IOSDecisionCore.allowedSafariParentForChild(
+         *                   flowObservationJson: v2 collection JSON,
          *                   ...,
          *                   requestHost: requestHost,
          *                   maxAgeSeconds: maxAge,      ← caller controls staleness window
@@ -294,11 +338,11 @@ import GetBoredCore
          *                   using: loadedFilterRules
          *               )
          *                   │
-         *                   ├── nil  → no usable parent context
+         *                   ├── nil  → no eligible v2 observation
          *                   └── decision → caller applies the returned allow result
          *
-         * `maxAge` is the staleness window: if the active context is older than maxAge seconds
-         * the decision core returns nil, preventing stale context from allowing unrelated requests.
+         * `maxAge` is the staleness window: if the eligible observation is older than maxAge seconds
+         * the decision core returns nil, preventing stale observations from allowing unrelated requests.
          */
         func allowedSafariParentForChild(
             _ requestHost: String,
@@ -348,7 +392,7 @@ import GetBoredCore
         }
 
         private func loadFlowObservationJson() -> String? {
-            guard let data = defaults?.data(forKey: Self.flowObservationDataKey) else { return nil }
+            guard let data = defaults?.data(forKey: Self.flowObservationsDataKey) else { return nil }
             return String(data: data, encoding: .utf8)
         }
 

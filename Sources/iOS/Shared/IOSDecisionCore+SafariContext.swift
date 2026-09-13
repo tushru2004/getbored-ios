@@ -71,14 +71,23 @@ import GetBoredCore
         }
 
         /**
-         * Call flow:
+         * Call flow (v2 collection):
          *
-         *   request host + saved observation
-         *       ├── missing/not a child match → no decision
+         *   request host + v2 observation collection JSON
+         *       ├── decode v2 wrapper `{ schemaVersion: 2, observations: [...] }`
+         *       │   (missing/wrong-schema/corrupt → no observations → no decision)
+         *       ├── filter observations: exact normalized host equality,
+         *       │   decision == "matchActiveChild", parent == active context parent,
+         *       │   age in inclusive 0...maxAgeSeconds
+         *       ├── pick freshest eligible observation by observedAt
+         *       │   └── none eligible → no decision
          *       ▼
-         *   validate age + active context + merged children
+         *   validate merged children + allowlist
          *       ├── parent listed → allow child
          *       └── parent not listed → reject child
+         *
+         * flowObservationJson receives v2 collection JSON (parameter name stays
+         * singular for source compatibility).
          */
         public static func allowedSafariParentForChild(
             flowObservationJson: String?, activeContextJson: String?, parentChildMapJson: String?,
@@ -87,13 +96,22 @@ import GetBoredCore
             using rules: LoadedFilterRules
         ) -> AllowedSafariParentDecision? {
             guard let host = normalizeHost(requestHost), !host.isEmpty,
-                let observation = decodeObservation(flowObservationJson),
-                observation.decision == "matchActiveChild",
-                hostMatchesDomain(host, domain: observation.requestHost)
+                let context = decodeContext(activeContextJson)
             else { return nil }
+            let observations = decodeFlowObservations(flowObservationJson)
+            let eligible = observations.filter { obs in
+                guard obs.decision == "matchActiveChild",
+                    obs.requestHost == host,
+                    obs.parentDomain == context.parentDomain
+                else { return false }
+                let age = nowEpochSeconds - obs.observedAt
+                return age >= 0 && age <= maxAgeSeconds
+            }
+            guard let observation = eligible.max(by: { $0.observedAt < $1.observedAt }) else {
+                return nil
+            }
             let age = nowEpochSeconds - observation.observedAt
-            guard age >= 0, age <= maxAgeSeconds, let context = decodeContext(activeContextJson),
-                context.parentDomain == observation.parentDomain,
+            guard
                 parentChildMergedChildren(
                     parentChildMapJson: parentChildMapJson, activeContextJson: activeContextJson,
                     registryJson: registryJson, parentDomain: observation.parentDomain
@@ -183,6 +201,10 @@ import GetBoredCore
             let endpoint: String
             let observedAt: Double
         }
+        private struct FlowObservationsWrapper: Codable {
+            let schemaVersion: Int
+            let observations: [Observation]
+        }
         private struct Map: Decodable {
             let schemaVersion: Int
             let rules: [Rule]
@@ -211,14 +233,16 @@ import GetBoredCore
                 parentDomain: context.parentDomain, childDomains: context.childDomains,
                 url: context.url, receivedAt: context.receivedAt)
         }
-        private static func decodeObservation(_ json: String?) -> FlowObservation? {
+        private static func decodeFlowObservations(_ json: String?) -> [FlowObservation] {
             guard let json, let data = json.data(using: .utf8),
-                let observation = try? JSONDecoder().decode(Observation.self, from: data)
-            else { return nil }
-            return FlowObservation(
-                requestHost: observation.requestHost, parentDomain: observation.parentDomain,
-                decision: observation.decision, endpoint: observation.endpoint,
-                observedAt: observation.observedAt)
+                let wrapper = try? JSONDecoder().decode(FlowObservationsWrapper.self, from: data),
+                wrapper.schemaVersion == 2
+            else { return [] }
+            return wrapper.observations.map {
+                FlowObservation(
+                    requestHost: $0.requestHost, parentDomain: $0.parentDomain,
+                    decision: $0.decision, endpoint: $0.endpoint, observedAt: $0.observedAt)
+            }
         }
         private static func decodeMap(_ json: String?) -> Map? {
             guard let json, let data = json.data(using: .utf8),
