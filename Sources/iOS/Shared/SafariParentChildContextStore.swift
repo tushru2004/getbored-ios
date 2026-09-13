@@ -237,57 +237,61 @@ import GetBoredCore
         }
 
         /**
-         * Persists parent↔child flow observations as a v2 collection so concurrent
-         * child flows do not overwrite each other. Only the App Proxy writes
-         * observations. The serialized save removes any existing exact
-         * normalized-host record, appends the new record, keeps the newest 64
-         * by observedAt, and writes the whole v2 object once.
+         * Save a recent CNBC child match without erasing the other one.
+         * Only the App Proxy writes this list.
          *
-         * Stored v2 shape: `{ "schemaVersion": 2, "observations": [FlowObservation...] }`
-         * Missing, wrong-schema, or corrupt v2 decodes as no observations; the
-         * next valid save replaces it with valid v2 data. No age pruning during save.
+         * Example: img.connatix.com was saved at time 123.
+         * Now Safari matches scdn.cnbc.com to CNBC at time 124.
          *
-         * Example after CNBC saves two child hosts:
+         *          |
+         *          ▼
          *
-         * ```json
+         *   Can we save anything right now?
+         *
+         *          ├── no shared storage  →  stop
+         *          ├── child or parent name is missing  →  stop
+         *          |
+         *          ▼
+         *
+         *   Read the saved list.
+         *
+         *          ├── none, or unreadable  →  start empty
+         *          |
+         *          ▼ Yes, the list currently has:
+         *            img.connatix.com at time 123
+         *
+         *   If scdn.cnbc.com is already in the list, replace that old match.
+         *   Then add the new scdn.cnbc.com match at time 124.
+         *
+         *   The saved list is now:
+         *     img.connatix.com at time 123
+         *     scdn.cnbc.com at time 124
+         *
+         *   If more than 64 matches are saved, keep only the newest 64.
+         *   Save the whole list once.
+         *
+         * Saving scdn.cnbc.com does not erase img.connatix.com.
+         * A later filter check can still find either child.
+         *
          * {
          *   "schemaVersion": 2,
          *   "observations": [
          *     {
          *       "parentDomain": "www.cnbc.com",
-         *       "requestHost": "scdn.cnbc.com",
+         *       "requestHost": "img.connatix.com",
          *       "decision": "matchActiveChild",
-         *       "endpoint": "scdn.cnbc.com:443",
+         *       "endpoint": "img.connatix.com:443",
          *       "observedAt": 123
          *     },
          *     {
          *       "parentDomain": "www.cnbc.com",
-         *       "requestHost": "img.connatix.com",
+         *       "requestHost": "scdn.cnbc.com",
          *       "decision": "matchActiveChild",
-         *       "endpoint": "img.connatix.com:443",
+         *       "endpoint": "scdn.cnbc.com:443",
          *       "observedAt": 124
          *     }
          *   ]
          * }
-         * ```
-         *
-         * Saving `img.connatix.com` leaves the earlier `scdn.cnbc.com`
-         * observation available for a later content-filter lookup.
-         *
-         * Call flow:
-         *
-         *   shouldRelayFlow (decision.shouldSaveFlowObservation) → saveFlowObservation(...)
-         *           │
-         *           ├── defaults nil → return
-         *           │
-         *           ├── IOSDecisionCore.normalizedFlowObservation(...) == nil → return  (invalid input dropped)
-         *           │
-         *           └── normalized → serial queue sync → read-modify-write v2 collection
-         *                   ├── decode existing v2 (schemaVersion 2) or start empty on failure
-         *                   ├── remove existing record with same normalized requestHost
-         *                   ├── append new FlowObservation
-         *                   ├── sort by observedAt, keep newest 64
-         *                   └── encode wrapper once → defaults[flowObservationsDataKey] = data → synchronize()
          */
         func saveFlowObservation(
             requestHost: String, parentDomain: String, decision: String, endpoint: String,
