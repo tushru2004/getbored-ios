@@ -247,6 +247,33 @@ import GetBoredCore
          * Missing, wrong-schema, or corrupt v2 decodes as no observations; the
          * next valid save replaces it with valid v2 data. No age pruning during save.
          *
+         * Example after CNBC saves two child hosts:
+         *
+         * ```json
+         * {
+         *   "schemaVersion": 2,
+         *   "observations": [
+         *     {
+         *       "parentDomain": "www.cnbc.com",
+         *       "requestHost": "scdn.cnbc.com",
+         *       "decision": "matchActiveChild",
+         *       "endpoint": "scdn.cnbc.com:443",
+         *       "observedAt": 123
+         *     },
+         *     {
+         *       "parentDomain": "www.cnbc.com",
+         *       "requestHost": "img.connatix.com",
+         *       "decision": "matchActiveChild",
+         *       "endpoint": "img.connatix.com:443",
+         *       "observedAt": 124
+         *     }
+         *   ]
+         * }
+         * ```
+         *
+         * Saving `img.connatix.com` leaves the earlier `scdn.cnbc.com`
+         * observation available for a later content-filter lookup.
+         *
          * Call flow:
          *
          *   shouldRelayFlow (decision.shouldSaveFlowObservation) → saveFlowObservation(...)
