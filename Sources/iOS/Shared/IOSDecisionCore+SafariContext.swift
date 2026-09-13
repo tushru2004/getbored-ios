@@ -74,11 +74,26 @@ import GetBoredCore
          * Can the current Safari page load this dependency?
          * Follow one example: CNBC requests scdn.cnbc.com after both hosts below were saved.
          *
-         *   Request: scdn.cnbc.com; saved current page: www.cnbc.com
-         *       ├── request host or current-page record is unusable → no special allowance
-         *       └── both are usable
-         *               │
-         *               ▼
+         *   Safari requests scdn.cnbc.com as a possible child dependency.
+         *   Before checking whether it is allowed, we need two pieces of information:
+         *     1. Requested child host: scdn.cnbc.com.
+         *     2. Saved parent page: www.cnbc.com, supplied by the Safari extension.
+         *        Example: when you opened CNBC, the extension saved it as the parent.
+         *       │
+         *       ▼
+         *   Can we read the requested child host?
+         *       ├── no → no special allowance; continue normal filtering checks
+         *       │
+         *       ▼ Yes: child host = scdn.cnbc.com
+         *   Can we read the parent page saved by the Safari extension?
+         *       ├── missing or unreadable → no special allowance; continue normal checks
+         *       │
+         *       ▼ Yes: saved parent = www.cnbc.com
+         *   We now have a possible parent-child pair, not permission to allow the child.
+         *   The saved parent is not proof of which tab sent this request; another tab
+         *   may have replaced it. Next: check the saved evidence linking this child to CNBC.
+         *       │
+         *       ▼
          *   Read the saved collection (the version-2 JSON example below)
          *       ├── missing, unreadable, or wrong version → no special allowance
          *       └── contains scdn.cnbc.com at time 123 and img.connatix.com at time 124
