@@ -86,6 +86,33 @@ import GetBoredCore
          *       ├── parent listed → allow child
          *       └── parent not listed → reject child
          *
+         * Example input after CNBC saves two child observations:
+         *
+         * ```json
+         * {
+         *   "schemaVersion": 2,
+         *   "observations": [
+         *     {
+         *       "parentDomain": "www.cnbc.com",
+         *       "requestHost": "scdn.cnbc.com",
+         *       "decision": "matchActiveChild",
+         *       "endpoint": "scdn.cnbc.com:443",
+         *       "observedAt": 123
+         *     },
+         *     {
+         *       "parentDomain": "www.cnbc.com",
+         *       "requestHost": "img.connatix.com",
+         *       "decision": "matchActiveChild",
+         *       "endpoint": "img.connatix.com:443",
+         *       "observedAt": 124
+         *     }
+         *   ]
+         * }
+         * ```
+         *
+         * A lookup with `requestHost: "scdn.cnbc.com"` selects the first exact-host
+         * observation. The newer `img.connatix.com` observation does not hide it.
+         *
          * flowObservationJson receives v2 collection JSON (parameter name stays
          * singular for source compatibility).
          */
