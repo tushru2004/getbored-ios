@@ -71,85 +71,85 @@ import GetBoredCore
         }
 
         /**
-         * Can this requested child host be allowed under the saved parent page's rules?
-         * Follow one example: Safari requests scdn.cnbc.com and the saved parent is CNBC.
+         * Decide whether Safari may load scdn.cnbc.com under the saved CNBC parent.
          *
-         *   Safari requests scdn.cnbc.com as a possible child dependency.
-         *   Before checking whether it is allowed, we need two pieces of information:
-         *     1. Requested child host: scdn.cnbc.com.
-         *     2. Saved parent page: www.cnbc.com, supplied by the Safari extension.
-         *        Example: when you opened CNBC, the extension saved it as the parent.
-         *       │
-         *       ▼
-         *   Can we read the requested child host?
-         *       ├── no → no special allowance; continue normal filtering checks
-         *       │
-         *       ▼ Yes: child host = scdn.cnbc.com
-         *   Can we read the parent page saved by the Safari extension?
-         *       ├── missing or unreadable → no special allowance; continue normal checks
-         *       │
-         *       ▼ Yes: saved parent = www.cnbc.com
-         *   We now know the requested child and the saved parent to check.
-         *   Next: check whether this child is registered under CNBC and CNBC is approved.
-         *   These checks establish permission, not proof that CNBC caused this request.
-         *   Neither this implementation nor the current plan proves which tab sent it.
-         *   Our policy accepts direct or other-tab requests to registered children while
-         *   the approved parent's context and the child's observation pass these checks.
-         *       │
-         *       ▼
-         *   Read the saved collection (the version-2 JSON example below)
-         *       ├── missing, unreadable, or wrong version → no special allowance
-         *       └── contains scdn.cnbc.com at time 123 and img.connatix.com at time 124
-         *               │
-         *               ▼
-         *   Look for a saved observation for this exact child host and saved parent
-         *       │   scdn.cnbc.com: keep only if its parent is www.cnbc.com,
-         *       │     the proxy recorded a child match (matchActiveChild), and it is recent.
-         *       │     Example: now 125 - saved 123 = 2 seconds old; limit 10 → recent.
-         *       │     A record dated in the future is not accepted either.
-         *       │   img.connatix.com: skip; it is newer, but it is a different host.
-         *       ├── no record passes these checks → no special allowance
-         *       └── a record passes → use it (the newest one if several pass)
-         *               │
-         *               ▼
-         *   Is scdn.cnbc.com still in CNBC's dependency list?
-         *       ├── no → no special allowance
-         *       └── yes
-         *               │
-         *               ▼
-         *   Does the site's rule list approve www.cnbc.com?
-         *       ├── yes → return an allow decision for scdn.cnbc.com
-         *       └── no → return a rejection because the parent is not approved
+         * Before checking whether it is allowed, we need two pieces of information:
+         *   1. Requested child: scdn.cnbc.com, from the network request.
+         *   2. Saved parent: www.cnbc.com, from the Safari extension.
+         *      When you opened CNBC, the extension saved that parent address.
          *
-         * "No special allowance" means this function returns nil; the caller continues
-         * its other filtering checks. It does not mean the request is automatically allowed.
-         * Times 123, 124, and 125 are illustrative; the age limit comes from maxAgeSeconds.
+         *          |
+         *          ▼
          *
-         * Before allowing scdn.cnbc.com, check that:
+         *   Can we read the requested child?
          *
-         *   1. First moment, App Proxy:
-         *      Request: scdn.cnbc.com
-         *      Saved parent: www.cnbc.com
-         *      Mapping at this time: CNBC includes scdn.cnbc.com
-         *      Result: save a recent observation.
+         *          ├── no  →  continue normal filtering checks
+         *          |
+         *          ▼
          *
-         *   2. That saved observation is still recent.
+         *          Yes: scdn.cnbc.com
          *
-         *   3. Second moment, content filter:
-         *      Read that saved observation.
-         *      Check the mapping again.
-         *      This later check only matters if the mapping changed after step 1.
+         *   Can we read the saved parent?
+         *
+         *          ├── no  →  continue normal filtering checks
+         *          |
+         *          ▼
+         *
+         *          Yes: www.cnbc.com
+         *
+         *   We now have the child and the parent to check.
+         *   That is not permission yet.
+         *
+         *          |
+         *          ▼
+         *
+         *   First moment, App Proxy:
+         *     Request: scdn.cnbc.com
+         *     Saved parent: www.cnbc.com
+         *     Mapping at this time: CNBC includes scdn.cnbc.com
+         *     Result: save a recent observation.
+         *     Keep both recent children:
+         *       scdn.cnbc.com at time 123
+         *       img.connatix.com at time 124
+         *
+         *          |
+         *          ▼
+         *
+         *   Is the saved observation for scdn.cnbc.com still recent?
+         *     Skip img.connatix.com: newer, but a different child.
+         *
+         *          ├── no matching recent observation  →  continue normal filtering checks
+         *          |
+         *          ▼
+         *
+         *          Yes
+         *
+         *   Second moment, content filter:
+         *     Read that saved observation.
+         *     Check the mapping again: does CNBC currently include scdn.cnbc.com?
+         *     This later check only matters if the mapping changed after the first moment.
+         *
+         *          ├── no  →  continue normal filtering checks
+         *          |
+         *          ▼
+         *
+         *          Yes
+         *
+         *   Do our filter rules allow CNBC?
+         *
+         *          ├── yes  →  allow scdn.cnbc.com
+         *          └── no   →  reject because the parent is not approved
+         *
+         * Returning no special permission means other filtering checks continue.
+         * It does not mean the request is automatically allowed.
          *
          * If these checks pass and our filter rules allow CNBC,
          * then scdn.cnbc.com is also allowed.
-         *
          * These checks do not prove that CNBC caused this request.
          * Another Safari tab could open scdn.cnbc.com directly,
          * and it would still be allowed while these checks pass.
          *
-         * Example input after CNBC saves two child observations:
-         *
-         * ```json
+         * Saved observations after both children were recorded:
          * {
          *   "schemaVersion": 2,
          *   "observations": [
@@ -169,13 +169,9 @@ import GetBoredCore
          *     }
          *   ]
          * }
-         * ```
          *
-         * A lookup with `requestHost: "scdn.cnbc.com"` selects the first exact-host
-         * observation. The newer `img.connatix.com` observation does not hide it.
-         *
-         * flowObservationJson receives v2 collection JSON (parameter name stays
-         * singular for source compatibility).
+         * A later lookup for scdn.cnbc.com uses the first record.
+         * Saving img.connatix.com does not hide it.
          */
         public static func allowedSafariParentForChild(
             flowObservationJson: String?, activeContextJson: String?, parentChildMapJson: String?,
@@ -183,42 +179,39 @@ import GetBoredCore
             requestHost: String, maxAgeSeconds: Double, nowEpochSeconds: Double,
             using rules: LoadedFilterRules
         ) -> AllowedSafariParentDecision? {
-            // Example: the request is scdn.cnbc.com and the saved current page is www.cnbc.com.
-            // Without a usable host and page record, this function cannot grant an allowance.
+            // We need the requested child and the saved parent. Example: scdn.cnbc.com
+            // and www.cnbc.com. Missing either one means no special permission yet.
             guard let host = normalizeHost(requestHost), !host.isEmpty,
                 let context = decodeContext(activeContextJson)
             else { return nil }
-            // The collection contains both scdn.cnbc.com (time 123) and img.connatix.com (124).
-            // Missing or unreadable collection data gives us an empty list, not permission.
+            // First moment already saved both children: scdn.cnbc.com at 123 and
+            // img.connatix.com at 124. Missing data here is an empty list, not permission.
             let observations = decodeFlowObservations(flowObservationJson)
             let eligible = observations.filter { obs in
-                // For this request, scdn.cnbc.com must belong to the current CNBC page
-                // and have been recorded as a child match. Skip img.connatix.com: wrong host.
+                // Keep only a child-match for this exact host and saved parent.
+                // Skip img.connatix.com: newer, but a different child.
                 guard obs.decision == "matchActiveChild",
                     obs.requestHost == host,
                     obs.parentDomain == context.parentDomain
                 else { return false }
-                // Example: now 125 - saved 123 = 2 seconds; a 10-second limit accepts it.
-                // Reject records that are too old or dated in the future.
+                // Example: now 125 minus saved 123 is 2 seconds; a 10-second limit accepts it.
                 let age = nowEpochSeconds - obs.observedAt
                 return age >= 0 && age <= maxAgeSeconds
             }
-            // Use the newest record that passed every check, not the newest record overall.
-            // Here, scdn.cnbc.com at 123 wins; img.connatix.com at 124 was already excluded.
+            // Use the newest matching observation. img.connatix.com was already excluded.
             guard let observation = eligible.max(by: { $0.observedAt < $1.observedAt }) else {
                 return nil
             }
             let age = nowEpochSeconds - observation.observedAt
-            // Saved evidence alone is not enough: CNBC's dependency list must still
-            // include scdn.cnbc.com. Otherwise, return nil and leave other checks to the caller.
+            // Second moment: check the mapping again. This only matters if it changed
+            // after the App Proxy saved the observation.
             guard
                 parentChildMergedChildren(
                     parentChildMapJson: parentChildMapJson, activeContextJson: activeContextJson,
                     registryJson: registryJson, parentDomain: observation.parentDomain
                 ).contains(where: { hostMatchesChildPattern(host, childPattern: $0) })
             else { return nil }
-            // Finally, check CNBC itself. If www.cnbc.com matches the site's rule list,
-            // return an allow decision for scdn.cnbc.com; otherwise return a rejection.
+            // If these checks pass and our rules allow CNBC, allow scdn.cnbc.com too.
             let allowed = matchesSiteRule(
                 observation.parentDomain, siteRules: rules.siteRules.map(\.url))
             let event: String
