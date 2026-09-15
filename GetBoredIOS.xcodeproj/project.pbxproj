@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		0A6797321316119EAA7F2E14 /* SafariParentChildContextStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A6797321316119EAA7F2E11 /* SafariParentChildContextStore.swift */; };
 		0186EB2AE76340AE817DFF4F /* SafariSimulatorUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FECA319772A4BDBBB1DFB04 /* SafariSimulatorUITests.swift */; };
 		05753476881C485990506DE1 /* SafariDeviceUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D615CDD517A423BB7392497 /* SafariDeviceUITests.swift */; };
 		05EAD64A8AE2BCD5EC0AD1FD /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 8E00374ACD51EBAADF87F6CD /* PrivacyInfo.xcprivacy */; };
@@ -20,6 +21,8 @@
 		13CA5AFA787C945F98069E2D /* background.js in Resources */ = {isa = PBXBuildFile; fileRef = D3C2B2DFF9189D73FFBB0547 /* background.js */; };
 		15A4720589D9AEFDFD52A8A4 /* iOSFlowInspector.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = B13C109D52BB8CF4949E1E76 /* iOSFlowInspector.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		20E57F207296D0DF42071525 /* iOSBlockHandler.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = 51FFB3E78FF333C5FA74A95F /* iOSBlockHandler.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		7F5C6111587D688B2BDC73A3 /* SafariChildRegistrationExtension.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = A60E5D972187DF777B271D91 /* SafariChildRegistrationExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		72CAC5544B67011F74286E79 /* SafariAppProxyProvider.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = 59841F631E2C9BFA4D39A6D3 /* SafariAppProxyProvider.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		2C02EB53051A6D7572A6F0E6 /* Sources/iOS/iOSBlockHandler/PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 2A6750D54954AF636FE5875B /* Sources/iOS/iOSBlockHandler/PrivacyInfo.xcprivacy */; };
 		3866DA922000B43E04EFB167 /* IOSRuleStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54405896F6E80832028947EF /* IOSRuleStore.swift */; };
 		443040EDA4807A81C2B76CF1 /* libPods-GetBored iOS.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 971B4EA717467C724F2B0077 /* libPods-GetBored iOS.a */; };
@@ -126,6 +129,20 @@
 			remoteGlobalIDString = 6B8997C3015D473895FC311F;
 			remoteInfo = SafariTestHarness;
 		};
+		7CD70CFED4FB2E42AC4C4CD4 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 1A000000E /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 530DCDF5CC3DF5F5D0F3316D;
+			remoteInfo = SafariChildRegistrationExtension;
+		};
+		CDB9DCAE9FEC16EADFB81614 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 1A000000E /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 629B003C175AB49BE145446F;
+			remoteInfo = SafariAppProxyProvider;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -137,6 +154,8 @@
 			files = (
 				15A4720589D9AEFDFD52A8A4 /* iOSFlowInspector.appex in Embed App Extensions */,
 				20E57F207296D0DF42071525 /* iOSBlockHandler.appex in Embed App Extensions */,
+				7F5C6111587D688B2BDC73A3 /* SafariChildRegistrationExtension.appex in Embed App Extensions */,
+				72CAC5544B67011F74286E79 /* SafariAppProxyProvider.appex in Embed App Extensions */,
 			);
 			name = "Embed App Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -660,6 +679,8 @@
 			dependencies = (
 				3B4796C4AE0342AEE3EF626E /* PBXTargetDependency */,
 				2A19DB638FE97A0283F4C24D /* PBXTargetDependency */,
+				8E94C083B7784275A3153797 /* PBXTargetDependency */,
+				114BABC0F7A04F8F01BAAF5E /* PBXTargetDependency */,
 			);
 			name = "GetBored iOS";
 			packageProductDependencies = (
@@ -927,6 +948,7 @@
 			files = (
 				6D69476D2FBBC22A009321E3 /* FilterStatusModule.m in Sources */,
 				6D1ADAD72FB7C038002D6CBB /* AppDelegate.swift in Sources */,
+				0A6797321316119EAA7F2E14 /* SafariParentChildContextStore.swift in Sources */,
 				3866DA922000B43E04EFB167 /* IOSRuleStore.swift in Sources */,
 				A1B2C3D4E5F60718293A4B5D /* IOSDecisionCore.swift in Sources */,
 				A1B2C3D4E5F60718293A4B66 /* IOSDecisionCore+TrafficParsing.swift in Sources */,
@@ -1059,6 +1081,18 @@
 			name = SafariTestHarness;
 			target = 6B8997C3015D473895FC311F /* SafariTestHarness */;
 			targetProxy = HARNESSPROXY00000000UI002 /* PBXContainerItemProxy */;
+		};
+		8E94C083B7784275A3153797 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = SafariChildRegistrationExtension;
+			target = 530DCDF5CC3DF5F5D0F3316D /* SafariChildRegistrationExtension */;
+			targetProxy = 7CD70CFED4FB2E42AC4C4CD4 /* PBXContainerItemProxy */;
+		};
+		114BABC0F7A04F8F01BAAF5E /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = SafariAppProxyProvider;
+			target = 629B003C175AB49BE145446F /* SafariAppProxyProvider */;
+			targetProxy = CDB9DCAE9FEC16EADFB81614 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 

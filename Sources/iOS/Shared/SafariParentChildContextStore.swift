@@ -1,5 +1,6 @@
 import Foundation
 import GetBoredCore
+import OSLog
 
     struct SafariParentChildContextStore {
         struct ActivePageContext: Codable, Equatable {
@@ -27,12 +28,39 @@ import GetBoredCore
             "safari_extension_spike_active_page_context_cleared_at"
         static let legacyParentChildRegistryKey = "safari_extension_spike_parent_child_registry"
         static let legacyFlowLogKey = "safari_app_proxy_spike_flows"
+        private static let legacySocketExperimentKey = "debug_aws_socket_experiment_v1"
+
+        // The whitelist transport path no longer uses the old Debug switch.
+        // Remove a saved flag left by an earlier device experiment.
+        func clearLegacySocketExperimentFlag() {
+            guard let defaults else { return }
+            defaults.removeObject(forKey: Self.legacySocketExperimentKey)
+            defaults.synchronize()
+            Self.logger.info("SAFARI_TRANSPORT_MIGRATION legacyExperiment=false")
+        }
 
         static let activeContextDataKey = "safari_parent_child_active_context_v1"
         static let flowObservationDataKey = "safari_parent_child_flow_observation_v1"
+        static let flowObservationsDataKey = "safari_parent_child_flow_observations_v2"
+        static let flowObservationsMaxCount = 64
         static let parentChildMapKey = GetBoredIdentifiers.SafariParentChild.parentChildMapKey
         private static let eventDateFormatter = ISO8601DateFormatter()
         private static let maxEventLength = 512
+        private static let logger = Logger(
+            subsystem: GetBoredIdentifiers.Logging.iOS,
+            category: "SafariParentChildContextStore"
+        )
+
+        // One save at a time, so two CNBC children cannot overwrite each other.
+        // Only the App Proxy writes this list.
+        private static let flowObservationsQueue = DispatchQueue(
+            label: "com.getbored.SafariParentChildContextStore.flowObservations")
+
+        // Saved list of recent matches, for example CNBC -> scdn.cnbc.com.
+        private struct FlowObservationsWrapper: Codable {
+            let schemaVersion: Int
+            let observations: [FlowObservation]
+        }
 
         private let defaults: UserDefaults?
         private let encoder = JSONEncoder()
@@ -43,30 +71,26 @@ import GetBoredCore
         }
 
         /**
-         * Call flow:
+         * Save the page the Safari extension just reported.
          *
-         *   Safari extension sends page context → saveActiveContext(...)
-         *           │
-         *           ▼
-         *       IOSDecisionCore.normalizedActivePageContext(...)
-         *           │
-         *           ├── returns nil → return (invalid/empty context, nothing written)
-         *           │
-         *           └── returns normalized context
-         *                   │
-         *                   ├── encode ActivePageContext → defaults[activeContextDataKey]  (v1, typed)
-         *                   │
-         *                   ├── build legacyPayload → defaults[legacyLastMessageKey]       (debug shape)
-         *                   │                      → defaults[legacyActiveContextKey]      (compat read)
-         *                   │                      → defaults[legacyLastMessageDateKey]
-         *                   │                      → defaults[legacyActiveContextDateKey]
-         *                   │
-         *                   ├── updateRegistry(parentDomain:childDomains:)  ← appends to persistent map
-         *                   │
-         *                   └── defaults.synchronize()
+         * Example: you opened CNBC. The extension reports:
+         *   parent: www.cnbc.com
+         *   children: scdn.cnbc.com, img.connatix.com
          *
-         * The typed v1 value is the current read path. Compatibility keys preserve
-         * older stored payloads and the Safari spike inspector.
+         *          |
+         *          ▼
+         *
+         *   Can we save this page?
+         *
+         *          ├── no shared storage  →  stop
+         *          ├── parent name is missing  →  stop
+         *          |
+         *          ▼
+         *
+         *   Save CNBC as the current page.
+         *   Also remember its children so a later request can find them.
+         *
+         *   Keep an older copy too, so the Safari inspector can still read it.
          */
         func saveActiveContext(
             parentDomain: String, childDomains: [String], url: String, receivedAt: Date
@@ -89,6 +113,11 @@ import GetBoredCore
                 receivedAt: receivedAt
             )
 
+#if DEBUG
+            let previousContext = loadActiveContext()
+            let registrationChanged = previousContext?.parentDomain != context.parentDomain
+                || previousContext?.childDomains != context.childDomains
+#endif
             if let data = try? encoder.encode(context) {
                 defaults.set(data, forKey: Self.activeContextDataKey)
             }
@@ -107,31 +136,45 @@ import GetBoredCore
 
             updateRegistry(parentDomain: context.parentDomain, childDomains: context.childDomains)
             defaults.synchronize()
+#if DEBUG
+            // Log changed lists, not every heartbeat. Small batches avoid truncated phone logs.
+            // For AWS, this shows whether d0.m.awsstatic.com was actually registered.
+            if registrationChanged {
+                let children = Array(context.childDomains.prefix(64))
+                let omitted = context.childDomains.count - children.count
+                Self.logger.info(
+                    "REGISTRATION_SNAPSHOT parent=\(context.parentDomain, privacy: .public) total=\(context.childDomains.count, privacy: .public) omitted=\(omitted, privacy: .public) savedAt=\(receivedAt.timeIntervalSinceReferenceDate, privacy: .public)"
+                )
+                for start in stride(from: 0, to: children.count, by: 2) {
+                    let batch = children[start..<min(start + 2, children.count)].joined(separator: ",")
+                    Self.logger.info(
+                        "REGISTRATION_HOSTS parent=\(context.parentDomain, privacy: .public) savedAt=\(receivedAt.timeIntervalSinceReferenceDate, privacy: .public) hosts=\(batch, privacy: .public)"
+                    )
+                }
+            }
+#endif
         }
 
         /**
-         * Removes the active page context, but only when the clearing request
-         * actually owns it. The Safari extension fires a "cleared" probe whenever a
-         * tab unloads; without the parent gate a background tab could wipe context
-         * that a still-active foreground tab depends on.
+         * Clear the saved page, but only if it is the page that closed.
          *
-         * Call flow:
+         * Example: the saved page is www.cnbc.com.
          *
-         *   storeProbe (clear message) → clearActiveContext(clearingParent:)
-         *           │
-         *           ├── defaults nil → return  (no App Group)
-         *           │
-         *           ▼
-         *       IOSDecisionCore.shouldClearActiveContext(activeContextJson:clearingParent:)
-         *           │
-         *           ├── false → return  (clearingParent doesn't match stored parent → keep context)
-         *           │
-         *           └── true → wipe context:
-         *                   ├── remove activeContextDataKey        ← v1 typed
-         *                   ├── remove legacyActiveContextKey       ← compat read
-         *                   ├── remove legacyActiveContextDateKey
-         *                   ├── set legacyActiveContextClearedDateKey = now  ← audit marker for inspector
-         *                   └── defaults.synchronize()
+         *          |
+         *          ▼
+         *
+         *   Which page closed?
+         *
+         *          ├── we cannot tell  →  clear it. Broken data is not kept.
+         *          |
+         *          ▼
+         *
+         *          The saved page is www.cnbc.com.
+         *
+         *   Did CNBC close?
+         *
+         *          ├── yes  →  clear www.cnbc.com
+         *          └── no   →  keep it. Closing Docker must not erase CNBC.
          */
         func clearActiveContext(clearingParent: String?) {
             guard let defaults else { return }
@@ -151,25 +194,8 @@ import GetBoredCore
         }
 
         /**
-         * Call flow:
-         *
-         *   caller calls loadActiveContext()
-         *           │
-         *           ├── v1 key present (activeContextDataKey) → decode → return ActivePageContext
-         *           │
-         *           └── v1 key absent → legacy fallback:
-         *                   │
-         *                   ▼
-         *               IOSDecisionCore.activePageContextFromLegacyPayloadJSON(
-         *                   legacyActiveContextKey,       ← debug-shape JSON string
-         *                   legacyActiveContextDateKey    ← stored Date object
-         *               )
-         *                   │
-         *                   ├── decision core returns nil → return nil
-         *                   └── decision core returns context → wrap in ActivePageContext, return
-         *
-         * The legacy path exists because older app installs wrote the context as a debug
-         * payload dict; the v1 path is the typed Codable encoding introduced later.
+         * Read the saved parent page, for example www.cnbc.com.
+         * If the newer format is missing, fall back to an older saved copy.
          */
         func loadActiveContext() -> ActivePageContext? {
             if let data = defaults?.data(forKey: Self.activeContextDataKey),
@@ -200,20 +226,24 @@ import GetBoredCore
         }
 
         /**
-         * Unions the child domains for `parentDomain` across all three storage
-         * sources so a child registered by any path is honored. The store gathers
-         * the JSON and delegates the pure merge to `IOSDecisionCore`.
+         * Which children does CNBC currently list?
          *
-         * Call flow:
+         * Example parent: www.cnbc.com
          *
-         *   shouldRelayFlow → mergedChildren(for:)
-         *           │
-         *           ├── loadParentChildMapJson()         ← server-pushed static map
-         *           ├── loadActiveContextJSON()          ← current page's childDomains
-         *           ├── loadRegistryJson()               ← accumulated runtime registry
-         *           │
-         *           ▼
-         *       IOSDecisionCore.parentChildMergedChildren(...) → Set<String>
+         *          |
+         *          ▼
+         *
+         *   Does the prepared server list children for CNBC?
+         *
+         *          ├── yes  →  use only that server list
+         *          |
+         *          ▼ No
+         *
+         *   Combine children saved by the Safari extension:
+         *     the current page's children, plus earlier registrations.
+         *
+         * The server list currently replaces the extension list instead of
+         * combining with it. That is a known later concern.
          */
         func mergedChildren(for parentDomain: String) -> Set<String> {
             return IOSDecisionCore.parentChildMergedChildren(
@@ -225,21 +255,61 @@ import GetBoredCore
         }
 
         /**
-         * Persists the most recent parent↔child flow decision so later
-         * `allowedSafariParentForChild` lookups can reason about what was just
-         * observed. Single-slot (not a log) — each save overwrites the previous.
+         * Save a recent CNBC child match without erasing the other one.
+         * Only the App Proxy writes this list.
          *
-         * Call flow:
+         * Example: img.connatix.com was saved at time 123.
+         * Now Safari matches scdn.cnbc.com to CNBC at time 124.
          *
-         *   shouldRelayFlow (decision.shouldSaveFlowObservation) → saveFlowObservation(...)
-         *           │
-         *           ├── defaults nil → return
-         *           │
-         *           ├── IOSDecisionCore.normalizedFlowObservation(...) == nil → return  (invalid input dropped)
-         *           │
-         *           └── normalized → encode FlowObservation
-         *                   ├── encode fails → return  (no write)
-         *                   └── encode ok → defaults[flowObservationDataKey] = data → synchronize()
+         *          |
+         *          ▼
+         *
+         *   Can we save anything right now?
+         *
+         *          ├── no shared storage  →  stop
+         *          ├── child or parent name is missing  →  stop
+         *          |
+         *          ▼
+         *
+         *   Read the saved list.
+         *
+         *          ├── none, or unreadable  →  start empty
+         *          |
+         *          ▼ Yes, the list currently has:
+         *            img.connatix.com at time 123
+         *
+         *   If scdn.cnbc.com is already in the list, replace that old match.
+         *   Then add the new scdn.cnbc.com match at time 124.
+         *
+         *   The saved list is now:
+         *     img.connatix.com at time 123
+         *     scdn.cnbc.com at time 124
+         *
+         *   If more than 64 matches are saved, keep only the newest 64.
+         *   Save the whole list once.
+         *
+         * Saving scdn.cnbc.com does not erase img.connatix.com.
+         * A later filter check can still find either child.
+         *
+         * {
+         *   "schemaVersion": 2,
+         *   "observations": [
+         *     {
+         *       "parentDomain": "www.cnbc.com",
+         *       "requestHost": "img.connatix.com",
+         *       "decision": "matchActiveChild",
+         *       "endpoint": "img.connatix.com:443",
+         *       "observedAt": 123
+         *     },
+         *     {
+         *       "parentDomain": "www.cnbc.com",
+         *       "requestHost": "scdn.cnbc.com",
+         *       "decision": "matchActiveChild",
+         *       "endpoint": "scdn.cnbc.com:443",
+         *       "observedAt": 124
+         *     }
+         *   ]
+         * }
          */
         func saveFlowObservation(
             requestHost: String, parentDomain: String, decision: String, endpoint: String,
@@ -267,38 +337,131 @@ import GetBoredCore
                 endpoint: normalized.endpoint,
                 observedAt: Date(timeIntervalSinceReferenceDate: normalized.observedAt)
             )
-            if let data = try? encoder.encode(observation) {
-                defaults.set(data, forKey: Self.flowObservationDataKey)
+            Self.flowObservationsQueue.sync {
+                let decoder = JSONDecoder()
+                let encoder = JSONEncoder()
+                var existing: [FlowObservation] = []
+                if let data = defaults.data(forKey: Self.flowObservationsDataKey),
+                    let wrapper = try? decoder.decode(
+                        FlowObservationsWrapper.self, from: data),
+                    wrapper.schemaVersion == 2
+                {
+                    existing = wrapper.observations
+                }
+                existing.removeAll { $0.requestHost == observation.requestHost }
+                existing.append(observation)
+                existing.sort { $0.observedAt < $1.observedAt }
+                if existing.count > Self.flowObservationsMaxCount {
+                    existing = Array(existing.suffix(Self.flowObservationsMaxCount))
+                }
+                let wrapper = FlowObservationsWrapper(schemaVersion: 2, observations: existing)
+                if let data = try? encoder.encode(wrapper) {
+                    defaults.set(data, forKey: Self.flowObservationsDataKey)
+                    defaults.synchronize()
+                    Self.logger.info(
+                        "OBSERVATION_SAVED child=\(observation.requestHost, privacy: .public) parent=\(observation.parentDomain, privacy: .public) total=\(existing.count, privacy: .public)"
+                    )
+                }
+            }
+        }
+
+#if DEBUG
+        /// Start a clean AWS test without deleting the synced policy or filter settings.
+        /// Safari must be stopped so a page heartbeat cannot immediately restore the map.
+        func resetSafariTestData() {
+            guard let defaults else { return }
+            let keys = [
+                Self.activeContextDataKey,
+                Self.legacyActiveContextKey,
+                Self.legacyActiveContextDateKey,
+                Self.legacyActiveContextClearedDateKey,
+                Self.legacyLastMessageKey,
+                Self.legacyLastMessageDateKey,
+                Self.legacyParentChildRegistryKey,
+                Self.flowObservationDataKey,
+                Self.flowObservationsDataKey,
+                Self.legacyFlowLogKey,
+            ]
+            Self.flowObservationsQueue.sync {
+                for key in keys { defaults.removeObject(forKey: key) }
                 defaults.synchronize()
+            }
+            let remaining = keys.filter { defaults.object(forKey: $0) != nil }.count
+            Self.logger.info(
+                "REGISTRATION_RESET remainingKeys=\(remaining, privacy: .public) policyPreserved=true"
+            )
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                let observed = keys.filter { defaults.object(forKey: $0) != nil }.count
+                Self.logger.info("REGISTRATION_RESET remainingKeys=\(observed, privacy: .public) policyPreserved=true check=delayed")
             }
         }
 
         /**
-         * Looks up a recent Safari parent for a child-domain decision.
+         * Grafana reports a-us.storyblok.com, then Safari requests that exact host.
+         * Use only the current page's fresh registration; no App Proxy is needed.
          *
-         * Call flow:
+         *   current registration
+         *       │
+         *       ├── missing, expired, or child absent → no special permission
+         *       └── child present → check that the parent is still approved
          *
-         *   AppProxy or FlowInspector calls allowedSafariParentForChild(requestHost:...)
-         *           │
-         *           ├── loadFlowObservationJson()     → last observed parent↔child flow
-         *           ├── loadActiveContextJSON()       → current page context (v1 or legacy re-encoded)
-         *           ├── loadParentChildMapJson()       → server-pushed static map
-         *           └── loadRegistryJson()             → accumulated runtime registry
-         *                   │
-         *                   ▼
-         *               IOSDecisionCore.allowedSafariParentForChild(
-         *                   ...,
-         *                   requestHost: requestHost,
-         *                   maxAgeSeconds: maxAge,      ← caller controls staleness window
-         *                   nowEpochSeconds: now,
-         *                   using: loadedFilterRules
-         *               )
-         *                   │
-         *                   ├── nil  → no usable parent context
-         *                   └── decision → caller applies the returned allow result
+         * Another Safari tab can benefit from the same registration. This does not
+         * prove which tab caused the request. Earlier registry entries are not used.
+         */
+        func allowedSafariParentFromRegistration(
+            _ requestHost: String,
+            using rules: LoadedFilterRules,
+            maxAge: TimeInterval,
+            now: Date = Date()
+        ) -> IOSDecisionCore.AllowedSafariParentDecision? {
+            guard rules.filterMode == .whiteList,
+                let host = IOSDecisionCore.normalizeHost(requestHost), !host.isEmpty,
+                let context = loadActiveContext(),
+                let parent = IOSDecisionCore.normalizeHost(context.parentDomain), !parent.isEmpty
+            else { return nil }
+
+            let age = now.timeIntervalSince(context.receivedAt)
+            guard age >= 0, age <= maxAge else { return nil }
+
+            // A registration for one host does not grant access to its subdomains.
+            let children = Set(context.childDomains.compactMap(IOSDecisionCore.normalizeHost))
+            guard children.contains(host), host != parent else { return nil }
+
+            // Directly approved hosts do not need a dependency permission or its log.
+            guard !IOSDecisionCore.matchesSiteRule(host, using: rules) else { return nil }
+            let allowed = IOSDecisionCore.matchesSiteRule(parent, using: rules)
+            Self.logger.info(
+                "REGISTRATION_USED child=\(host, privacy: .public) parent=\(parent, privacy: .public) allowed=\(allowed, privacy: .public) age=\(age, privacy: .public)"
+            )
+            return IOSDecisionCore.AllowedSafariParentDecision(
+                shouldAllow: allowed, parentDomain: parent, requestHost: host, age: age,
+                event: "REGISTRATION_USED child=\(host) parent=\(parent) allowed=\(allowed)"
+            )
+        }
+#endif
+
+        /**
+         * Decide whether Safari may load scdn.cnbc.com under the saved CNBC parent.
+         * This store gathers the saved data and asks the decision core to decide.
          *
-         * `maxAge` is the staleness window: if the active context is older than maxAge seconds
-         * the decision core returns nil, preventing stale context from allowing unrelated requests.
+         * Example: scdn.cnbc.com, saved parent www.cnbc.com.
+         *
+         *          |
+         *          ▼
+         *
+         *   Gather:
+         *     the saved recent matches,
+         *     the saved parent page,
+         *     the server mapping,
+         *     the earlier registrations.
+         *
+         *   Ask the decision core:
+         *     may scdn.cnbc.com load under www.cnbc.com?
+         *
+         *          ├── no match  →  no special permission
+         *          └── match     →  allow or reject, as the decision core decides
+         *
+         * The age limit controls how old a saved match may be.
          */
         func allowedSafariParentForChild(
             _ requestHost: String,
@@ -306,7 +469,7 @@ import GetBoredCore
             maxAge: TimeInterval,
             now: Date = Date()
         ) -> IOSDecisionCore.AllowedSafariParentDecision? {
-            IOSDecisionCore.allowedSafariParentForChild(
+            let decision = IOSDecisionCore.allowedSafariParentForChild(
                 flowObservationJson: loadFlowObservationJson(),
                 activeContextJson: loadActiveContextJSON(),
                 parentChildMapJson: loadParentChildMapJson(),
@@ -316,24 +479,19 @@ import GetBoredCore
                 nowEpochSeconds: now.timeIntervalSinceReferenceDate,
                 using: loadedFilterRules
             )
+            if let decision {
+                Self.logger.info(
+                    "OBSERVATION_USED child=\(decision.requestHost, privacy: .public) parent=\(decision.parentDomain, privacy: .public) allowed=\(decision.shouldAllow, privacy: .public) age=\(decision.age, privacy: .public)"
+                )
+            }
+            return decision
         }
 
         /**
-         * Appends one timestamped line to the spike event ring buffer that the host
-         * app's inspector tail-reads. `IOSDecisionCore` owns the ring-buffer trim
-         * so every target caps the log identically.
+         * Add one line to the inspector's log.
          *
-         * Call flow:
-         *
-         *   appendEvent(event)
-         *           │
-         *           ├── defaults nil → return
-         *           │
-         *           └── IOSDecisionCore.parentChildAppendEvent(
-         *                   existingEvents: defaults[legacyFlowLogKey],
-         *                   event: event truncated to maxEventLength (512),  ← bounds UserDefaults growth
-         *                   maxEvents: 50)                                   ← drops oldest beyond cap
-         *                   └── defaults[legacyFlowLogKey] = trimmed events  (no synchronize — best-effort)
+         * Example: "ALLOW_CHILD scdn.cnbc.com parent=www.cnbc.com".
+         * Keep only the newest 50 lines.
          */
         func appendEvent(_ event: String, maxEvents: Int = 50, now: Date = Date()) {
             guard let defaults else { return }
@@ -347,34 +505,24 @@ import GetBoredCore
             defaults.set(events, forKey: Self.legacyFlowLogKey)
         }
 
+        /// Read the saved recent matches, for example scdn.cnbc.com and img.connatix.com.
         private func loadFlowObservationJson() -> String? {
-            guard let data = defaults?.data(forKey: Self.flowObservationDataKey) else { return nil }
+            guard let data = defaults?.data(forKey: Self.flowObservationsDataKey) else { return nil }
             return String(data: data, encoding: .utf8)
         }
 
         /**
-         * Returns the active context as JSON in the decision core's expected shape.
+         * Read the saved parent page as text the decision core can use.
          *
-         * Call flow:
-         *
-         *   v1 key present → decode Data → UTF-8 string (already Codable JSON)
-         *           │
-         *           └── v1 key absent → legacy path:
-         *                   │
-         *                   ▼
-         *               loadActiveContext()   ← triggers the v1→legacy fallback itself
-         *               encoder.encode(context)  ← re-encodes into Codable shape
-         *               return UTF-8 string
-         *
-         * The re-encode step is necessary because the legacy storage format (debug payload dict)
-         * doesn't match the current Codable schema — this function normalizes it.
+         * Example: www.cnbc.com, with children scdn.cnbc.com and img.connatix.com.
+         * If the newer saved copy is missing, convert the older copy into the same shape.
          */
         private func loadActiveContextJSON() -> String? {
             if let data = defaults?.data(forKey: Self.activeContextDataKey) {
                 return String(data: data, encoding: .utf8)
             }
 
-            // Legacy storage uses the debug payload shape; the decision core expects Codable JSON.
+            // Older copies used a different shape. Convert them so the decision core can still read CNBC.
             guard let context = loadActiveContext(),
                 let data = try? encoder.encode(context)
             else {
@@ -383,6 +531,7 @@ import GetBoredCore
             return String(data: data, encoding: .utf8)
         }
 
+        /// Read the prepared server mapping, for example CNBC -> scdn.cnbc.com.
         private func loadParentChildMapJson() -> String? {
             if let data = defaults?.data(forKey: Self.parentChildMapKey) {
                 return String(data: data, encoding: .utf8)
@@ -391,26 +540,12 @@ import GetBoredCore
         }
 
         /**
-         * Three-tier fallback that handles the registry's storage format evolution.
+         * Read the remembered children for each parent, for example:
+         *   www.cnbc.com lists scdn.cnbc.com and img.connatix.com.
          *
-         *   Tier 1: stored as String (current write path via updateRegistry)
-         *   Tier 2: stored as Data  (earlier write path that encoded to JSON bytes)
-         *   Tier 3: stored as NSDictionary (oldest path that used UserDefaults native dict)
-         *           → compactMapValues to [String: [String]], then re-serialise to JSON
-         *
-         * All three tiers normalize to the same JSON string for the decision core.
-         *
-         * Call flow:
-         *
-         *   parent-child decision calls loadRegistryJson()
-         *           │
-         *           ├── current String value exists → return it unchanged
-         *           ├── earlier Data value exists    → decode UTF-8 → return JSON string
-         *           │
-         *           └── oldest dictionary value exists
-         *                   ├── retain only [String] child arrays
-         *                   ├── serialize the typed dictionary to JSON
-         *                   └── return JSON string, or nil if serialization fails
+         * Older app versions saved this list in different shapes.
+         * Try the current text copy first, then older copies, and convert them
+         * into the same text so the decision core can still read CNBC's children.
          */
         private func loadRegistryJson() -> String? {
             if let json = defaults?.string(forKey: Self.legacyParentChildRegistryKey) {
@@ -433,19 +568,11 @@ import GetBoredCore
         }
 
         /**
-         * Adds the current page's children to the persistent parent-to-children
-         * registry instead of replacing older entries. The Safari spike can then
-         * recognize a child first seen on an earlier page load.
+         * Remember a new CNBC child without forgetting the old ones.
          *
-         * Call flow:
-         *
-         *   saveActiveContext → updateRegistry(parentDomain:childDomains:)
-         *           │
-         *           ├── defaults nil → return
-         *           │
-         *           └── IOSDecisionCore.parentChildUpdatedRegistryJSON(
-         *                   registryJson: loadRegistryJson(), ...)  ← reads existing, unions children
-         *                   └── defaults[legacyParentChildRegistryKey] = merged JSON
+         * Example: CNBC already has scdn.cnbc.com.
+         * The extension now also reports img.connatix.com.
+         * Keep both.
          */
         private func updateRegistry(parentDomain: String, childDomains: [String]) {
             guard let defaults else { return }
@@ -457,6 +584,7 @@ import GetBoredCore
             defaults.set(updated, forKey: Self.legacyParentChildRegistryKey)
         }
 
+        /// Older inspector copy of the saved page, for example www.cnbc.com.
         private func legacyPayload(for context: ActivePageContext) -> [String: Any] {
             IOSDecisionCore.parentChildLegacyPayload(
                 parentDomain: context.parentDomain,

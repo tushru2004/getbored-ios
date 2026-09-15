@@ -13,7 +13,7 @@ PROD_DEVICE_UDID ?= 00008110-0016786001D2401E
 # Port for kill-port (defaults to Metro)
 PORT            ?= 8081
 
-.PHONY: all build build-release build-device install install-only install-release preflight preflight-release swift-test clean kill-port agents-api-wake agents-wake-api agents-api-wake-kill agents-wake-api-kill
+.PHONY: all build build-release build-device install install-only install-release preflight preflight-release clean kill-port agents-api-wake agents-wake-api agents-api-wake-kill agents-wake-api-kill
 
 all: build
 
@@ -101,9 +101,6 @@ kill-port:
 		for pid in $$pids; do ps -p $$pid -o pid=,command=; done; \
 		kill $$pids && echo "killed listener(s) on port $(PORT)"; \
 	fi
-
-swift-test:
-	swift test --filter IOSContractTests
 
 clean:
 	rm -rf $(DERIVED_DATA)
