@@ -1,5 +1,6 @@
 import Foundation
 import GetBoredCore
+import OSLog
 
     struct SafariParentChildContextStore {
         struct ActivePageContext: Codable, Equatable {
@@ -27,6 +28,16 @@ import GetBoredCore
             "safari_extension_spike_active_page_context_cleared_at"
         static let legacyParentChildRegistryKey = "safari_extension_spike_parent_child_registry"
         static let legacyFlowLogKey = "safari_app_proxy_spike_flows"
+        private static let legacySocketExperimentKey = "debug_aws_socket_experiment_v1"
+
+        // The whitelist transport path no longer uses the old Debug switch.
+        // Remove a saved flag left by an earlier device experiment.
+        func clearLegacySocketExperimentFlag() {
+            guard let defaults else { return }
+            defaults.removeObject(forKey: Self.legacySocketExperimentKey)
+            defaults.synchronize()
+            Self.logger.info("SAFARI_TRANSPORT_MIGRATION legacyExperiment=false")
+        }
 
         static let activeContextDataKey = "safari_parent_child_active_context_v1"
         static let flowObservationDataKey = "safari_parent_child_flow_observation_v1"
@@ -35,6 +46,10 @@ import GetBoredCore
         static let parentChildMapKey = GetBoredIdentifiers.SafariParentChild.parentChildMapKey
         private static let eventDateFormatter = ISO8601DateFormatter()
         private static let maxEventLength = 512
+        private static let logger = Logger(
+            subsystem: GetBoredIdentifiers.Logging.iOS,
+            category: "SafariParentChildContextStore"
+        )
 
         // One save at a time, so two CNBC children cannot overwrite each other.
         // Only the App Proxy writes this list.
@@ -98,6 +113,11 @@ import GetBoredCore
                 receivedAt: receivedAt
             )
 
+#if DEBUG
+            let previousContext = loadActiveContext()
+            let registrationChanged = previousContext?.parentDomain != context.parentDomain
+                || previousContext?.childDomains != context.childDomains
+#endif
             if let data = try? encoder.encode(context) {
                 defaults.set(data, forKey: Self.activeContextDataKey)
             }
@@ -116,6 +136,23 @@ import GetBoredCore
 
             updateRegistry(parentDomain: context.parentDomain, childDomains: context.childDomains)
             defaults.synchronize()
+#if DEBUG
+            // Log changed lists, not every heartbeat. Small batches avoid truncated phone logs.
+            // For AWS, this shows whether d0.m.awsstatic.com was actually registered.
+            if registrationChanged {
+                let children = Array(context.childDomains.prefix(64))
+                let omitted = context.childDomains.count - children.count
+                Self.logger.info(
+                    "REGISTRATION_SNAPSHOT parent=\(context.parentDomain, privacy: .public) total=\(context.childDomains.count, privacy: .public) omitted=\(omitted, privacy: .public) savedAt=\(receivedAt.timeIntervalSinceReferenceDate, privacy: .public)"
+                )
+                for start in stride(from: 0, to: children.count, by: 2) {
+                    let batch = children[start..<min(start + 2, children.count)].joined(separator: ",")
+                    Self.logger.info(
+                        "REGISTRATION_HOSTS parent=\(context.parentDomain, privacy: .public) savedAt=\(receivedAt.timeIntervalSinceReferenceDate, privacy: .public) hosts=\(batch, privacy: .public)"
+                    )
+                }
+            }
+#endif
         }
 
         /**
@@ -321,9 +358,87 @@ import GetBoredCore
                 if let data = try? encoder.encode(wrapper) {
                     defaults.set(data, forKey: Self.flowObservationsDataKey)
                     defaults.synchronize()
+                    Self.logger.info(
+                        "OBSERVATION_SAVED child=\(observation.requestHost, privacy: .public) parent=\(observation.parentDomain, privacy: .public) total=\(existing.count, privacy: .public)"
+                    )
                 }
             }
         }
+
+#if DEBUG
+        /// Start a clean AWS test without deleting the synced policy or filter settings.
+        /// Safari must be stopped so a page heartbeat cannot immediately restore the map.
+        func resetSafariTestData() {
+            guard let defaults else { return }
+            let keys = [
+                Self.activeContextDataKey,
+                Self.legacyActiveContextKey,
+                Self.legacyActiveContextDateKey,
+                Self.legacyActiveContextClearedDateKey,
+                Self.legacyLastMessageKey,
+                Self.legacyLastMessageDateKey,
+                Self.legacyParentChildRegistryKey,
+                Self.flowObservationDataKey,
+                Self.flowObservationsDataKey,
+                Self.legacyFlowLogKey,
+            ]
+            Self.flowObservationsQueue.sync {
+                for key in keys { defaults.removeObject(forKey: key) }
+                defaults.synchronize()
+            }
+            let remaining = keys.filter { defaults.object(forKey: $0) != nil }.count
+            Self.logger.info(
+                "REGISTRATION_RESET remainingKeys=\(remaining, privacy: .public) policyPreserved=true"
+            )
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                let observed = keys.filter { defaults.object(forKey: $0) != nil }.count
+                Self.logger.info("REGISTRATION_RESET remainingKeys=\(observed, privacy: .public) policyPreserved=true check=delayed")
+            }
+        }
+
+        /**
+         * Grafana reports a-us.storyblok.com, then Safari requests that exact host.
+         * Use only the current page's fresh registration; no App Proxy is needed.
+         *
+         *   current registration
+         *       │
+         *       ├── missing, expired, or child absent → no special permission
+         *       └── child present → check that the parent is still approved
+         *
+         * Another Safari tab can benefit from the same registration. This does not
+         * prove which tab caused the request. Earlier registry entries are not used.
+         */
+        func allowedSafariParentFromRegistration(
+            _ requestHost: String,
+            using rules: LoadedFilterRules,
+            maxAge: TimeInterval,
+            now: Date = Date()
+        ) -> IOSDecisionCore.AllowedSafariParentDecision? {
+            guard rules.filterMode == .whiteList,
+                let host = IOSDecisionCore.normalizeHost(requestHost), !host.isEmpty,
+                let context = loadActiveContext(),
+                let parent = IOSDecisionCore.normalizeHost(context.parentDomain), !parent.isEmpty
+            else { return nil }
+
+            let age = now.timeIntervalSince(context.receivedAt)
+            guard age >= 0, age <= maxAge else { return nil }
+
+            // A registration for one host does not grant access to its subdomains.
+            let children = Set(context.childDomains.compactMap(IOSDecisionCore.normalizeHost))
+            guard children.contains(host), host != parent else { return nil }
+
+            // Directly approved hosts do not need a dependency permission or its log.
+            guard !IOSDecisionCore.matchesSiteRule(host, using: rules) else { return nil }
+            let allowed = IOSDecisionCore.matchesSiteRule(parent, using: rules)
+            Self.logger.info(
+                "REGISTRATION_USED child=\(host, privacy: .public) parent=\(parent, privacy: .public) allowed=\(allowed, privacy: .public) age=\(age, privacy: .public)"
+            )
+            return IOSDecisionCore.AllowedSafariParentDecision(
+                shouldAllow: allowed, parentDomain: parent, requestHost: host, age: age,
+                event: "REGISTRATION_USED child=\(host) parent=\(parent) allowed=\(allowed)"
+            )
+        }
+#endif
 
         /**
          * Decide whether Safari may load scdn.cnbc.com under the saved CNBC parent.
@@ -354,7 +469,7 @@ import GetBoredCore
             maxAge: TimeInterval,
             now: Date = Date()
         ) -> IOSDecisionCore.AllowedSafariParentDecision? {
-            IOSDecisionCore.allowedSafariParentForChild(
+            let decision = IOSDecisionCore.allowedSafariParentForChild(
                 flowObservationJson: loadFlowObservationJson(),
                 activeContextJson: loadActiveContextJSON(),
                 parentChildMapJson: loadParentChildMapJson(),
@@ -364,6 +479,12 @@ import GetBoredCore
                 nowEpochSeconds: now.timeIntervalSinceReferenceDate,
                 using: loadedFilterRules
             )
+            if let decision {
+                Self.logger.info(
+                    "OBSERVATION_USED child=\(decision.requestHost, privacy: .public) parent=\(decision.parentDomain, privacy: .public) allowed=\(decision.shouldAllow, privacy: .public) age=\(decision.age, privacy: .public)"
+                )
+            }
+            return decision
         }
 
         /**

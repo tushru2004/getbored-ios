@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		0A6797321316119EAA7F2E14 /* SafariParentChildContextStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A6797321316119EAA7F2E11 /* SafariParentChildContextStore.swift */; };
 		0186EB2AE76340AE817DFF4F /* SafariSimulatorUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FECA319772A4BDBBB1DFB04 /* SafariSimulatorUITests.swift */; };
 		05753476881C485990506DE1 /* SafariDeviceUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D615CDD517A423BB7392497 /* SafariDeviceUITests.swift */; };
 		05EAD64A8AE2BCD5EC0AD1FD /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 8E00374ACD51EBAADF87F6CD /* PrivacyInfo.xcprivacy */; };
@@ -947,6 +948,7 @@
 			files = (
 				6D69476D2FBBC22A009321E3 /* FilterStatusModule.m in Sources */,
 				6D1ADAD72FB7C038002D6CBB /* AppDelegate.swift in Sources */,
+				0A6797321316119EAA7F2E14 /* SafariParentChildContextStore.swift in Sources */,
 				3866DA922000B43E04EFB167 /* IOSRuleStore.swift in Sources */,
 				A1B2C3D4E5F60718293A4B5D /* IOSDecisionCore.swift in Sources */,
 				A1B2C3D4E5F60718293A4B66 /* IOSDecisionCore+TrafficParsing.swift in Sources */,

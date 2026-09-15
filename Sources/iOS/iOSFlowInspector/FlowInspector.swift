@@ -118,7 +118,7 @@ import os.log
          *           IOSDecisionCore.classifyHost(host, rules, systemAllowedSuffixes, allowedParent)
          *                   → (decision.blocked, decision.reason)
          */
-        private func classifyHost(_ host: String) -> (blocked: Bool, reason: String) {
+        private func classifyHost(_ host: String, flow: NEFilterFlow) -> (blocked: Bool, reason: String) {
             // Always re-read the mode — it could change at any time when the app
             // applies a fresh server policy snapshot (GET /api/policy → applyFilterListSnapshot).
             let loadedFilterRules = IOSRuleStore.shared.loadFilterRules()
@@ -126,7 +126,15 @@ import os.log
 
             let isAllowListMode = loadedFilterRules.filterMode == .whiteList
             let allowedParent: String?
-            if isAllowListMode {
+#if DEBUG
+            // Only Safari may use the page registrations. Unknown apps get normal filtering.
+            let source = flow.sourceAppIdentifier?.lowercased()
+            let isSafari = source == "com.apple.mobilesafari" || source == ".com.apple.mobilesafari"
+            let mayUseSafariRegistration = isAllowListMode && isSafari
+#else
+            let mayUseSafariRegistration = isAllowListMode
+#endif
+            if mayUseSafariRegistration {
                 allowedParent = allowedSafariParent(
                     forChildHost: host,
                     using: loadedFilterRules
@@ -141,13 +149,18 @@ import os.log
                 systemAllowedSuffixes: systemAllowedSuffixes,
                 allowedSafariParent: allowedParent
             )
+#if DEBUG
+            logAWSNativeMetadata(flow: flow, host: host, stage: "classify",
+                                 disposition: decision.blocked ? "classification-block" : "classification-allow")
+#endif
             return (decision.blocked, decision.reason)
         }
 
         /**
          * Safari-spike helper that finds an allowed parent for a child hostname.
          *
-         * This only runs in allow-list mode, which Release 1.0 does not expose.
+         * Debug reads the current Safari extension registration, without App Proxy observations.
+         * Release keeps the older observation lookup; Release 1.0 does not expose allow-list mode.
          *
          * Call flow:
          *
@@ -155,8 +168,8 @@ import os.log
          *           │
          *           └── allowedSafariParent(forChildHost: host, using: rules)
          *                   │
-         *                   ├── safariParentChildContextStore.allowedSafariParentForChild(host, ...)
-         *                   │       ├── returns nil  → no recent parent observation → return nil
+         *                   ├── current registration (Debug) / proxy observation (Release)
+         *                   │       ├── returns nil  → no recent matching registration or observation → return nil
          *                   │       └── returns decision
          *                   │               │
          *                   │               ├── appendEvent(decision.event)  ← side-effect: records this lookup
@@ -175,15 +188,16 @@ import os.log
         private func allowedSafariParent(
             forChildHost host: String, using loadedFilterRules: LoadedFilterRules
         ) -> String? {
-            guard
-                let decision = safariParentChildContextStore.allowedSafariParentForChild(
-                    host,
-                    using: loadedFilterRules,
-                    maxAge: safariParentChildObservationMaxAge
-                )
-            else {
-                return nil
-            }
+#if DEBUG
+            let candidate = safariParentChildContextStore.allowedSafariParentFromRegistration(
+                host, using: loadedFilterRules, maxAge: safariParentChildObservationMaxAge
+            )
+#else
+            let candidate = safariParentChildContextStore.allowedSafariParentForChild(
+                host, using: loadedFilterRules, maxAge: safariParentChildObservationMaxAge
+            )
+#endif
+            guard let decision = candidate else { return nil }
 
             safariParentChildContextStore.appendEvent(decision.event)
 
@@ -245,6 +259,183 @@ import os.log
                 resolutionSource: "data-provider-app-probe"
             )
         }
+
+        private let safariWhitelistTransportLock = NSLock()
+        private var transportParentHost: String?
+        private var transportParentURL: String?
+
+        // Safari documents and Safari transport arrive as different flow types.
+        // Keep document URLs under whitelist policy. Once Safari opens a document
+        // the user approved, let its resource sockets share transport access.
+        // This is Safari-wide by product choice; it is not socket-to-tab tracking.
+        private func safariWhitelistTransportVerdict(_ flow: NEFilterFlow) -> NEFilterNewFlowVerdict? {
+            safariWhitelistTransportLock.lock()
+            defer { safariWhitelistTransportLock.unlock() }
+
+            let source = flow.sourceAppIdentifier?.lowercased()
+            guard source == "com.apple.mobilesafari" || source == ".com.apple.mobilesafari" else {
+                return nil
+            }
+
+            let rules = IOSRuleStore.shared.loadFilterRules()
+            guard rules.filterMode == .whiteList else {
+                clearSafariTransport(reason: "filter-mode")
+                return nil
+            }
+
+            // An explicit app block still wins. An app-wide Safari allow does not
+            // bypass document checks in whitelist mode.
+            guard !IOSDecisionCore.isAppBlocked(source!, using: rules) else {
+                clearSafariTransport(reason: "app-block")
+                return .drop()
+            }
+
+            if let browser = flow as? NEFilterBrowserFlow {
+                guard let url = browser.url, let host = url.host?.lowercased() else {
+                    os_log("SAFARI_DOCUMENT_GATE parent=unknown destination=missing decision=drop rule=none reason=missing-host transport=%{public}@",
+                           log: logger, type: .info,
+                           transportParentHost == nil ? "inactive" : "active")
+                    return .drop()
+                }
+                let siteAllowed = IOSDecisionCore.matchesSiteRule(host, using: rules)
+                let exceptionAllowed = IOSDecisionCore.matchesException(url.absoluteString, using: rules)
+                let systemAllowed = isSystemAllowed(host)
+                let directlyAllowed = siteAllowed || exceptionAllowed || systemAllowed
+                logDocumentGate(
+                    host: host,
+                    decision: directlyAllowed ? "allow" : "drop",
+                    rule: siteAllowed ? "site-rule" : (exceptionAllowed ? "url-exception" : (systemAllowed ? "system" : "none")),
+                    browser: browser
+                )
+#if DEBUG
+                logAWSNativeMetadata(flow: flow, host: host, stage: "document-gate",
+                                     disposition: directlyAllowed ? "allow" : "drop")
+#endif
+                // System infrastructure can load as a document, but only a user
+                // site rule or URL exception starts broad Safari transport.
+                if siteAllowed || exceptionAllowed {
+                    transportParentHost = host
+                    transportParentURL = url.absoluteString
+                    os_log("SAFARI_CONNECTION_ELIGIBILITY parent=%{public}@",
+                           log: logger, type: .info, host)
+                }
+                // Rejected documents do not reach the Control Provider's generic
+                // app path, where an app allowance could override this decision.
+                return directlyAllowed ? .allow() : .drop()
+            }
+
+            guard flow is NEFilterSocketFlow else { return nil }
+            guard let parentHost = transportParentHost else { return nil }
+            let parentStillAllowed = IOSDecisionCore.matchesSiteRule(parentHost, using: rules)
+                || transportParentURL.map { IOSDecisionCore.matchesException($0, using: rules) } == true
+            guard parentStillAllowed else {
+                clearSafariTransport(reason: "parent-policy")
+                return nil
+            }
+
+            let host = flow.url?.host ?? (flow as? NEFilterSocketFlow)?.remoteHostname ?? "unresolved"
+            os_log("SAFARI_CONNECTION_ALLOW parent=%{public}@ destination=%{public}@",
+                   log: logger, type: .info, parentHost, host)
+#if DEBUG
+            logAWSNativeMetadata(flow: flow, host: host, stage: "safari-transport", disposition: "allow")
+#endif
+            return .allow()
+        }
+
+        private func clearSafariTransport(reason: String) {
+            guard let parentHost = transportParentHost else { return }
+            os_log("SAFARI_CONNECTION_RESET parent=%{public}@ reason=%{public}@",
+                   log: logger, type: .info, parentHost, reason)
+            transportParentHost = nil
+            transportParentURL = nil
+        }
+
+        // One vocabulary for every Safari whitelist line: parent is the approved
+        // website, destination is the host being decided. Hosts only: no paths,
+        // queries, credentials, or flow UUID noise.
+        private func logDocumentGate(
+            host: String, decision: String, rule: String,
+            browser: NEFilterBrowserFlow
+        ) {
+            let parentHost = browser.request?.mainDocumentURL?.host?.lowercased() ?? "nil"
+            os_log(
+                "SAFARI_DOCUMENT_GATE parent=%{public}@ destination=%{public}@ decision=%{public}@ rule=%{public}@ transport=%{public}@",
+                log: logger, type: .info,
+                parentHost, host, decision, rule,
+                transportParentHost == nil ? "inactive" : "active"
+            )
+        }
+
+        #if DEBUG
+            private let awsProbeLock = NSLock()
+            private var awsProbeWindow = Date.distantPast
+            private var awsProbeKeys = Set<String>()
+            private var awsProbeLimitLogged = false
+
+            // Diagnostic only: ask what iOS actually supplied for an AWS request.
+            // A socket without a URL is not evidence that a BrowserFlow field was nil.
+            // No URL paths, queries, headers, or cookies are recorded here.
+            private func logAWSNativeMetadata(
+                flow: NEFilterFlow, host resolvedHost: String? = nil,
+                stage: String, disposition: String = "observed"
+            ) {
+                let source = flow.sourceAppIdentifier?.lowercased() ?? "nil"
+                let host = resolvedHost ?? flow.url?.host
+                    ?? (flow as? NEFilterSocketFlow)?.remoteHostname ?? "unresolved"
+                let isSafari = source == "com.apple.mobilesafari" || source == ".com.apple.mobilesafari"
+                let awsDomains = ["amazon.com", "awsstatic.com", "aws.dev", "api.aws", "omtrdc.net", "clrt.ai"]
+                let isAWSHost = awsDomains.contains { host == $0 || host.hasSuffix("." + $0) }
+                guard isSafari || isAWSHost else { return }
+                let flowID = flow.identifier.uuidString
+                let key = "\(flowID)|\(stage)|\(host)|\(disposition)"
+                awsProbeLock.lock()
+                defer { awsProbeLock.unlock() }
+                let now = Date()
+                if now.timeIntervalSince(awsProbeWindow) >= 60 {
+                    awsProbeWindow = now
+                    awsProbeKeys.removeAll(keepingCapacity: true)
+                    awsProbeLimitLogged = false
+                }
+                guard !awsProbeKeys.contains(key) else { return }
+                guard awsProbeKeys.count < 4000 else {
+                    if !awsProbeLimitLogged {
+                        os_log("AWS_NATIVE_LIMIT reached=4000 windowSeconds=60", log: logger, type: .info)
+                        awsProbeLimitLogged = true
+                    }
+                    return
+                }
+                awsProbeKeys.insert(key)
+                func safeHost(_ value: String?) -> String {
+                    guard let value else { return "nil" }
+                    guard value.count <= 253 else { return "overlong" }
+                    return value.lowercased()
+                }
+                let browser = flow as? NEFilterBrowserFlow
+                let request = browser?.request
+                let type = browser != nil ? "browser" : (flow is NEFilterSocketFlow ? "socket" : "other")
+                let metadata: [String: String] = [
+                    "id": flowID, "stage": stage, "type": type,
+                    "host": safeHost(host), "source": source,
+                    "request": browser == nil ? "unavailable" : (request == nil ? "nil" : "present"),
+                    "disposition": disposition
+                ]
+                let parent: [String: String] = [
+                    "id": flowID, "stage": stage,
+                    "requestHost": browser == nil ? "unavailable" : safeHost(request?.url?.host),
+                    "mainURL": browser == nil ? "unavailable" : (request == nil ? "unavailable-request" : (request?.mainDocumentURL == nil ? "nil" : "present")),
+                    "mainHost": browser == nil ? "unavailable" : safeHost(request?.mainDocumentURL?.host),
+                    "parentHost": browser == nil ? "unavailable" : safeHost(browser?.parentURL?.host)
+                ]
+                if let data = try? JSONSerialization.data(withJSONObject: metadata, options: [.sortedKeys]),
+                    let text = String(data: data, encoding: .utf8) {
+                    os_log("AWS_NATIVE_FLOW %{public}@", log: logger, type: .info, text)
+                }
+                if let data = try? JSONSerialization.data(withJSONObject: parent, options: [.sortedKeys]),
+                    let text = String(data: data, encoding: .utf8) {
+                    os_log("AWS_NATIVE_PARENT %{public}@", log: logger, type: .info, text)
+                }
+            }
+        #endif
 
         #if DEBUG
             /// Spike-only probe for deciding whether parent-child enforcement can live
@@ -324,6 +515,10 @@ import os.log
          * slip through unfiltered — that is most of the traffic on a teenager's phone.
          */
         override func handleNewFlow(_ flow: NEFilterFlow) -> NEFilterNewFlowVerdict {
+#if DEBUG
+            logAWSNativeMetadata(flow: flow, stage: "new-flow")
+#endif
+            if let safariVerdict = safariWhitelistTransportVerdict(flow) { return safariVerdict }
             let sourceApp = flow.sourceAppIdentifier
             let loadedFilterRules = IOSRuleStore.shared.loadFilterRules()
 
@@ -371,7 +566,7 @@ import os.log
                 if isSystemAllowed(host) {
                     return .allow()
                 }
-                let result = classifyHost(host)
+                let result = classifyHost(host, flow: flow)
                 if result.blocked {
                     os_log(
                         "handleNewFlow: QUIC BLOCKED %{public}@ endpoint=%{public}@ → routing to CP",
@@ -389,7 +584,7 @@ import os.log
                 if isSystemAllowed(host) {
                     return .allow()
                 }
-                let result = classifyHost(host)
+                let result = classifyHost(host, flow: flow)
                 if result.blocked {
                     // Check URL path exceptions (e.g. "instagram.com/school-account")
                     if IOSDecisionCore.matchesException(url.absoluteString, using: loadedFilterRules) {
@@ -455,8 +650,11 @@ import os.log
         ) -> NEFilterDataVerdict {
             // ── Try 1: TLS ClientHello → extract SNI hostname ───────────────
             if let sni = IOSDecisionCore.extractSNI(from: readBytes) {
+#if DEBUG
+                logAWSNativeMetadata(flow: flow, host: sni, stage: "outbound-sni")
+#endif
                 if isSystemAllowed(sni) { return .allow() }
-                let result = classifyHost(sni)
+                let result = classifyHost(sni, flow: flow)
                 if result.blocked {
                     os_log(
                         "handleOutboundData: BLOCKED SNI %{public}@ (%{public}@)",
@@ -474,8 +672,11 @@ import os.log
 
             // ── Try 2: HTTP request → extract Host header ───────────────────
             if let host = IOSDecisionCore.extractHTTPHost(from: readBytes) {
+#if DEBUG
+                logAWSNativeMetadata(flow: flow, host: host, stage: "outbound-http")
+#endif
                 if isSystemAllowed(host) { return .allow() }
-                let result = classifyHost(host)
+                let result = classifyHost(host, flow: flow)
                 if result.blocked {
                     // Check URL path exceptions for HTTP
                     if let fullURL = IOSDecisionCore.extractHTTPFullURL(from: readBytes) {
@@ -500,6 +701,9 @@ import os.log
                 return .allow()
             }
 
+#if DEBUG
+            logAWSNativeMetadata(flow: flow, stage: "outbound-unresolved", disposition: "allow-unparsed")
+#endif
             // ── Neither TLS nor HTTP — allow (DNS, mDNS, system traffic) ────
             return .allow()
         }

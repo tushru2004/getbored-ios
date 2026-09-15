@@ -121,14 +121,15 @@ import OSLog
          * Load the full policy snapshot expected by the shared decision core.
          *
          * This is the single chokepoint all consumers (FlowInspector, IOSDecisionCore,
-         * isListed/isExcepted/isAppAllowed/isAppBlocked below) go through to get a filter mode —
-         * see decodedFilterMode() for the block-mode-only safety guard applied here.
+         * isListed/isExcepted/isAppAllowed/isAppBlocked below) go through to get a filter mode.
+         * Debug builds honor an Allow List so it can be validated on the test phone. Release
+         * builds keep the block-mode safety guard until that validation is complete.
          *
          * Call flow:
          *
          *   filter extension (hot path) calls loadFilterRules()
          *           │
-         *           ├── decodedFilterMode()  → FilterMode (block-mode-only guard; never .whiteList)
+         *           ├── decodedFilterMode()  → Debug honors Allow List; Release keeps Block List safety
          *           ├── loadSiteRules()     → [SiteRule] from JSON in UserDefaults
          *           ├── loadExceptions()   → [String] from UserDefaults
          *           ├── loadAllowedApps()  → [String] from UserDefaults
@@ -261,9 +262,9 @@ import OSLog
         }
 
         /**
-         * Get the current filter mode (defaults to "blockSpecific"). Goes through
-         * decodedFilterMode() so a stored `.whiteList` value is never surfaced here either —
-         * this is also what the React Native "Active Rules" screen reads for display.
+         * Get the current filter mode for the React Native Active Rules screen.
+         * A Debug phone can show Allow List. A Release phone still shows the safe Block List
+         * fallback if the server sends an Allow List before production validation is complete.
          */
         func getMode() -> String {
             let mode = decodedFilterMode().rawValue
@@ -272,41 +273,34 @@ import OSLog
         }
 
         /**
-         * Decodes the stored filter mode, defensively coercing `.whiteList` to `.blockSpecific`.
+         * Lets the Debug phone use Docker as an approved site while keeping Release safe.
          *
-         * v1 ships BLOCK MODE ONLY — the parent-child Safari whitelist machinery
-         * (allowedSafariParent, the two Safari extensions, the App-Proxy provider) was removed
-         * from this build. A server-synced FilterList (or a stale UserDefaults value written
-         * before the block-mode-only cutover) can still carry `mode == .whiteList` — that is a
-         * valid raw value, so the plain `FilterMode(rawValue:)` decode below does not catch it.
-         * Letting it reach the decision core would either exercise removed machinery or, worse,
-         * silently degrade into an unfiltered pass-through. Coerce it to the safe block-mode
-         * default instead — this must NEVER coerce toward "allow everything".
+         * For example, the server stores whiteList with docker.com. A Debug build returns
+         * whiteList so Docker can load its approved dependencies. A Release build still returns
+         * blockSpecific until the full Allow List path has been proven on the test phone.
+         * Unknown stored values always fall back to blockSpecific in both builds.
          *
-         * Call flow:
-         *
-         *   loadFilterRules() / getMode() → decodedFilterMode()
-         *           │
-         *           ├── sharedDefaults?.string(forKey: modeKey)   → raw string (fallback: "blockSpecific")
-         *           ├── FilterMode(rawValue:)                     → decoded mode (fallback: .blockSpecific)
-         *           │
-         *           ├── decoded == .blockSpecific → return unchanged (fast path)
-         *           └── decoded == .whiteList
-         *                   └── log warning, return .blockSpecific   ← safe default, never allow-all
+         *   stored mode
+         *       │
+         *       ├── Debug   → return the decoded mode
+         *       └── Release → change whiteList to blockSpecific
          */
         private func decodedFilterMode() -> FilterMode {
             let rawMode = sharedDefaults?.string(forKey: modeKey) ?? FilterMode.blockSpecific.rawValue
             let decodedMode = FilterMode(rawValue: rawMode) ?? .blockSpecific
-            let requiresBlockModeCoercion = decodedMode == .whiteList
 
-            guard requiresBlockModeCoercion else {
+#if DEBUG
+            return decodedMode
+#else
+            guard decodedMode == .whiteList else {
                 return decodedMode
             }
 
             logger.warning(
-                "decodedFilterMode: whiteList mode received in block-mode-only build; coercing to block-mode default (whitelist machinery removed in v1)"
+                "decodedFilterMode: whiteList mode received before production validation; using blockSpecific"
             )
             return .blockSpecific
+#endif
         }
 
         // MARK: - Exceptions (URL path exemptions)
