@@ -98,35 +98,41 @@ return 'Hidden Apple email';
 return accountLabel;
 }
 
-// ─── Stat pair (what the last sync applied) ────────────────────────────────
+// ─── Rule summary (what the last sync applied) ─────────────────────────────
 
-/** Tapping the counts answers the obvious follow-up — "blocked WHAT?" —
- * by opening the Active Rules list. */
+function syncedRuleCounts(summary: SyncSummary) {
+    const websites = summary.sites + summary.exceptions;
+    const apps = summary.allowedApps + summary.blockedApps;
+    return {websites, apps, total: websites + apps};
+}
+
+/**
+ * The policy may mix allowed and blocked rules, so this summary names what is
+ * active without claiming every item is allowed or blocked. Tapping it opens
+ * the complete Active Rules list.
+ */
 const StatPair: React.FC<{summary: SyncSummary; onPress: () => void}> = ({
-summary,
-onPress,
+    summary,
+    onPress,
 }) => {
-const sitesCaption = summary.sites === 1 ? 'site blocked' : 'sites blocked';
-const appsCaption =
-summary.blockedApps === 1 ? 'app blocked' : 'apps blocked';
-const hasBlockedApps = summary.blockedApps > 0;
+    const {websites, apps, total} = syncedRuleCounts(summary);
+    const activeRulesCaption = total === 1 ? 'active rule' : 'active rules';
+    const websitesCaption = websites === 1 ? 'website' : 'websites';
+    const appsCaption = apps === 1 ? 'app' : 'apps';
 
-return (
-<Pressable
-onPress={onPress}
-style={({pressed}) => [styles.statPair, pressed && styles.pressedDim]}>
-<View style={styles.stat}>
-<Text style={styles.statNum}>{summary.sites}</Text>
-<Text style={styles.statCap}>{sitesCaption}</Text>
-</View>
-{hasBlockedApps && (
-<View style={[styles.stat, styles.statAfter]}>
-<Text style={styles.statNum}>{summary.blockedApps}</Text>
-<Text style={styles.statCap}>{appsCaption}</Text>
-</View>
-)}
-</Pressable>
-);
+    return (
+        <Pressable
+            onPress={onPress}
+            style={({pressed}) => [styles.statPair, pressed && styles.pressedDim]}>
+            <View style={styles.stat}>
+                <Text style={styles.statNum}>{total}</Text>
+                <Text style={styles.statCap}>{activeRulesCaption}</Text>
+                <Text style={styles.statBreakdown}>
+                    {websites} {websitesCaption} · {apps} {appsCaption}
+                </Text>
+            </View>
+        </Pressable>
+    );
 };
 
 /**
@@ -595,7 +601,11 @@ const ProfileGate: React.FC<ProfileGateProps> = ({
                 filterSync.state.kind === 'success' ? filterSync.state : null;
             const showStatPair = homeStatus.word === 'GetBored' && syncSuccess !== null;
             const rulesValue = syncSuccess
-                ? countLabel(syncSuccess.summary.sites, 'site', 'sites')
+                ? countLabel(
+                        syncedRuleCounts(syncSuccess.summary).total,
+                        'rule',
+                        'rules',
+                    )
                 : '—';
             const footerText = syncSuccess
                 ? `Synced automatically · ${formatSyncTime(syncSuccess.syncedAtMs)}`
@@ -868,7 +878,6 @@ const styles = StyleSheet.create({
     },
     statPair: {
         ...hardShadow,
-        flexDirection: 'row',
         backgroundColor: colors.surface,
         borderWidth: 1,
         borderColor: colors.label,
@@ -880,10 +889,6 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         minHeight: 76,
         paddingVertical: spacing.md,
-    },
-    statAfter: {
-        borderLeftWidth: 1,
-        borderLeftColor: colors.label,
     },
     statNum: {
         fontFamily: typography.display.fontFamily,
@@ -898,6 +903,12 @@ const styles = StyleSheet.create({
         ...typography.eyebrow,
         fontSize: 10,
         color: colors.labelSecondary,
+    },
+    statBreakdown: {
+        marginTop: spacing.xs,
+        fontSize: 13,
+        color: colors.labelSecondary,
+        fontVariant: ['tabular-nums'],
     },
     footerWhisper: {
         ...typography.microFooter,
