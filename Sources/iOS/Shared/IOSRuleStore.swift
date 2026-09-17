@@ -122,14 +122,13 @@ import OSLog
          *
          * This is the single chokepoint all consumers (FlowInspector, IOSDecisionCore,
          * isListed/isExcepted/isAppAllowed/isAppBlocked below) go through to get a filter mode.
-         * Debug builds honor an Allow List so it can be validated on the test phone. Release
-         * builds keep the block-mode safety guard until that validation is complete.
+         * Debug and Release both honor the selected Allow List or Block List mode.
          *
          * Call flow:
          *
          *   filter extension (hot path) calls loadFilterRules()
          *           │
-         *           ├── decodedFilterMode()  → Debug honors Allow List; Release keeps Block List safety
+         *           ├── decodedFilterMode()  → same selected mode in Debug and Release
          *           ├── loadSiteRules()     → [SiteRule] from JSON in UserDefaults
          *           ├── loadExceptions()   → [String] from UserDefaults
          *           ├── loadAllowedApps()  → [String] from UserDefaults
@@ -261,11 +260,7 @@ import OSLog
             sharedDefaults?.synchronize()
         }
 
-        /**
-         * Get the current filter mode for the React Native Active Rules screen.
-         * A Debug phone can show Allow List. A Release phone still shows the safe Block List
-         * fallback if the server sends an Allow List before production validation is complete.
-         */
+        /// Return the same effective mode used by the filter for the Active Rules screen.
         func getMode() -> String {
             let mode = decodedFilterMode().rawValue
             logger.debug("getMode: \(mode, privacy: .public)")
@@ -273,34 +268,13 @@ import OSLog
         }
 
         /**
-         * Lets the Debug phone use Docker as an approved site while keeping Release safe.
-         *
-         * For example, the server stores whiteList with docker.com. A Debug build returns
-         * whiteList so Docker can load its approved dependencies. A Release build still returns
-         * blockSpecific until the full Allow List path has been proven on the test phone.
-         * Unknown stored values always fall back to blockSpecific in both builds.
-         *
-         *   stored mode
-         *       │
-         *       ├── Debug   → return the decoded mode
-         *       └── Release → change whiteList to blockSpecific
+         * Preserve the server's selected mode in both Debug and Release.
+         * For example, whiteList with docker.com allows Docker rather than blocking it.
+         * Missing or unknown stored values fall back to blockSpecific.
          */
         private func decodedFilterMode() -> FilterMode {
             let rawMode = sharedDefaults?.string(forKey: modeKey) ?? FilterMode.blockSpecific.rawValue
-            let decodedMode = FilterMode(rawValue: rawMode) ?? .blockSpecific
-
-#if DEBUG
-            return decodedMode
-#else
-            guard decodedMode == .whiteList else {
-                return decodedMode
-            }
-
-            logger.warning(
-                "decodedFilterMode: whiteList mode received before production validation; using blockSpecific"
-            )
-            return .blockSpecific
-#endif
+            return FilterMode(rawValue: rawMode) ?? .blockSpecific
         }
 
         // MARK: - Exceptions (URL path exemptions)

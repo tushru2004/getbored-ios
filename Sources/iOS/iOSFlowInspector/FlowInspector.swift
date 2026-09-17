@@ -99,10 +99,8 @@ import os.log
          * - blockSpecific: the list is a BLOCKLIST (block what's listed)
          * - whiteList: the list is an ALLOWLIST (allow what's listed, block everything else)
          *
-         * Release 1.0 only ships block mode. `IOSRuleStore` converts a stored
-         * `.whiteList` value to `.blockSpecific` before it reaches this method.
-         * The allow-list branch remains for the separate Safari spike targets; it
-         * is not a shipped release path.
+         * Debug and Release honor the same mode. Only Safari can use its current
+         * page registration to allow a child hostname; other apps use normal rules.
          *
          * Call flow:
          *
@@ -111,7 +109,7 @@ import os.log
          *           ├── loadFilterRules()              ← reads the latest shared snapshot
          *           ├── currentMode = rules.filterMode ← keeps telemetry in sync
          *           │
-         *           ├── mode == .whiteList     → allowedSafariParent(forChildHost: host) (Safari spike only)
+         *           ├── mode == .whiteList     → allowedSafariParent(forChildHost: host) (Safari only)
          *           └── mode == .blockSpecific → allowedParent = nil
          *                   │
          *                   ▼
@@ -126,14 +124,10 @@ import os.log
 
             let isAllowListMode = loadedFilterRules.filterMode == .whiteList
             let allowedParent: String?
-#if DEBUG
             // Only Safari may use the page registrations. Unknown apps get normal filtering.
             let source = flow.sourceAppIdentifier?.lowercased()
             let isSafari = source == "com.apple.mobilesafari" || source == ".com.apple.mobilesafari"
             let mayUseSafariRegistration = isAllowListMode && isSafari
-#else
-            let mayUseSafariRegistration = isAllowListMode
-#endif
             if mayUseSafariRegistration {
                 allowedParent = allowedSafariParent(
                     forChildHost: host,
@@ -157,10 +151,9 @@ import os.log
         }
 
         /**
-         * Safari-spike helper that finds an allowed parent for a child hostname.
+         * Finds an allowed parent for a Safari child hostname.
          *
-         * Debug reads the current Safari extension registration, without App Proxy observations.
-         * Release keeps the older observation lookup; Release 1.0 does not expose allow-list mode.
+         * Both builds read the current Safari extension registration, without App Proxy observations.
          *
          * Call flow:
          *
@@ -168,8 +161,8 @@ import os.log
          *           │
          *           └── allowedSafariParent(forChildHost: host, using: rules)
          *                   │
-         *                   ├── current registration (Debug) / proxy observation (Release)
-         *                   │       ├── returns nil  → no recent matching registration or observation → return nil
+         *                   ├── current registration
+         *                   │       ├── returns nil  → no recent matching registration → return nil
          *                   │       └── returns decision
          *                   │               │
          *                   │               ├── appendEvent(decision.event)  ← side-effect: records this lookup
@@ -188,15 +181,9 @@ import os.log
         private func allowedSafariParent(
             forChildHost host: String, using loadedFilterRules: LoadedFilterRules
         ) -> String? {
-#if DEBUG
             let candidate = safariParentChildContextStore.allowedSafariParentFromRegistration(
                 host, using: loadedFilterRules, maxAge: safariParentChildObservationMaxAge
             )
-#else
-            let candidate = safariParentChildContextStore.allowedSafariParentForChild(
-                host, using: loadedFilterRules, maxAge: safariParentChildObservationMaxAge
-            )
-#endif
             guard let decision = candidate else { return nil }
 
             safariParentChildContextStore.appendEvent(decision.event)

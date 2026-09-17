@@ -396,6 +396,8 @@ import OSLog
             }
         }
 
+#endif
+
         /**
          * Grafana reports a-us.storyblok.com, then Safari requests that exact host.
          * Use only the current page's fresh registration; no App Proxy is needed.
@@ -438,7 +440,6 @@ import OSLog
                 event: "REGISTRATION_USED child=\(host) parent=\(parent) allowed=\(allowed)"
             )
         }
-#endif
 
         /**
          * Decide whether Safari may load scdn.cnbc.com under the saved CNBC parent.
