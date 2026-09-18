@@ -154,8 +154,6 @@
 			files = (
 				15A4720589D9AEFDFD52A8A4 /* iOSFlowInspector.appex in Embed App Extensions */,
 				20E57F207296D0DF42071525 /* iOSBlockHandler.appex in Embed App Extensions */,
-				7F5C6111587D688B2BDC73A3 /* SafariChildRegistrationExtension.appex in Embed App Extensions */,
-				72CAC5544B67011F74286E79 /* SafariAppProxyProvider.appex in Embed App Extensions */,
 			);
 			name = "Embed App Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -679,8 +677,6 @@
 			dependencies = (
 				3B4796C4AE0342AEE3EF626E /* PBXTargetDependency */,
 				2A19DB638FE97A0283F4C24D /* PBXTargetDependency */,
-				8E94C083B7784275A3153797 /* PBXTargetDependency */,
-				114BABC0F7A04F8F01BAAF5E /* PBXTargetDependency */,
 			);
 			name = "GetBored iOS";
 			packageProductDependencies = (
