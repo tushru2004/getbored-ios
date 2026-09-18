@@ -139,7 +139,7 @@ import os.log
          *               logBlockedAppTelemetry(domain: "app:<sourceApp>", …)
          */
         private func logBlockedAppProbeIfNeeded(
-            sourceApp: String?, using loadedFilterRules: LoadedFilterRules
+            sourceApp: String?, using loadedFilterRules: IOSLoadedFilterRules
         ) {
             guard let sourceApp, !sourceApp.isEmpty else { return }
             guard IOSDecisionCore.shouldLogBlockedAppProbe(sourceApp, using: loadedFilterRules) else {

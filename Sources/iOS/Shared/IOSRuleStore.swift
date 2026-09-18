@@ -278,7 +278,7 @@ import OSLog
          *
          * All five reads hit the same cached UserDefaults instance (5-second TTL).
          */
-        func loadFilterRules() -> LoadedFilterRules {
+        func loadFilterRules() -> IOSLoadedFilterRules {
             switch loadAssignedPolicyLists() {
             case .present(let lists):
                 return effectiveRules(from: lists, at: Date())
@@ -287,7 +287,7 @@ import OSLog
                 // Do not silently turn a corrupt scheduled snapshot into an
                 // unrestricted block list. System and own-app bypasses remain
                 // in IOSDecisionCore/FlowInspector, but unlisted traffic stops.
-                return LoadedFilterRules(
+                return IOSLoadedFilterRules(
                     siteRules: [],
                     filterMode: .whiteList,
                     exceptions: [],
@@ -298,7 +298,7 @@ import OSLog
             case .absent:
                 break
             }
-            return LoadedFilterRules(
+            return IOSLoadedFilterRules(
                 siteRules: loadStoredSiteRules(),
                 filterMode: decodedFilterMode(),
                 exceptions: loadExceptions(),
@@ -309,9 +309,10 @@ import OSLog
 
         /// A stable comparison value for consumers that keep per-policy state,
         /// such as Safari's broad resource transport allowance.
-        func policyFingerprint(for rules: LoadedFilterRules) -> String {
+        func policyFingerprint(for rules: IOSLoadedFilterRules) -> String {
             ([rules.filterMode.rawValue]
                 + rules.siteRules.map(\.url)
+                + ["|explicit-blocks|"] + rules.explicitBlockedSites
                 + ["|exceptions|"] + rules.exceptions
                 + ["|allowed-apps|"] + rules.allowedAppBundleIDs
                 + ["|blocked-apps|"] + rules.blockedAppBundleIDs
@@ -344,16 +345,19 @@ import OSLog
 
         private func effectiveRules(
             from lists: [IOSAssignedPolicyList], at date: Date
-        ) -> LoadedFilterRules {
+        ) -> IOSLoadedFilterRules {
             let activeLists = lists.filter { $0.isActive(at: date) }
-            let mode: FilterMode = activeLists.contains { $0.filterMode == .whiteList }
-                ? .whiteList : .blockSpecific
-            return LoadedFilterRules(
-                siteRules: orderedUnique(activeLists.flatMap(\.entries)).map { SiteRule(url: $0, title: $0) },
+            let allowLists = activeLists.filter { $0.filterMode == .whiteList }
+            let blockLists = activeLists.filter { $0.filterMode == .blockSpecific }
+            let mode: FilterMode = allowLists.isEmpty ? .blockSpecific : .whiteList
+            let siteLists = allowLists.isEmpty ? blockLists : allowLists
+            return IOSLoadedFilterRules(
+                siteRules: orderedUnique(siteLists.flatMap(\.entries)).map { SiteRule(url: $0, title: $0) },
                 filterMode: mode,
                 exceptions: orderedUnique(activeLists.flatMap(\.exceptions)),
                 allowedAppBundleIDs: orderedUnique(activeLists.flatMap(\.allowedApps)),
-                blockedAppBundleIDs: orderedUnique(activeLists.flatMap(\.blockedApps))
+                blockedAppBundleIDs: orderedUnique(activeLists.flatMap(\.blockedApps)),
+                explicitBlockedSites: allowLists.isEmpty ? [] : orderedUnique(blockLists.flatMap(\.entries))
             )
         }
 

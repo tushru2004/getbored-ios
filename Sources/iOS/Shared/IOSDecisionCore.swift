@@ -1,6 +1,18 @@
 import Foundation
 import GetBoredCore
 
+    /// Effective iOS policy keeps explicit denies separate from whitelist entries.
+    /// The persisted wire format remains the per-list v2 policy; this value is
+    /// rebuilt at each decision so inactive lists contribute neither allows nor denies.
+    public struct IOSLoadedFilterRules {
+        public var siteRules: [SiteRule]
+        public var filterMode: FilterMode
+        public var exceptions: [String]
+        public var allowedAppBundleIDs: [String]
+        public var blockedAppBundleIDs: [String]
+        public var explicitBlockedSites: [String] = []
+    }
+
     /**
      * Shared, pure policy rules for the iOS filtering targets.
      *
@@ -93,7 +105,8 @@ import GetBoredCore
 
         // MARK: - Core URL and Host Policy
 
-        public static func shouldBlock(_ url: String, using rules: LoadedFilterRules) -> Bool {
+        public static func shouldBlock(_ url: String, using rules: IOSLoadedFilterRules) -> Bool {
+            if isExplicitlyBlocked(url, using: rules) { return true }
             if matchesException(url, exceptions: rules.exceptions) { return false }
             let isListed = matchesSiteRule(url, siteRules: rules.siteRules.map(\.url))
             if rules.filterMode == .whiteList { return !isListed }
@@ -112,12 +125,15 @@ import GetBoredCore
          *       └── block-list mode → listed blocks; empty list allows
          */
         public static func classifyHost(
-            _ host: String, using rules: LoadedFilterRules, systemAllowedSuffixes: [String]
+            _ host: String, using rules: IOSLoadedFilterRules, systemAllowedSuffixes: [String]
         ) -> PolicyDecision {
             let host = normalizeHost(host) ?? ""
             if host.isEmpty { return PolicyDecision(kind: .allow, reason: "Empty host") }
             if isSystemAllowed(host, systemAllowedSuffixes: systemAllowedSuffixes) {
                 return PolicyDecision(kind: .allow, reason: "System allowed")
+            }
+            if isExplicitlyBlocked(host, using: rules) {
+                return PolicyDecision(kind: .block, reason: "Explicit blocklist wins")
             }
             let isListed = matchesSiteRule(host, siteRules: rules.siteRules.map(\.url))
             if rules.filterMode == .whiteList {
@@ -133,14 +149,18 @@ import GetBoredCore
 
         // MARK: - Rule Matching and Normalization
 
-        public static func matchesAllowedApp(_ bundleID: String, using rules: LoadedFilterRules) -> Bool {
+        public static func matchesAllowedApp(_ bundleID: String, using rules: IOSLoadedFilterRules) -> Bool {
             matchesAllowedApp(bundleID, allowedAppBundleIDs: rules.allowedAppBundleIDs)
         }
         public static func matchesAllowedApp(_ bundleID: String, allowedAppBundleIDs: [String]) -> Bool {
             matchesBundleID(bundleID, candidates: allowedAppBundleIDs)
         }
-        public static func matchesSiteRule(_ url: String, using rules: LoadedFilterRules) -> Bool {
-            matchesSiteRule(url, siteRules: rules.siteRules.map(\.url))
+        public static func matchesSiteRule(_ url: String, using rules: IOSLoadedFilterRules) -> Bool {
+            if rules.filterMode == .whiteList && isExplicitlyBlocked(url, using: rules) { return false }
+            return matchesSiteRule(url, siteRules: rules.siteRules.map(\.url))
+        }
+        public static func isExplicitlyBlocked(_ url: String, using rules: IOSLoadedFilterRules) -> Bool {
+            matchesSiteRule(url, siteRules: rules.explicitBlockedSites)
         }
         public static func matchesSiteRule(_ url: String, siteRules: [String]) -> Bool {
             siteRules.contains { hostMatchesDomain(url, domain: $0) }
@@ -174,8 +194,8 @@ import GetBoredCore
                 return !key.isEmpty && host.contains(key)
             }
         }
-        public static func matchesException(_ url: String, using rules: LoadedFilterRules) -> Bool {
-            matchesException(url, exceptions: rules.exceptions)
+        public static func matchesException(_ url: String, using rules: IOSLoadedFilterRules) -> Bool {
+            !isExplicitlyBlocked(url, using: rules) && matchesException(url, exceptions: rules.exceptions)
         }
         public static func matchesException(_ url: String, exceptions: [String]) -> Bool {
             let url = normalizedURLPrefix(url)
@@ -187,7 +207,7 @@ import GetBoredCore
 
         // MARK: - App Policy
 
-        public static func shouldAllowApp(_ sourceApp: String, using rules: LoadedFilterRules) -> Bool {
+        public static func shouldAllowApp(_ sourceApp: String, using rules: IOSLoadedFilterRules) -> Bool {
             let app = sourceApp.lowercased()
             if app.contains(GetBoredIdentifiers.bundlePrefix.lowercased()) { return true }
             if app.hasSuffix(".com.apple.")
@@ -197,11 +217,11 @@ import GetBoredCore
             }
             return matchesAllowedApp(sourceApp, allowedAppBundleIDs: rules.allowedAppBundleIDs)
         }
-        public static func isAppBlocked(_ sourceApp: String, using rules: LoadedFilterRules) -> Bool {
+        public static func isAppBlocked(_ sourceApp: String, using rules: IOSLoadedFilterRules) -> Bool {
             matchesBundleID(sourceApp, candidates: rules.blockedAppBundleIDs)
         }
         public static func shouldLogBlockedAppProbe(
-            _ sourceApp: String?, using rules: LoadedFilterRules
+            _ sourceApp: String?, using rules: IOSLoadedFilterRules
         ) -> Bool {
             guard let sourceApp, !sourceApp.isEmpty else { return false }
             return rules.filterMode == .whiteList && !shouldAllowApp(sourceApp, using: rules)
