@@ -370,26 +370,43 @@ private let logger = Logger(
             Task {
                 do {
                     let snapshot = try await APIClient.shared.request(
-                        PolicySnapshot.self, method: .get, path: "/api/policy", query: query
+                        PolicySnapshot.self,
+                        method: .get,
+                        path: "/api/policy",
+                        query: query + [URLQueryItem(name: "policySchemaVersion", value: "2")]
                     )
+                    let policy: PolicySnapshot.Kind
+                    do {
+                        policy = try snapshot.validatedKind()
+                    } catch {
+                        // A bad v2 payload must leave the prior App-Group snapshot intact.
+                        throw APIError.decoding(underlying: error)
+                    }
                     await MainActor.run {
-                        IOSRuleStore.shared.applyFilterListSnapshot(
-                            mode: snapshot.filterMode,
-                            entries: snapshot.entries,
-                            exceptions: snapshot.exceptions,
-                            allowedApps: snapshot.allowedApps,
-                            blockedApps: snapshot.blockedApps
-                        )
+                        switch policy {
+                        case .v1(let filterMode, let entries, let exceptions, let allowedApps, let blockedApps):
+                            IOSRuleStore.shared.applyFilterListSnapshot(
+                                mode: filterMode,
+                                entries: entries,
+                                exceptions: exceptions,
+                                allowedApps: allowedApps,
+                                blockedApps: blockedApps
+                            )
+
+                        case .v2(let lists):
+                            IOSRuleStore.shared.applyScheduledPolicyLists(lists)
+                        }
+                        let effectiveRules = IOSRuleStore.shared.loadFilterRules()
                         /**
-                         * Resolve what was just applied so the UI can say
-                         * "12 sites blocked · synced 4:32 PM" instead of a bare
-                         * green pill — the snapshot is in hand, counting is free.
+                         * Resolve the rules effective right now. A scheduled list can
+                         * be validly inactive, so reporting the downloaded total would
+                         * make the UI claim enforcement that is not currently active.
                          */
                         resolve([
-                            "sites": snapshot.entries.count,
-                            "exceptions": snapshot.exceptions.count,
-                            "allowedApps": snapshot.allowedApps.count,
-                            "blockedApps": snapshot.blockedApps.count,
+                            "sites": effectiveRules.siteRules.count,
+                            "exceptions": effectiveRules.exceptions.count,
+                            "allowedApps": effectiveRules.allowedAppBundleIDs.count,
+                            "blockedApps": effectiveRules.blockedAppBundleIDs.count,
                         ])
                     }
                 } catch {
@@ -405,14 +422,14 @@ private let logger = Logger(
             rejecter reject: RCTPromiseRejectBlock
         ) {
             let store = IOSRuleStore.shared
-            let entries = store.loadSiteRules().map { $0.url }
+            let effectiveRules = store.loadFilterRules()
             resolve(
                 [
-                    "mode": store.getMode(),
-                    "entries": entries,
-                    "exceptions": store.loadExceptions(),
-                    "allowedApps": store.loadAllowedApps(),
-                    "blockedApps": store.loadBlockedApps(),
+                    "mode": effectiveRules.filterMode.rawValue,
+                    "entries": effectiveRules.siteRules.map { $0.url },
+                    "exceptions": effectiveRules.exceptions,
+                    "allowedApps": effectiveRules.allowedAppBundleIDs,
+                    "blockedApps": effectiveRules.blockedAppBundleIDs,
                 ] as [String: Any])
         }
 
@@ -621,15 +638,61 @@ private let logger = Logger(
     }
 
     /**
-     * Decoded response from `GET /api/policy?deviceId=`. The server also sends
-     * `policySchemaVersion`, `deviceId`, and `generatedAt`, but nothing here
-     * consumes them, so they are omitted — Decodable synthesis ignores JSON keys
-     * with no matching property.
+     * Decoded response from `GET /api/policy?deviceId=&policySchemaVersion=2`.
+     * Schema 1 is accepted only as the known, unscheduled legacy shape. Schema 2
+     * retains every assigned list for local/offline schedule evaluation.
      */
     private struct PolicySnapshot: Decodable {
-        let filterMode: FilterListMode
-        let entries: [String]
-        let exceptions: [String]
-        let allowedApps: [String]
-        let blockedApps: [String]
+        enum Kind {
+            case v1(FilterListMode, [String], [String], [String], [String])
+            case v2([IOSAssignedPolicyList])
+        }
+
+        private enum ValidationError: LocalizedError {
+            case unsupportedSchema(Int)
+            case malformedV1
+            case malformedV2
+            case duplicateListID(String)
+
+            var errorDescription: String? {
+                switch self {
+                case .unsupportedSchema(let version): return "Unsupported policy schema version \(version)."
+                case .malformedV1: return "Malformed v1 policy payload."
+                case .malformedV2: return "Malformed v2 policy payload."
+                case .duplicateListID(let id): return "Duplicate v2 policy list ID \(id)."
+                }
+            }
+        }
+
+        let policySchemaVersion: Int
+        let filterMode: FilterListMode?
+        let entries: [String]?
+        let exceptions: [String]?
+        let allowedApps: [String]?
+        let blockedApps: [String]?
+        let lists: [IOSAssignedPolicyList]?
+
+        func validatedKind() throws -> Kind {
+            switch policySchemaVersion {
+            case 1:
+                guard let filterMode, let entries, let exceptions, let allowedApps, let blockedApps else {
+                    throw ValidationError.malformedV1
+                }
+                return .v1(filterMode, entries, exceptions, allowedApps, blockedApps)
+
+            case 2:
+                guard let lists else { throw ValidationError.malformedV2 }
+                var IDs = Set<String>()
+                for list in lists {
+                    try list.validate()
+                    guard IDs.insert(list.id).inserted else {
+                        throw ValidationError.duplicateListID(list.id)
+                    }
+                }
+                return .v2(lists)
+
+            default:
+                throw ValidationError.unsupportedSchema(policySchemaVersion)
+            }
+        }
     }

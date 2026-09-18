@@ -167,6 +167,7 @@ import os.log
         private let safariWhitelistTransportLock = NSLock()
         private var transportParentHost: String?
         private var transportParentURL: String?
+        private var transportPolicyFingerprint: String?
 
         // Safari documents and Safari transport arrive as different flow types.
         // Keep document URLs under whitelist policy. Once Safari opens a document
@@ -182,6 +183,13 @@ import os.log
             }
 
             let rules = IOSRuleStore.shared.loadFilterRules()
+            let policyFingerprint = IOSRuleStore.shared.policyFingerprint(for: rules)
+            if transportParentHost != nil, transportPolicyFingerprint != policyFingerprint {
+                // A weekly boundary can change the effective whitelist with no
+                // foreground app launch. Do not carry a prior Safari-wide transport
+                // allowance into the next callback under the new policy.
+                clearSafariTransport(reason: "effective-policy-change")
+            }
             guard rules.filterMode == .whiteList else {
                 clearSafariTransport(reason: "filter-mode")
                 return nil
@@ -220,6 +228,7 @@ import os.log
                 if siteAllowed || exceptionAllowed {
                     transportParentHost = host
                     transportParentURL = url.absoluteString
+                    transportPolicyFingerprint = policyFingerprint
                     os_log("SAFARI_CONNECTION_ELIGIBILITY parent=%{public}@",
                            log: logger, type: .info, host)
                 }
@@ -252,6 +261,7 @@ import os.log
                    log: logger, type: .info, parentHost, reason)
             transportParentHost = nil
             transportParentURL = nil
+            transportPolicyFingerprint = nil
         }
 
         // One vocabulary for every Safari whitelist line: parent is the approved
