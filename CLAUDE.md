@@ -2,7 +2,7 @@
 
 ## What this repo owns
 
-iPhone app, FilterDataProvider, SafariAppProxy, and iOS system extensions for content filtering and app lockdown. The shipping app targets iPhone only, not iPadOS.
+iPhone app and native iOS content-filter extensions for content filtering and app lockdown. The shipping app targets iPhone only, not iPadOS.
 
 ## Agent routing
 

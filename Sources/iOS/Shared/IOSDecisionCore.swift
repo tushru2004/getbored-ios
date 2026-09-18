@@ -108,12 +108,11 @@ import GetBoredCore
          *       ▼
          *   normalize
          *       ├── empty/system host → allow
-         *       ├── allow-list mode → listed or active Safari child allows
+         *       ├── allow-list mode → listed allows; unlisted blocks
          *       └── block-list mode → listed blocks; empty list allows
          */
         public static func classifyHost(
-            _ host: String, using rules: LoadedFilterRules, systemAllowedSuffixes: [String],
-            allowedSafariParent: String?
+            _ host: String, using rules: LoadedFilterRules, systemAllowedSuffixes: [String]
         ) -> PolicyDecision {
             let host = normalizeHost(host) ?? ""
             if host.isEmpty { return PolicyDecision(kind: .allow, reason: "Empty host") }
@@ -123,10 +122,6 @@ import GetBoredCore
             let isListed = matchesSiteRule(host, siteRules: rules.siteRules.map(\.url))
             if rules.filterMode == .whiteList {
                 if isListed { return PolicyDecision(kind: .allow, reason: "In allowed list") }
-                if let parent = nonBlank(allowedSafariParent) {
-                    return PolicyDecision(
-                        kind: .allow, reason: "Child of allowed Safari parent \(parent)")
-                }
                 return PolicyDecision(kind: .block, reason: "Block everything mode")
             }
             if rules.siteRules.isEmpty {
@@ -159,30 +154,11 @@ import GetBoredCore
             }
             return value.trimmingCharacters(in: CharacterSet(charactersIn: "."))
         }
-        public static func normalizeChildPattern(_ value: String?) -> String? {
-            guard let value else { return nil }
-            let result = value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-            if result.hasPrefix("*.") {
-                return "*."
-                    + String(result.dropFirst(2)).trimmingCharacters(
-                        in: CharacterSet(charactersIn: "."))
-            }
-            return result.trimmingCharacters(in: CharacterSet(charactersIn: "."))
-        }
         public static func hostMatchesDomain(_ host: String, domain: String) -> Bool {
             guard let host = normalizeHost(host), let domain = normalizeHost(domain), !host.isEmpty,
                 !domain.isEmpty
             else { return false }
             return host == domain || host.hasSuffix("." + domain)
-        }
-        public static func hostMatchesChildPattern(_ host: String, childPattern: String) -> Bool {
-            guard let pattern = normalizeChildPattern(childPattern), !pattern.isEmpty else {
-                return false
-            }
-            if pattern.hasPrefix("*.") {
-                return hostMatchesDomain(host, domain: String(pattern.dropFirst(2)))
-            }
-            return hostMatchesDomain(host, domain: pattern)
         }
         public static func baseKeyword(_ domainOrUrl: String) -> String {
             let parts = (normalizeHost(domainOrUrl) ?? "").split(separator: ".")

@@ -16,8 +16,6 @@ import os.log
 
         private let logger = OSLog(
             subsystem: GetBoredIdentifiers.Logging.iOS, category: "FlowInspector")
-        private let safariParentChildContextStore = SafariParentChildContextStore()
-        private let safariParentChildObservationMaxAge: TimeInterval = 10
 
         /// Current filter mode, refreshed on every classification call
         private var currentMode: String = "blockSpecific"
@@ -99,22 +97,8 @@ import os.log
          * - blockSpecific: the list is a BLOCKLIST (block what's listed)
          * - whiteList: the list is an ALLOWLIST (allow what's listed, block everything else)
          *
-         * Debug and Release honor the same mode. Only Safari can use its current
-         * page registration to allow a child hostname; other apps use normal rules.
-         *
-         * Call flow:
-         *
-         *   classifyHost(host)
-         *           │
-         *           ├── loadFilterRules()              ← reads the latest shared snapshot
-         *           ├── currentMode = rules.filterMode ← keeps telemetry in sync
-         *           │
-         *           ├── mode == .whiteList     → allowedSafariParent(forChildHost: host) (Safari only)
-         *           └── mode == .blockSpecific → allowedParent = nil
-         *                   │
-         *                   ▼
-         *           IOSDecisionCore.classifyHost(host, rules, systemAllowedSuffixes, allowedParent)
-         *                   → (decision.blocked, decision.reason)
+         * Safari document and resource handling runs first in safariWhitelistTransportVerdict.
+         * This fallback classifies other hosts directly against the current policy.
          */
         private func classifyHost(_ host: String, flow: NEFilterFlow) -> (blocked: Bool, reason: String) {
             // Always re-read the mode — it could change at any time when the app
@@ -122,83 +106,16 @@ import os.log
             let loadedFilterRules = IOSRuleStore.shared.loadFilterRules()
             currentMode = loadedFilterRules.filterMode.rawValue
 
-            let isAllowListMode = loadedFilterRules.filterMode == .whiteList
-            let allowedParent: String?
-            // Only Safari may use the page registrations. Unknown apps get normal filtering.
-            let source = flow.sourceAppIdentifier?.lowercased()
-            let isSafari = source == "com.apple.mobilesafari" || source == ".com.apple.mobilesafari"
-            let mayUseSafariRegistration = isAllowListMode && isSafari
-            if mayUseSafariRegistration {
-                allowedParent = allowedSafariParent(
-                    forChildHost: host,
-                    using: loadedFilterRules
-                )
-            } else {
-                allowedParent = nil
-            }
-
             let decision = IOSDecisionCore.classifyHost(
                 host,
                 using: loadedFilterRules,
-                systemAllowedSuffixes: systemAllowedSuffixes,
-                allowedSafariParent: allowedParent
+                systemAllowedSuffixes: systemAllowedSuffixes
             )
 #if DEBUG
             logAWSNativeMetadata(flow: flow, host: host, stage: "classify",
                                  disposition: decision.blocked ? "classification-block" : "classification-allow")
 #endif
             return (decision.blocked, decision.reason)
-        }
-
-        /**
-         * Finds an allowed parent for a Safari child hostname.
-         *
-         * Both builds read the current Safari extension registration, without App Proxy observations.
-         *
-         * Call flow:
-         *
-         *   classifyHost(host)  [whiteList mode only]
-         *           │
-         *           └── allowedSafariParent(forChildHost: host, using: rules)
-         *                   │
-         *                   ├── current registration
-         *                   │       ├── returns nil  → no recent matching registration → return nil
-         *                   │       └── returns decision
-         *                   │               │
-         *                   │               ├── appendEvent(decision.event)  ← side-effect: records this lookup
-         *                   │               │
-         *                   │               ├── decision.shouldAllow == false
-         *                   │               │       → record the lookup → return nil
-         *                   │               │
-         *                   │               └── decision.shouldAllow == true
-         *                   │                       → return decision.parentDomain
-         *                   │
-         *                   └── caller (classifyHost) passes parentDomain to IOSDecisionCore
-         *                           so the child host inherits the parent's allow status
-         *
-         * The event is recorded for both outcomes so the spike inspector shows each lookup.
-         */
-        private func allowedSafariParent(
-            forChildHost host: String, using loadedFilterRules: LoadedFilterRules
-        ) -> String? {
-            let candidate = safariParentChildContextStore.allowedSafariParentFromRegistration(
-                host, using: loadedFilterRules, maxAge: safariParentChildObservationMaxAge
-            )
-            guard let decision = candidate else { return nil }
-
-            safariParentChildContextStore.appendEvent(decision.event)
-
-            guard decision.shouldAllow else {
-                os_log(
-                    "allowedSafariParent: rejecting child=%{public}@ parent=%{public}@ because parent is not in allowlist",
-                    log: logger, type: .info, decision.requestHost, decision.parentDomain)
-                return nil
-            }
-
-            os_log(
-                "allowedSafariParent: allowing child=%{public}@ parent=%{public}@ age=%.1f",
-                log: logger, type: .info, decision.requestHost, decision.parentDomain, decision.age)
-            return decision.parentDomain
         }
 
         // MARK: - Telemetry Helpers

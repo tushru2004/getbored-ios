@@ -50,9 +50,6 @@ import OSLog
         /// [String] — bundle IDs of apps whose traffic is blocked entirely
         private let blockedAppsKey = "blockedAppBundleIDs"
 
-        /// JSON-encoded static Safari parent -> child domain map
-        private let parentChildMapKey = GetBoredIdentifiers.SafariParentChild.parentChildMapKey
-
         /// JSON-encoded [ActivityLogEntry] — filter decision log
         private let logKey = "activity_log_entries"
 
@@ -159,35 +156,6 @@ import OSLog
             let defaults = sharedDefaults
             defaults?.set(data, forKey: siteRulesKey)
             defaults?.synchronize()
-        }
-
-        /**
-         * Validates and publishes the server-generated Safari parent-child map.
-         * The App Proxy and Data Provider later decode the typed schema when making
-         * spike decisions.
-         *
-         * Call flow:
-         *
-         *   policy sync receives parent-child JSON → saveParentChildMapJSON(json)
-         *           │
-         *           ├── IOSDecisionCore.isValidParentChildMapJSON(json) == false
-         *           │       └── log error → return false  ← preserve the previous map
-         *           │
-         *           └── JSON is valid
-         *                   └── defaults[parentChildMapKey] = json → synchronize() → return true
-         */
-        @discardableResult
-        func saveParentChildMapJSON(_ json: String) -> Bool {
-            guard IOSDecisionCore.isValidParentChildMapJSON(json) else {
-                logger.error("saveParentChildMapJSON: invalid JSON")
-                return false
-            }
-
-            logger.info("saveParentChildMapJSON: saving \(json.utf8.count, privacy: .public) bytes")
-            let defaults = sharedDefaults
-            defaults?.set(json, forKey: parentChildMapKey)
-            defaults?.synchronize()
-            return true
         }
 
         /// Check if a host matches any site rule (exact or subdomain match)

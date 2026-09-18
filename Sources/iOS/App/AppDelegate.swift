@@ -25,13 +25,6 @@ import UIKit
             _ application: UIApplication,
             didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
         ) -> Bool {
-            SafariParentChildContextStore().clearLegacySocketExperimentFlag()
-#if DEBUG
-            // Explicit device-test command only. Normal launches preserve Safari registrations.
-            if ProcessInfo.processInfo.arguments.contains("--reset-safari-test-data") {
-                SafariParentChildContextStore().resetSafariTestData()
-            }
-#endif
             let delegate = ReactNativeDelegate()
             delegate.dependencyProvider = RCTAppDependencyProvider()
             let factory = RCTReactNativeFactory(delegate: delegate)
