@@ -23,6 +23,9 @@ import OSLog
     /// the pre-schedule contract: the list is active all the time.
     struct IOSAssignedPolicyList: Codable {
         let id: String
+        /// Reserved for a future optional display name. Its absence keeps the
+        /// existing policy payload backward compatible.
+        let name: String?
         let filterMode: FilterListMode
         let entries: [String]
         let exceptions: [String]
@@ -32,6 +35,14 @@ import OSLog
 
         func isActive(at date: Date) -> Bool {
             schedule?.isActive(at: date) ?? true
+        }
+
+        func activeUntil(at date: Date) -> Date? {
+            schedule?.activeUntil(at: date)
+        }
+
+        func nextStart(after date: Date) -> Date? {
+            schedule?.nextStart(after: date)
         }
 
         func validate() throws {
@@ -138,6 +149,29 @@ import OSLog
             }
         }
 
+        func activeUntil(at date: Date) -> Date? {
+            guard mode == .weekly, !intervals.isEmpty, isActive(at: date) else { return nil }
+            return nextTransition(after: date, from: true)
+        }
+
+        func nextStart(after date: Date) -> Date? {
+            guard mode == .weekly, !intervals.isEmpty, !isActive(at: date) else { return nil }
+            return nextTransition(after: date, from: false)
+        }
+
+        /// Schedule semantics are minute-based. Walking actual minute boundaries
+        /// and checking `isActive` in the policy timezone handles skipped and
+        /// repeated DST wall-clock hours exactly like enforcement does.
+        private func nextTransition(after date: Date, from active: Bool) -> Date? {
+            let firstBoundary = date.addingTimeInterval(60 - date.timeIntervalSince1970.truncatingRemainder(dividingBy: 60))
+            var candidate = firstBoundary
+            for _ in 0...(8 * 24 * 60) {
+                if isActive(at: candidate) != active { return candidate }
+                candidate = candidate.addingTimeInterval(60)
+            }
+            return nil
+        }
+
         private func minuteOfDay(_ value: String) throws -> Int {
             let pieces = value.split(separator: ":", omittingEmptySubsequences: false)
             guard pieces.count == 2, pieces[0].count == 2, pieces[1].count == 2,
@@ -147,6 +181,32 @@ import OSLog
             else { throw ValidationError.invalidTime(value) }
             return hour * 60 + minute
         }
+    }
+
+    enum IOSRulesPresentationState {
+        case legacy
+        case scheduled
+        case malformed
+    }
+
+    struct IOSPresentedPolicyList {
+        let id: String
+        let name: String?
+        let filterMode: FilterListMode
+        let entries: [String]
+        let exceptions: [String]
+        let allowedApps: [String]
+        let blockedApps: [String]
+        let schedule: IOSPolicySchedule?
+        let activeNow: Bool
+        let nextStartAt: Date?
+        let activeUntil: Date?
+    }
+
+    struct IOSRulesPresentation {
+        let state: IOSRulesPresentationState
+        let effectiveRules: IOSLoadedFilterRules
+        let assignedLists: [IOSPresentedPolicyList]
     }
 
 // MARK: - IOSRuleStore
@@ -305,6 +365,46 @@ import OSLog
                 allowedAppBundleIDs: loadAllowedApps(),
                 blockedAppBundleIDs: loadBlockedApps()
             )
+        }
+
+        /// Read-only UI data. It shares the validation gate used by enforcement:
+        /// a corrupt v2 snapshot is explicitly reported instead of being shown as
+        /// an empty, unrestricted rule set.
+        func loadRulesPresentation(at date: Date = Date()) -> IOSRulesPresentation {
+            switch loadAssignedPolicyLists() {
+            case .present(let lists):
+                return IOSRulesPresentation(
+                    state: .scheduled,
+                    effectiveRules: effectiveRules(from: lists, at: date),
+                    assignedLists: lists.map { list in
+                        IOSPresentedPolicyList(
+                            id: list.id,
+                            name: list.name,
+                            filterMode: list.filterMode,
+                            entries: list.entries,
+                            exceptions: list.exceptions,
+                            allowedApps: list.allowedApps,
+                            blockedApps: list.blockedApps,
+                            schedule: list.schedule,
+                            activeNow: list.isActive(at: date),
+                            nextStartAt: list.nextStart(after: date),
+                            activeUntil: list.activeUntil(at: date)
+                        )
+                    }
+                )
+            case .malformed:
+                return IOSRulesPresentation(
+                    state: .malformed,
+                    effectiveRules: loadFilterRules(),
+                    assignedLists: []
+                )
+            case .absent:
+                return IOSRulesPresentation(
+                    state: .legacy,
+                    effectiveRules: loadFilterRules(),
+                    assignedLists: []
+                )
+            }
         }
 
         /// A stable comparison value for consumers that keep per-policy state,

@@ -422,7 +422,14 @@ private let logger = Logger(
             rejecter reject: RCTPromiseRejectBlock
         ) {
             let store = IOSRuleStore.shared
-            let effectiveRules = store.loadFilterRules()
+            let presentation = store.loadRulesPresentation()
+            let effectiveRules = presentation.effectiveRules
+            let presentationState: String
+            switch presentation.state {
+            case .legacy: presentationState = "legacy"
+            case .scheduled: presentationState = "scheduled"
+            case .malformed: presentationState = "malformed"
+            }
             resolve(
                 [
                     "mode": effectiveRules.filterMode.rawValue,
@@ -430,6 +437,36 @@ private let logger = Logger(
                     "exceptions": effectiveRules.exceptions,
                     "allowedApps": effectiveRules.allowedAppBundleIDs,
                     "blockedApps": effectiveRules.blockedAppBundleIDs,
+                    "presentationState": presentationState,
+                    "assignedLists": presentation.assignedLists.map { list in
+                        var value: [String: Any] = [
+                            "id": list.id,
+                            "mode": list.filterMode.rawValue,
+                            "entries": list.entries,
+                            "exceptions": list.exceptions,
+                            "allowedApps": list.allowedApps,
+                            "blockedApps": list.blockedApps,
+                            "activeNow": list.activeNow,
+                        ]
+                        if let name = list.name { value["name"] = name }
+                        if let schedule = list.schedule {
+                            value["schedule"] = [
+                                "version": schedule.version,
+                                "mode": schedule.mode.rawValue,
+                                "timezone": schedule.timezone,
+                                "intervals": schedule.intervals.map {
+                                    ["weekday": $0.weekday, "start": $0.start, "end": $0.end]
+                                },
+                            ]
+                        }
+                        if let nextStartAt = list.nextStartAt {
+                            value["nextStartAt"] = Int64(nextStartAt.timeIntervalSince1970 * 1000)
+                        }
+                        if let activeUntil = list.activeUntil {
+                            value["activeUntil"] = Int64(activeUntil.timeIntervalSince1970 * 1000)
+                        }
+                        return value
+                    },
                 ] as [String: Any])
         }
 

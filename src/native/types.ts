@@ -47,6 +47,31 @@
             exceptions: string[];
             allowedApps: string[];
             blockedApps: string[];
+            /** Optional while an already-installed native binary returns the legacy DTO. */
+            presentationState?: 'legacy' | 'scheduled' | 'malformed';
+            assignedLists?: AssignedPolicyList[];
+        };
+
+        export type PolicySchedule = {
+            version: number;
+            mode: 'always' | 'weekly';
+            timezone: string;
+            intervals: Array<{weekday: number; start: string; end: string}>;
+        };
+
+        /** Epoch milliseconds avoid locale-specific parsing at the bridge boundary. */
+        export type AssignedPolicyList = {
+            id: string;
+            name?: string;
+            mode: 'blockSpecific' | 'whiteList';
+            entries: string[];
+            exceptions: string[];
+            allowedApps: string[];
+            blockedApps: string[];
+            schedule?: PolicySchedule;
+            activeNow: boolean;
+            nextStartAt?: number;
+            activeUntil?: number;
         };
 
         export type AccountSummary = {

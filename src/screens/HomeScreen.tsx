@@ -19,7 +19,7 @@ import {useDeviceRegistrationAndRuleSync} from '../hooks/useDeviceRegistrationAn
 import {DeviceRegistrationState} from '../hooks/useDeviceRegistration';
 import {FilterListSyncState} from '../hooks/useFilterListSync';
 import {FilterStatusState, useFilterStatus} from '../hooks/useFilterStatus';
-import {SyncSummary} from '../native/types';
+import {useActiveRules} from '../hooks/useActiveRules';
 import {colors, hardShadow, spacing, typography} from '../theme';
 import {ActiveRulesScreen} from './ActiveRulesScreen';
 import {ActivationScreen} from './ActivationScreen';
@@ -33,13 +33,6 @@ type HomeStatus = {
     substance: string;
     showEnable: boolean;
 };
-
-function countLabel(count: number, singular: string, plural: string): string {
-    if (count === 1) {
-        return `1 ${singular}`;
-    }
-    return `${count} ${plural}`;
-}
 
 function formatSyncTime(syncedAtMs: number): string {
     return new Date(syncedAtMs).toLocaleTimeString([], {
@@ -99,41 +92,6 @@ return accountLabel;
 }
 
 // ─── Rule summary (what the last sync applied) ─────────────────────────────
-
-function syncedRuleCounts(summary: SyncSummary) {
-    const websites = summary.sites + summary.exceptions;
-    const apps = summary.allowedApps + summary.blockedApps;
-    return {websites, apps, total: websites + apps};
-}
-
-/**
- * The policy may mix allowed and blocked rules, so this summary names what is
- * active without claiming every item is allowed or blocked. Tapping it opens
- * the complete Active Rules list.
- */
-const StatPair: React.FC<{summary: SyncSummary; onPress: () => void}> = ({
-    summary,
-    onPress,
-}) => {
-    const {websites, apps, total} = syncedRuleCounts(summary);
-    const activeRulesCaption = total === 1 ? 'active rule' : 'active rules';
-    const websitesCaption = websites === 1 ? 'website' : 'websites';
-    const appsCaption = apps === 1 ? 'app' : 'apps';
-
-    return (
-        <Pressable
-            onPress={onPress}
-            style={({pressed}) => [styles.statPair, pressed && styles.pressedDim]}>
-            <View style={styles.stat}>
-                <Text style={styles.statNum}>{total}</Text>
-                <Text style={styles.statCap}>{activeRulesCaption}</Text>
-                <Text style={styles.statBreakdown}>
-                    {websites} {websitesCaption} · {apps} {appsCaption}
-                </Text>
-            </View>
-        </Pressable>
-    );
-};
 
 /**
  * Collapses filter status + sync + registration into the one answer the top
@@ -547,6 +505,7 @@ const ProfileGate: React.FC<ProfileGateProps> = ({
             const [showAccount, setShowAccount] = useState(false);
             const [showRules, setShowRules] = useState(false);
             const [pulling, setPulling] = useState(false);
+            const activeRules = useActiveRules();
 
             const {sync} = filterSync;
             const {refresh: refreshAccount} = account;
@@ -561,10 +520,11 @@ const ProfileGate: React.FC<ProfileGateProps> = ({
                 setPulling(true);
                 try {
                     await Promise.all([sync(), refreshStatus()]);
+                    await activeRules.reload();
                 } finally {
                     setPulling(false);
                 }
-            }, [sync, refreshStatus]);
+            }, [sync, refreshStatus, activeRules]);
 
             const signedInAccount =
                 account.state.kind === 'signedIn' ? account.state : null;
@@ -599,14 +559,14 @@ const ProfileGate: React.FC<ProfileGateProps> = ({
                     : undefined;
             const syncSuccess =
                 filterSync.state.kind === 'success' ? filterSync.state : null;
-            const showStatPair = homeStatus.word === 'GetBored' && syncSuccess !== null;
-            const rulesValue = syncSuccess
-                ? countLabel(
-                        syncedRuleCounts(syncSuccess.summary).total,
-                        'rule',
-                        'rules',
-                    )
-                : '—';
+            const assignedLists = activeRules.state.kind === 'ready'
+                ? activeRules.state.rules.assignedLists ?? []
+                : [];
+            const rulesValue = activeRules.state.kind === 'ready'
+                ? activeRules.state.rules.presentationState === 'scheduled'
+                    ? `${assignedLists.filter(list => list.activeNow).length} active · ${assignedLists.filter(list => !list.activeNow).length} up next`
+                    : 'Current policy'
+                : 'Loading…';
             const footerText = syncSuccess
                 ? `Synced automatically · ${formatSyncTime(syncSuccess.syncedAtMs)}`
                 : 'This iPhone syncs automatically.';
@@ -673,7 +633,6 @@ const ProfileGate: React.FC<ProfileGateProps> = ({
                                     <RefreshControl refreshing={pulling} onRefresh={onPullRefresh} />
                                 }>
                                 <BrandMasthead />
-                                {!showStatPair && (
                                     <View style={styles.hero}>
                                         <StillWaterRings
                                             size={112}
@@ -694,14 +653,6 @@ const ProfileGate: React.FC<ProfileGateProps> = ({
                                             )}
                                         </View>
                                     </View>
-                                )}
-
-                                {showStatPair && syncSuccess && (
-                                    <StatPair
-                                        summary={syncSuccess.summary}
-                                        onPress={() => setShowRules(true)}
-                                    />
-                                )}
 
                                 {showWarningTicket && (
                                     <View style={styles.warningTicket}>
@@ -741,13 +692,14 @@ const ProfileGate: React.FC<ProfileGateProps> = ({
                                             pressed && styles.pressedDim,
                                         ]}
                                         onPress={() => setShowRules(true)}>
-                                        <Text style={styles.rowLabel}>Active rules</Text>
+                                        <Text style={styles.rowLabel}>Your rules</Text>
                                         <Text style={styles.rowValue}>{rulesValue}</Text>
                                         <Text style={styles.chevron}>›</Text>
                                     </Pressable>
                                 </View>
 
                                 <Text style={styles.footerWhisper}>{footerText}</Text>
+                                <Text style={styles.refreshHint}>Swipe down to refresh</Text>
                             </ScrollView>
                         )}
                     </ErrorBoundary>
@@ -916,6 +868,12 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         marginTop: 'auto',
         paddingTop: spacing.xxl,
+    },
+    refreshHint: {
+        ...typography.microFooter,
+        color: colors.neutral,
+        textAlign: 'center',
+        paddingTop: spacing.xs,
     },
     pressedDim: {
         opacity: 0.6,

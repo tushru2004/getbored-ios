@@ -1,4 +1,5 @@
-import {useCallback, useEffect, useState} from 'react';
+import {AppState} from 'react-native';
+import {useCallback, useEffect, useRef, useState} from 'react';
 
 import {nativeErrorCode} from '../native/errors';
 import {FilterStatusBridge} from '../native/FilterStatusBridge';
@@ -57,22 +58,44 @@ function classifyFailure(e: unknown): ActiveRulesState {
          * `load` is a stable useCallback ([] deps), so the mount effect runs exactly
          * once and the same reference is safe to expose as `reload`.
          */
-        export function useActiveRules() {
+        export function useActiveRules({refreshing = true}: {refreshing?: boolean} = {}) {
             const [state, setState] = useState<ActiveRulesState>({kind: 'loading'});
+            const requestID = useRef(0);
+            const hasLoaded = useRef(false);
 
             const load = useCallback(async () => {
-                setState({kind: 'loading'});
+                const currentRequest = ++requestID.current;
+                if (!hasLoaded.current) {
+                    setState({kind: 'loading'});
+                }
                 try {
                     const rules = await FilterStatusBridge.loadActiveRules();
-                    setState({kind: 'ready', rules});
+                    if (currentRequest === requestID.current) {
+                        hasLoaded.current = true;
+                        setState({kind: 'ready', rules});
+                    }
                 } catch (e: unknown) {
-                    setState(classifyFailure(e));
+                    if (currentRequest === requestID.current) {
+                        setState(classifyFailure(e));
+                    }
                 }
             }, []);
 
             useEffect(() => {
                 load();
             }, [load]);
+
+            useEffect(() => {
+                if (!refreshing) return;
+                const interval = setInterval(load, 60_000);
+                const subscription = AppState.addEventListener('change', nextState => {
+                    if (nextState === 'active') load();
+                });
+                return () => {
+                    clearInterval(interval);
+                    subscription.remove();
+                };
+            }, [load, refreshing]);
 
             return {state, reload: load};
         }
