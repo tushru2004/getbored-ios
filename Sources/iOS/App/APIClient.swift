@@ -97,11 +97,12 @@ private let diagnosticsUploadPath = "/api/client-events"
         static let shared = APIClient()
 
         /// HTTP methods this client supports. Deliberately a closed set — every
-        /// endpoint this app calls uses one of these four.
+        /// endpoint this app calls uses one of these five.
         enum Method: String {
             case get = "GET"
             case post = "POST"
             case put = "PUT"
+            case patch = "PATCH"
             case delete = "DELETE"
         }
 
