@@ -9,6 +9,7 @@ type Props = {
     onClose: () => void;
     accountLabel?: string;
     registration: DeviceRegistrationState;
+    onRenameDevice: () => void;
     onSignOut: () => void;
     onDeleteAccount: () => void;
 };
@@ -60,6 +61,7 @@ function confirmDeleteAccount(onConfirmed: () => void) {
             onClose,
             accountLabel,
             registration,
+            onRenameDevice,
             onSignOut,
             onDeleteAccount,
         }) => (
@@ -100,12 +102,17 @@ function confirmDeleteAccount(onConfirmed: () => void) {
                                     {accountLabel ?? '—'}
                                 </Text>
                             </View>
-                            <View style={[styles.row, styles.lastRow]}>
+                            <Pressable
+                                style={({pressed}) => [styles.row, styles.lastRow, pressed && styles.pressed]}
+                                onPress={onRenameDevice}>
                                 <Text style={styles.rowLabel}>This iPhone</Text>
                                 <Text style={styles.rowValue} numberOfLines={1}>
-                                    {deviceLine(registration)}
+                                    {registration.kind === 'registered'
+                                        ? registration.registration.displayName ?? 'Name this iPhone'
+                                        : deviceLine(registration)}
                                 </Text>
-                            </View>
+                                <Text style={styles.chevron}>›</Text>
+                            </Pressable>
                         </View>
 
                         <View style={styles.actionRows}>
@@ -227,6 +234,11 @@ const styles = StyleSheet.create({
         color: colors.labelSecondary,
         flexShrink: 1,
         fontVariant: ['tabular-nums'],
+    },
+    chevron: {
+        color: colors.labelSecondary,
+        fontSize: 25,
+        lineHeight: 25,
     },
     signOutLabel: {
         fontFamily: typography.display.fontFamily,

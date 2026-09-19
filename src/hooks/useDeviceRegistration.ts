@@ -17,6 +17,7 @@ import {DeviceRegistration} from '../native/types';
             state: DeviceRegistrationState;
             refresh: (showErrors?: boolean) => Promise<void>;
             register: () => Promise<void>;
+            updateDisplayName: (displayName: string) => Promise<void>;
         };
 
 /**
@@ -103,9 +104,17 @@ function classifyFailure(e: unknown): DeviceRegistrationState {
                 }
             }, []);
 
+            const updateDisplayName = useCallback(async (displayName: string) => {
+                if (state.kind !== 'registered') {
+                    throw new Error('This iPhone is not connected yet.');
+                }
+                const registration = await FilterStatusBridge.updateDeviceDisplayName(displayName);
+                setState({kind: 'registered', registration});
+            }, [state]);
+
             useEffect(() => {
                 refresh(false);
             }, [refresh]);
 
-            return {state, refresh, register};
+            return {state, refresh, register, updateDisplayName};
         }

@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 
 import {AccountSheet} from '../components/AccountSheet';
+import {DeviceNameSheet} from '../components/DeviceNameSheet';
 import {ErrorBoundary} from '../components/ErrorBoundary';
 import {StillWaterRings} from '../components/StillWaterRings';
 import {AccountState} from '../hooks/useAccount';
@@ -503,6 +504,7 @@ const ProfileGate: React.FC<ProfileGateProps> = ({
                 useDeviceRegistrationAndRuleSync();
             const filterStatus = useFilterStatus();
             const [showAccount, setShowAccount] = useState(false);
+            const [showDeviceNameEditor, setShowDeviceNameEditor] = useState(false);
             const [showRules, setShowRules] = useState(false);
             const [pulling, setPulling] = useState(false);
             const activeRules = useActiveRules();
@@ -538,6 +540,14 @@ const ProfileGate: React.FC<ProfileGateProps> = ({
             const showProfileGate = signedIn && !reviewDemo && !profileInstalled;
             const showMain =
                 accountAbsent || (signedIn && (reviewDemo || profileInstalled));
+            const registeredDevice = registration.state.kind === 'registered'
+                ? registration.state.registration
+                : null;
+            // The launch requirement applies only to a customer iPhone. Review
+            // accounts intentionally retain their predictable App Review path.
+            const requiresDeviceName =
+                showMain && signedIn && !reviewDemo && registeredDevice !== null &&
+                registeredDevice.displayName === null;
 
             const homeStatus: HomeStatus = reviewDemo
                 ? {
@@ -589,6 +599,18 @@ const ProfileGate: React.FC<ProfileGateProps> = ({
                  */
                 refreshAccount(false);
             }, [refreshAccount]);
+
+            const openDeviceNameEditor = useCallback(() => {
+                if (registration.state.kind !== 'registered') {
+                    return;
+                }
+                setShowAccount(false);
+                setShowDeviceNameEditor(true);
+            }, [registration.state.kind]);
+
+            const saveDeviceName = useCallback(async (displayName: string) => {
+                await registration.updateDisplayName(displayName);
+            }, [registration]);
 
             let gatedContent: React.ReactNode = null;
             if (!showMain) {
@@ -709,8 +731,16 @@ const ProfileGate: React.FC<ProfileGateProps> = ({
                         onClose={() => setShowAccount(false)}
                         accountLabel={accountLabel}
                         registration={registration.state}
+                        onRenameDevice={openDeviceNameEditor}
                         onSignOut={account.signOut}
                         onDeleteAccount={account.deleteAccount}
+                    />
+                    <DeviceNameSheet
+                        visible={requiresDeviceName || showDeviceNameEditor}
+                        required={requiresDeviceName}
+                        initialName={registeredDevice?.displayName ?? ''}
+                        onSave={saveDeviceName}
+                        onClose={() => setShowDeviceNameEditor(false)}
                     />
                     <ActiveRulesScreen
                         visible={showRules}

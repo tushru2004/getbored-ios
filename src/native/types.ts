@@ -21,6 +21,8 @@
 
         export type DeviceRegistration = {
             id: string;
+            /** Account-owned GetBored label. Null means this app must prompt for one. */
+            displayName: string | null;
             name: string | null;
             model: string | null;
             appVersion: string | null;

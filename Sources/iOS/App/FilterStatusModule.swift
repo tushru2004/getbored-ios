@@ -221,6 +221,42 @@ private let logger = Logger(
         }
 
         /**
+         * Saves the account-owned GetBored name for this already-registered
+         * iPhone. This intentionally uses a narrow PATCH rather than the
+         * registration PUT: recurring metadata refreshes must never overwrite
+         * a label the user chose here or in the dashboard.
+         */
+        @objc func updateDeviceDisplayName(
+            _ displayName: String,
+            resolver resolve: @escaping RCTPromiseResolveBlock,
+            rejecter reject: @escaping RCTPromiseRejectBlock
+        ) {
+            guard let deviceID = KeychainStore.read(.serverDeviceID) else {
+                reject(RejectCode.notRegistered, "This iPhone is not registered yet.", nil)
+                return
+            }
+            let input = DeviceDisplayNameInput(displayName: displayName)
+            guard let body = try? JSONEncoder().encode(input) else {
+                reject(RejectCode.server, "Failed to encode iPhone name.", nil)
+                return
+            }
+
+            Task {
+                do {
+                    let device = try await APIClient.shared.request(
+                        Device.self,
+                        method: .patch,
+                        path: "/api/devices/\(deviceID)/display-name",
+                        jsonBody: body
+                    )
+                    resolve(self.deviceDictionary(device))
+                } catch {
+                    self.reject(for: APIError.normalized(error), rejecter: reject)
+                }
+            }
+        }
+
+        /**
          * Turns the content filter on from inside the app (the "Turn Filtering
          * On" hero button) instead of sending the user to Settings. Saving the
          * configuration makes iOS raise its own consent prompt when needed;
@@ -597,6 +633,7 @@ private let logger = Logger(
         private func deviceDictionary(_ device: Device) -> [String: Any] {
             [
                 "id": device.id,
+                "displayName": jsonValue(device.displayName),
                 "name": jsonValue(device.name),
                 "model": jsonValue(device.model),
                 "appVersion": jsonValue(device.appVersion),
@@ -642,6 +679,10 @@ private let logger = Logger(
         let appVersion: String
     }
 
+    private struct DeviceDisplayNameInput: Encodable {
+        let displayName: String
+    }
+
     /**
      * Decoded response from `POST`/`PUT`/`GET` on `/api/devices/...`. Mirrors the
      * backend's `Device` model exactly: only `id`/`createdAt` are guaranteed
@@ -658,6 +699,7 @@ private let logger = Logger(
      */
     private struct Device: Decodable {
         let id: String
+        let displayName: String?
         let name: String?
         let model: String?
         let appVersion: String?

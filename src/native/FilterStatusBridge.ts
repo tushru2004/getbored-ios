@@ -23,6 +23,7 @@ type NativeFilterStatus = {
     current: () => Promise<RawStatus>;
     registerDevice: () => Promise<DeviceRegistration>;
     currentDeviceRegistration: () => Promise<DeviceRegistrationSnapshot>;
+    updateDeviceDisplayName: (displayName: string) => Promise<DeviceRegistration>;
     enableFilter: () => Promise<void>;
     downloadProfile: () => Promise<void>;
     syncFilterLists: () => Promise<SyncSummary>;
@@ -127,6 +128,11 @@ const parseProfile = (raw: RawStatus): FilterProfileStatus => {
             async currentDeviceRegistration(): Promise<DeviceRegistrationSnapshot> {
                 if (!native) throw new NativeModuleUnavailableError('FilterStatus');
                 return native.currentDeviceRegistration();
+            },
+
+            async updateDeviceDisplayName(displayName: string): Promise<DeviceRegistration> {
+                if (!native) throw new NativeModuleUnavailableError('FilterStatus');
+                return native.updateDeviceDisplayName(displayName);
             },
 
             async enableFilter(): Promise<void> {

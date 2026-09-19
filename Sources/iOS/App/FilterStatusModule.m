@@ -9,7 +9,11 @@ RCT_EXTERN_METHOD(registerDevice:(RCTPromiseResolveBlock)resolve
 																		rejecter:(RCTPromiseRejectBlock)reject)
 
 RCT_EXTERN_METHOD(currentDeviceRegistration:(RCTPromiseResolveBlock)resolve
-																		rejecter:(RCTPromiseRejectBlock)reject)
+												rejecter:(RCTPromiseRejectBlock)reject)
+
+RCT_EXTERN_METHOD(updateDeviceDisplayName:(NSString *)displayName
+												resolver:(RCTPromiseResolveBlock)resolve
+												rejecter:(RCTPromiseRejectBlock)reject)
 
 RCT_EXTERN_METHOD(enableFilter:(RCTPromiseResolveBlock)resolve
 																		rejecter:(RCTPromiseRejectBlock)reject)
