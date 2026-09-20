@@ -574,7 +574,13 @@ const ProfileGate: React.FC<ProfileGateProps> = ({
                 : [];
             const rulesValue = activeRules.state.kind === 'ready'
                 ? activeRules.state.rules.presentationState === 'scheduled'
-                    ? `${assignedLists.filter(list => list.activeNow).length} active · ${assignedLists.filter(list => !list.activeNow).length} up next`
+                    ? (() => {
+                        const activeCount = assignedLists.filter(list => list.activeNow).length;
+                        const upcomingCount = assignedLists.filter(list => !list.activeNow).length;
+                        return upcomingCount
+                            ? `${activeCount} active · ${upcomingCount} up next`
+                            : `${activeCount} active`;
+                    })()
                     : 'Current policy'
                 : 'Loading…';
             const footerText = syncSuccess

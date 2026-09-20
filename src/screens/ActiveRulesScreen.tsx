@@ -203,19 +203,15 @@ const RulesContent: React.FC<{rules: ActiveRules}> = ({rules}) => {
             No scheduled lists are active right now.
           </Text>
         )}
-        {!legacy && (
+        {!legacy && upcoming.length > 0 && (
           <>
             <View style={styles.sectionHead}>
               <Text style={styles.sectionTitle}>Up next</Text>
               <Text style={styles.count}>{upcoming.length} planned</Text>
             </View>
-            {upcoming.length ? (
-              upcoming.map(list => (
-                <PolicyRow key={list.id} list={list} active={false} />
-              ))
-            ) : (
-              <Text style={styles.empty}>No upcoming scheduled lists.</Text>
-            )}
+            {upcoming.map(list => (
+              <PolicyRow key={list.id} list={list} active={false} />
+            ))}
           </>
         )}
       </View>
