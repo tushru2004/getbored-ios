@@ -74,11 +74,11 @@ export const DeviceNameSheet: React.FC<Props> = ({
             <View style={styles.backdrop}>
                 <View style={styles.sheet}>
                     {!required ? <View style={styles.grabber} /> : null}
-                    <Text style={styles.eyebrow}>{required ? 'One last thing' : 'This iPhone'}</Text>
+                    {!required ? <Text style={styles.eyebrow}>This iPhone</Text> : null}
                     <Text style={styles.title}>{required ? 'Name this iPhone' : 'Rename this iPhone'}</Text>
                     <Text style={styles.copy}>
                         {required
-                            ? 'Give this phone a name before using GetBored. It helps you recognise it when assigning rules in your dashboard.'
+                            ? 'Name this iPhone so you can recognise it in your dashboard.'
                             : 'Use a name you will recognise in your dashboard when assigning rules.'}
                     </Text>
 
@@ -96,9 +96,6 @@ export const DeviceNameSheet: React.FC<Props> = ({
                         style={styles.input}
                         value={name}
                     />
-                    <Text style={styles.hint}>
-                        This only changes how the phone appears in GetBored. You can change it later.
-                    </Text>
                     {error ? <Text style={styles.error}>{error}</Text> : null}
 
                     <View style={styles.actions}>
@@ -117,7 +114,6 @@ export const DeviceNameSheet: React.FC<Props> = ({
                             </Pressable>
                         ) : null}
                     </View>
-                    {required ? <Text style={styles.requiredHint}>A name is required to continue.</Text> : null}
                 </View>
             </View>
         </Modal>
@@ -179,12 +175,6 @@ const styles = StyleSheet.create({
         minHeight: 50,
         paddingHorizontal: spacing.md,
     },
-    hint: {
-        ...typography.subhead,
-        color: colors.labelSecondary,
-        lineHeight: 18,
-        marginTop: spacing.sm,
-    },
     error: {
         ...typography.subhead,
         color: colors.danger,
@@ -224,11 +214,5 @@ const styles = StyleSheet.create({
     },
     dimmed: {
         opacity: 0.45,
-    },
-    requiredHint: {
-        ...typography.microFooter,
-        color: colors.labelSecondary,
-        marginTop: spacing.md,
-        textAlign: 'center',
     },
 });
