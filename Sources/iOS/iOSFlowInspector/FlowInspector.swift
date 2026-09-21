@@ -386,15 +386,13 @@ import os.log
         /**
          * The busiest method in the whole filter — every network request on the phone goes through it.
          *
-         * SAFETY-CRITICAL ORDERING: the allow gate (own-app / Apple-system / parent-whitelisted) is
-         * evaluated FIRST and returns .allow() immediately. Only flows that nothing allowed reach the
-         * isAppBlocked .drop() check. Never reorder allow-before-drop — it is load-bearing:
+         * SAFETY-CRITICAL ORDERING: intrinsic allows (own-app / Apple-system) are evaluated FIRST.
+         * For ordinary user apps, an explicit block takes precedence over a configured allow entry.
+         * Never drop intrinsic allows — they are load-bearing:
          *   - Own-app traffic must never be dropped, or GetBored loses its own network + server
          *     API control channel and can no longer be managed/recovered remotely.
          *   - Apple system domains must never be dropped (breaks iCloud, App Store, cert validation).
-         *   - A parent-whitelisted app is explicit parent intent and outranks any overlap with the
-         *     admin blocked-apps list.
-         * If a bundle ID is in BOTH the allowed and blocked sets, allow wins by construction.
+         * If a normal bundle ID is in BOTH the allowed and blocked sets, block wins by construction.
          *
          * Call flow:
          *
@@ -402,9 +400,9 @@ import os.log
          *           │
          *           ├── sourceApp present (per-app gate, in this exact order):
          *           │       │
-         *           │       ├── shouldAllowApp (own-app / Apple-system / whitelisted) → .allow()   ← MUST be first
+         *           │       ├── shouldAllowApp (own-app / Apple-system / unblocked allow) → .allow()
          *           │       │
-         *           │       ├── isAppBlocked (admin blocked-apps list)               → .drop()    ← only if not allowed above
+         *           │       ├── isAppBlocked (admin blocked-apps list)               → .drop()
          *           │       │
          *           │       └── shouldLogBlockedAppProbe (not-allowed + whiteList)   → logBlockedAppProbeIfNeeded (≤1 / 30 s)
          *           │
@@ -441,7 +439,8 @@ import os.log
                 os_log(
                     "handleNewFlow: checking sourceApp=%{public}@", log: logger, type: .info, sourceApp)
 
-                // `IOSDecisionCore` keeps own-app, Apple-system-app, and configured-app access together.
+                // `IOSDecisionCore` keeps intrinsic exceptions and block-wins
+                // configured-app precedence together.
                 if IOSDecisionCore.shouldAllowApp(sourceApp, using: loadedFilterRules) {
                     if IOSDecisionCore.matchesAllowedApp(sourceApp, using: loadedFilterRules) {
                         os_log(
@@ -451,7 +450,8 @@ import os.log
                     return .allow()
                 }
 
-                // 3. Explicit app block — allow wins above, so own-app/system/allowed are already safe.
+                // 3. Explicit app block. Only intrinsic own-app/system exemptions
+                // bypass it; a normal configured allow does not.
                 if IOSDecisionCore.isAppBlocked(sourceApp, using: loadedFilterRules) {
                     os_log(
                         "handleNewFlow: dropping blocked app: %{public}@", log: logger, type: .info,
