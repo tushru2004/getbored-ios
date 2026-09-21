@@ -623,10 +623,12 @@ import OSLog
             return apps
         }
 
-        /// Check if an app is in the allowed list.
+        /// Check whether an app has a policy bypass. An explicit block wins
+        /// over a user-app allow entry; GetBored and required Apple services
+        /// remain intrinsic allows.
         /// Handles team ID prefix — "EQHXZ8M8AV.com.google.Gmail" matches stored "com.google.Gmail"
         func isAppAllowed(_ bundleID: String) -> Bool {
-            let result = IOSDecisionCore.matchesAllowedApp(bundleID, using: loadFilterRules())
+            let result = IOSDecisionCore.shouldAllowApp(bundleID, using: loadFilterRules())
             if result {
                 logger.info("isAppAllowed: \(bundleID) is allowed")
             }

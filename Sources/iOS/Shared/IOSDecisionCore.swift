@@ -207,7 +207,10 @@ import GetBoredCore
 
         // MARK: - App Policy
 
-        public static func shouldAllowApp(_ sourceApp: String, using rules: IOSLoadedFilterRules) -> Bool {
+        /// GetBored and required Apple services remain reachable regardless of
+        /// configured list conflicts. All ordinary user apps use block-wins
+        /// precedence when an allow-list and block-list mention the same ID.
+        public static func isIntrinsicAllowedApp(_ sourceApp: String) -> Bool {
             let app = sourceApp.lowercased()
             if app.contains(GetBoredIdentifiers.bundlePrefix.lowercased()) { return true }
             if app.hasSuffix(".com.apple.")
@@ -215,7 +218,13 @@ import GetBoredCore
             {
                 return true
             }
+            return false
+        }
+
+        public static func shouldAllowApp(_ sourceApp: String, using rules: IOSLoadedFilterRules) -> Bool {
+            if isIntrinsicAllowedApp(sourceApp) { return true }
             return matchesAllowedApp(sourceApp, allowedAppBundleIDs: rules.allowedAppBundleIDs)
+                && !isAppBlocked(sourceApp, using: rules)
         }
         public static func isAppBlocked(_ sourceApp: String, using rules: IOSLoadedFilterRules) -> Bool {
             matchesBundleID(sourceApp, candidates: rules.blockedAppBundleIDs)
