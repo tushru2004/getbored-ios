@@ -576,7 +576,21 @@ const ProfileGate: React.FC<ProfileGateProps> = ({
                 ? activeRules.state.rules.presentationState === 'scheduled'
                     ? (() => {
                         const activeCount = assignedLists.filter(list => list.activeNow).length;
-                        const upcomingCount = assignedLists.filter(list => !list.activeNow).length;
+                        const upcomingCount = assignedLists.filter(
+                            list =>
+                                !list.activeNow &&
+                                list.schedule?.mode === 'weekly' &&
+                                list.schedule.intervals.length > 0,
+                        ).length;
+                        const noTimesCount = assignedLists.filter(
+                            list =>
+                                !list.activeNow &&
+                                list.schedule?.mode === 'weekly' &&
+                                list.schedule.intervals.length === 0,
+                        ).length;
+                        if (activeCount === 0 && upcomingCount === 0 && noTimesCount > 0) {
+                            return `${noTimesCount} ${noTimesCount === 1 ? 'rule' : 'rules'} · no times set`;
+                        }
                         return upcomingCount
                             ? `${activeCount} active · ${upcomingCount} up next`
                             : `${activeCount} active`;
