@@ -543,10 +543,11 @@ const ProfileGate: React.FC<ProfileGateProps> = ({
             const registeredDevice = registration.state.kind === 'registered'
                 ? registration.state.registration
                 : null;
-            // The launch requirement applies only to a customer iPhone. Review
-            // accounts intentionally retain their predictable App Review path.
+            // Every signed-in device needs a dashboard label once. Reviewers
+            // follow the same one-time setup so they can inspect the real
+            // onboarding and the label shown in the dashboard.
             const requiresDeviceName =
-                showMain && signedIn && !reviewDemo && registeredDevice !== null &&
+                showMain && signedIn && registeredDevice !== null &&
                 registeredDevice.displayName === null;
 
             const homeStatus: HomeStatus = reviewDemo
